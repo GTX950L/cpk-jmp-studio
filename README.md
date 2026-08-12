@@ -100,18 +100,6 @@ cpk-jmp-studio/
 
 > 单侧规格时 Cp / Cpm 无定义（显示为 `—`），Cpk / Ppk 仍可计算对应方向。
 
-## 📝 在 GitHub 上创建并推送
-
-```bash
-# 在 GitHub 网页新建空仓库（不要勾选 README/LICENSE）
-git init
-git add .
-git commit -m "feat: 类 JMP 的 Cpk 能力分析工具"
-git branch -M main
-git remote add origin https://github.com/GTX950L/cpk-jmp-studio.git
-git push -u origin main
-```
-
 ## 📄 许可证
 
-MIT
+本项目以 [MIT 许可证](LICENSE) 开源。
