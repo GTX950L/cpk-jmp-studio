@@ -139,6 +139,10 @@
 function mean(a){return a.reduce((s,v)=>s+v,0)/a.length;}
 function sampleStd(a){const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));}
 
+// 数组 min/max：用循环而非 Math.min(...arr)，避免大数据展开参数导致栈溢出
+function arrayMin(a){let m=Infinity;for(let i=0;i<a.length;i++)if(a[i]<m)m=a[i];return m;}
+function arrayMax(a){let m=-Infinity;for(let i=0;i<a.length;i++)if(a[i]>m)m=a[i];return m;}
+
 // 误差函数近似（Abramowitz & Stegun 7.1.26）
 function erf(x){
   const t=1/(1+0.3275911*Math.abs(x));
@@ -163,15 +167,18 @@ function normInv(p){
     return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
 }
 
-// 子组 d2 常数（无偏估计）
-const D2={2:1.128,3:1.693,4:2.059,5:2.326,6:2.534,7:2.704,8:2.847,9:2.970,10:3.078};
+// 子组 d2 常数（无偏估计），覆盖到 UI 允许的最大子组 20
+const D2={2:1.128,3:1.693,4:2.059,5:2.326,6:2.534,7:2.704,8:2.847,9:2.970,10:3.078,
+          11:3.173,12:3.258,13:3.336,14:3.407,15:3.472,16:3.532,17:3.588,18:3.640,19:3.689,20:3.735};
 
 // 组内 sigma：个体用移动极差法，子组用极差法
 function withinSigma(x,sub){
   if(sub&&sub>1){
     const n=sub, tail=x.length%n; const xx=tail?x.slice(0,x.length-tail):x.slice();
-    let rbar=0; for(let i=0;i<xx.length;i+=n){let g=xx.slice(i,i+n);rbar+=Math.max(...g)-Math.min(...g);}
-    rbar/=Math.floor(xx.length/n); return rbar/(D2[n]||3.078);
+    const nGroups=Math.floor(xx.length/n);
+    if(nGroups<1) return NaN; // 数据量不足一个完整子组，由调用方提示
+    let rbar=0; for(let i=0;i<xx.length;i+=n){let g=xx.slice(i,i+n);rbar+=arrayMax(g)-arrayMin(g);}
+    rbar/=nGroups; return rbar/(D2[n]||3.078);
   }
   let mr=0; for(let i=1;i<x.length;i++)mr+=Math.abs(x[i]-x[i-1]); return (mr/(x.length-1))/D2[2];
 }
@@ -196,38 +203,53 @@ function niceTicks(lo,hi,n){
   return out;
 }
 
-// 能力等级配色（通用阈值）
+// 刻度数字自适应精度：极大/极小数用科学计数，常规测量值保留 3 位小数
+function fmtTick(v){
+  const a=Math.abs(v);
+  if(a>=10000||(a>0&&a<0.0001))return v.toExponential(2);
+  return v.toFixed(3);
+}
+
+// 能力等级配色（直接十六进制，与 CSS 变量同值，避免运行时解析）
+const CAPCOLORS={good:'#1a7f37',ok:'#0969da',mar:'#bf8700',bad:'#cf222e',na:'#8a949e'};
 function capTone(v){
-  if(v==null||!isFinite(v)) return {c:'#8a949e',t:''};
-  if(v>=1.67) return {c:'var(--good)',t:'优秀'};
-  if(v>=1.33) return {c:'var(--ok)',t:'合格'};
-  if(v>=1.0)  return {c:'var(--mar)',t:'边缘'};
-  return {c:'var(--bad)',t:'不足'};
+  if(v==null||!isFinite(v)) return {c:CAPCOLORS.na,t:''};
+  if(v>=1.67) return {c:CAPCOLORS.good,t:'优秀'};
+  if(v>=1.33) return {c:CAPCOLORS.ok,t:'合格'};
+  if(v>=1.0)  return {c:CAPCOLORS.mar,t:'边缘'};
+  return {c:CAPCOLORS.bad,t:'不足'};
 }
 
 // 保存最近一次计算结果，供导出使用
 let lastResult=null;
 
+// 从文本框解析数值（空格 / 逗号 / 分号 / 换行分隔，自动扁平化）
+function parseNums(raw){return raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length).map(Number).filter(v=>!isNaN(v));}
+
 /* ============ 主计算 ============ */
 function calc(){
-  const raw=document.getElementById('data').value;
-  const nums=raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length)
-                .map(Number).filter(v=>!isNaN(v));
+  const nums=parseNums(document.getElementById('data').value);
   const msg=document.getElementById('msg');
   if(nums.length<2){msg.className='note warn';msg.textContent='⚠ 有效数据至少需要 2 个数值，请检查粘贴内容。';return;}
 
   const n=nums.length;
   const m=mean(nums), sd=sampleStd(nums);
   const sub=parseInt(document.getElementById('sub').value)||0;
+
+  // 边界检查：数据无波动 / 子组大小超过数据量
+  if(sd===0){msg.className='note warn';msg.textContent='⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。';return;}
+  if(sub>1&&sub>nums.length){msg.className='note warn';msg.textContent='⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。';return;}
   const sw=withinSigma(nums,sub);
+  if(!isFinite(sw)||sw<=0){msg.className='note warn';msg.textContent='⚠ 组内波动计算异常，请检查数据与子组设置。';return;}
 
   // 规格限
   const useLsl=document.getElementById('useLsl').checked;
   const useUsl=document.getElementById('useUsl').checked;
   let lsl=useLsl?(parseFloat(document.getElementById('lsl').value)):null;
   let usl=useUsl?(parseFloat(document.getElementById('usl').value)):null;
-  if(useLsl&&isNaN(lsl))lsl=m-3*sd;
-  if(useUsl&&isNaN(usl))usl=m+3*sd;
+  // 输入框留空时自动用 均值±3σ，并回填到输入框让用户看到实际使用的值
+  if(useLsl&&isNaN(lsl)){lsl=m-3*sd;document.getElementById('lsl').value=lsl.toFixed(4);}
+  if(useUsl&&isNaN(usl)){usl=m+3*sd;document.getElementById('usl').value=usl.toFixed(4);}
   // 标准值 Target 已取消输入：自动取 (最大+最小)/2 作中心值（用于 Cpm）
   let target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
 
@@ -271,15 +293,15 @@ function calc(){
      :primary>=1.0 ?'过程能力边缘（C 级）：存在风险，需加强管控/减小波动。'
      :'过程能力不足（D 级）：超规风险高，须立即改善。');
   document.getElementById('verdict').innerHTML =
-     `<div class="verdict" style="background:${vt.c}14;border-color:${vt.c}55;color:${(vt.c.startsWith('var')?getComputedStyle(document.documentElement).getPropertyValue(vt.c.slice(4,-1)).trim():vt.c)}">
-        <span class="badge" style="background:${vt.c.startsWith('var')?getComputedStyle(document.documentElement).getPropertyValue(vt.c.slice(4,-1)).trim():vt.c}">${vt.t||'—'}</span>
+     `<div class="verdict" style="background:${vt.c}14;border-color:${vt.c}55;color:${vt.c}">
+        <span class="badge" style="background:${vt.c}">${vt.t||'—'}</span>
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
   const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（含目标）',cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
-    return `<div class="metric" style="border-left-color:${(tone.c.startsWith('var')?getComputedStyle(document.documentElement).getPropertyValue(tone.c.slice(4,-1)).trim():tone.c)}">
+    return `<div class="metric" style="border-left-color:${tone.c}">
               <div class="k">${k}</div><div class="v">${fmt(v)}</div></div>`;
   }).join('') +
   `<div class="metric" style="border-left-color:#c9d1d9"><div class="k">样本量 n</div><div class="v">${n}</div></div>
@@ -358,12 +380,12 @@ function drawHist(x,lsl,usl,target,m,sd){
   const cv=document.getElementById('cvHist'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=18,padB=42,plotW=W-padL-padR,plotH=H-padT-padB;
-  const min=Math.min(...x),max=Math.max(...x),range=(max-min)||1;
+  const min=arrayMin(x),max=arrayMax(x),range=(max-min)||1;
   const lo=min-range*0.08,hi=max+range*0.08;
   const k=Math.max(6,Math.round(Math.ceil(Math.log2(x.length))+1)),binW=(hi-lo)/k;
   const bins=new Array(k).fill(0);
   for(const v of x){let i=Math.floor((v-lo)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
-  const densMax=Math.max(...bins)/(x.length*binW);
+  const densMax=arrayMax(bins)/(x.length*binW);
   const yMax=niceTicks(0,densMax*1.1,4).slice(-1)[0]||densMax*1.1;
   const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
 
@@ -384,7 +406,7 @@ function drawHist(x,lsl,usl,target,m,sd){
   if(target!=null)vline(ctx,x2px(target),padT,plotH,C.target(),'T',C.target());
 
   // 网格与刻度
-  xticks(ctx,niceTicks(lo,hi,7),x2px,padT,plotH,v=>v.toFixed(3));
+  xticks(ctx,niceTicks(lo,hi,7),x2px,padT,plotH,fmtTick);
   yticks(ctx,niceTicks(0,yMax,4),y2px,padL,plotW,v=>(v*1000).toFixed(0)+'‰');
   frame(ctx,W,H,padL,padT,plotW,plotH);
   // 轴标题
@@ -433,12 +455,21 @@ function drawBox(x,lsl,usl,target,m){
   // 均值点
   ctx.fillStyle=C.fit();ctx.beginPath();ctx.arc(x2px(m),yMid,5,0,7);ctx.fill();
   ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();
+  // 标注 Q1 / 中位数 / Q3 数值（箱体上方，间距过近时省略防重叠）
+  ctx.fillStyle='#6a737d';ctx.font='10px sans-serif';ctx.textAlign='center';
+  const qx1=x2px(q1),qx2=x2px(q2),qx3=x2px(q3);
+  if(qx3-qx1>34){
+    if(qx2-qx1>17)ctx.fillText(fmtTick(q1),qx1,yMid-half-4);
+    if(qx3-qx2>17)ctx.fillText(fmtTick(q3),qx3,yMid-half-4);
+    if(qx3-qx1>60)ctx.fillText(fmtTick(q2),qx2,yMid-half-4);
+  }
+  ctx.textAlign='start';
   // 规格限 + 目标
   if(lsl!=null)vline(ctx,x2px(lsl),padT-8,plotH+16,C.lsl(),'LSL',C.lsl());
   if(usl!=null)vline(ctx,x2px(usl),padT-8,plotH+16,C.usl(),'USL',C.usl());
   if(target!=null)vline(ctx,x2px(target),padT-8,plotH+16,C.target(),'T',C.target());
   // 刻度 + 轴标题
-  xticks(ctx,niceTicks(a,b,7),x2px,padT,plotH,v=>v.toFixed(3));
+  xticks(ctx,niceTicks(a,b,7),x2px,padT,plotH,fmtTick);
   frame(ctx,W,H,padL,padT,plotW,plotH);
   ctx.fillStyle='#32383f';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('测量值',padL+plotW/2,H-6);ctx.textAlign='start';
@@ -453,8 +484,8 @@ function drawQuant(sorted,z){
   const cv=document.getElementById('cvQuant'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
   ctx.clearRect(0,0,W,H);
   const padL=54,padR=18,padT=18,padB=46,plotW=W-padL-padR,plotH=H-padT-padB;
-  const zmin=Math.min(...z),zmax=Math.max(...z);
-  const dmin=Math.min(...sorted),dmax=Math.max(...sorted);
+  const zmin=arrayMin(z),zmax=arrayMax(z);
+  const dmin=arrayMin(sorted),dmax=arrayMax(sorted);
   const zt=niceTicks(zmin,zmax,6), dt=niceTicks(dmin,dmax,6);
   const zspan=zt[zt.length-1]-zt[0], dspan=dt[dt.length-1]-dt[0];
   const x2px=v=>padL+(v-zt[0])/zspan*plotW;
@@ -474,7 +505,7 @@ function drawQuant(sorted,z){
   ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   zt.forEach(t=>ctx.fillText(t.toFixed(2),x2px(t),padT+plotH+6));
   ctx.textAlign='right';ctx.textBaseline='middle';
-  dt.forEach(t=>ctx.fillText(t.toFixed(3),padL-6,y2px(t)));
+  dt.forEach(t=>ctx.fillText(fmtTick(t),padL-6,y2px(t)));
   ctx.textAlign='start';ctx.textBaseline='alphabetic';
   frame(ctx,W,H,padL,padT,plotW,plotH);
   // 轴标题
@@ -493,8 +524,7 @@ function drawQuant(sorted,z){
 
 /* ============ 交互 ============ */
 function autofill(){
-  const raw=document.getElementById('data').value;
-  const nums=raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length).map(Number).filter(v=>!isNaN(v));
+  const nums=parseNums(document.getElementById('data').value);
   if(nums.length<2)return;
   const m=mean(nums),sd=sampleStd(nums);
   if(document.getElementById('useLsl').checked)document.getElementById('lsl').value=(m-3*sd).toFixed(4);
@@ -551,7 +581,13 @@ function exportPng(){
   ctx.fillText('Cpk 过程能力分析报告',pad,pad+8);
   ctx.font='11px sans-serif';ctx.fillStyle='#6a737d';
   ctx.fillText('离线单文件版 · 定义对齐 JMP Process Capability',pad,pad+26);
-  let y=pad+40;
+  // 指标摘要行
+  const keyMap={}; lastResult.rows.forEach(r=>{if(['Cp','Cpk','Pp','Ppk','Cpm','样本量 n'].includes(r[0]))keyMap[r[0]]=r[1];});
+  const sumLine='Cp='+keyMap['Cp']+'   Cpk='+keyMap['Cpk']+'   Pp='+keyMap['Pp']+
+                '   Ppk='+keyMap['Ppk']+'   Cpm='+keyMap['Cpm']+'   n='+keyMap['样本量 n'];
+  ctx.font='bold 13px sans-serif';ctx.fillStyle='#1f2328';
+  ctx.fillText(sumLine,pad,pad+44);
+  let y=pad+58;
   src.forEach(c=>{
     // 白底卡片效果
     ctx.fillStyle='#fbfcfd';ctx.fillRect((W-c.width)/2-6,y-6,c.width+12,c.height+12);
