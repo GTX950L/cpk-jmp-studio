@@ -67,10 +67,9 @@
       <label>最大值 USL<input type="number" id="usl" step="any"></label>
     </div>
     <div class="row">
-      <label>标准值 Target<input type="number" id="target" step="any"></label>
       <label>子组大小（0=个体）<input type="number" id="sub" value="0" min="0" max="20"></label>
     </div>
-    <p style="font-size:11px;color:var(--muted)">提示：LSL/USL/Target 留空会自动按当前数据预填（均值±3σ / 中点）。</p>
+    <p style="font-size:11px;color:var(--muted)">提示：LSL/USL 留空会自动按当前数据预填（均值±3σ）。标准值 Target 已取消填写，自动取「(最大+最小)/2」作中心值（用于 Cpm）。</p>
   </div>
 
   <!-- 右侧：结果 -->
@@ -167,8 +166,8 @@ function calc(){
   let usl=useUsl?(parseFloat(document.getElementById('usl').value)):null;
   if(useLsl&&isNaN(lsl))lsl=m-3*sd;
   if(useUsl&&isNaN(usl))usl=m+3*sd;
-  let target=parseFloat(document.getElementById('target').value);
-  if(isNaN(target))target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
+  // 标准值 Target 已取消输入：自动取 (最大+最小)/2 作中心值（用于 Cpm）
+  let target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
 
   if(lsl==null&&usl==null){msg.className='note warn';msg.textContent='⚠ 请至少启用一个规格限（最小值或最大值）。';return;}
 
@@ -215,7 +214,7 @@ function calc(){
     ` → ${normOk?'数据近似正态，可用 Cpk 正态法 ✅':'数据可能非正态，建议谨慎解读 ⚠️'}</div>`;
 
   // ---- 明细表 ----
-  const rows=[['样本量 n',fmt(n,0)],['均值 μ',fmt(m,4)],['目标 T',fmt(target,4)],
+  const rows=[['样本量 n',fmt(n,0)],['均值 μ',fmt(m,4)],['目标 T（自动取中点）',fmt(target,4)],
     ['组内 σ',fmt(sw,4)],['整体 σ',fmt(sd,4)],['Cp',fmt(cp)],['Cpk',fmt(cpk)],
     ['Pp',fmt(pp)],['Ppk',fmt(ppk)],['Cpm',fmt(cpm)],
     ['理论超规 PPM(组内)',fmt(ppmWithin,1)],['理论超规 PPM(整体)',fmt(ppmOverall,1)],
@@ -323,8 +322,6 @@ function autofill(){
   const m=mean(nums),sd=sampleStd(nums);
   if(document.getElementById('useLsl').checked)document.getElementById('lsl').value=(m-3*sd).toFixed(4);
   if(document.getElementById('useUsl').checked)document.getElementById('usl').value=(m+3*sd).toFixed(4);
-  const lsl=parseFloat(document.getElementById('lsl').value),usl=parseFloat(document.getElementById('usl').value);
-  if(!isNaN(lsl)&&!isNaN(usl))document.getElementById('target').value=((lsl+usl)/2).toFixed(4);
 }
 
 document.getElementById('btnCalc').onclick=calc;
@@ -335,7 +332,7 @@ document.getElementById('btnSample').onclick=()=>{
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
-  ['lsl','usl','target'].forEach(id=>document.getElementById(id).value='');
+  ['lsl','usl'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('metrics').innerHTML='';
   document.getElementById('normNote').innerHTML='';
   document.getElementById('msg').className='note';
