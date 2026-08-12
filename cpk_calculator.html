@@ -92,6 +92,11 @@
       <summary>查看全部指标明细</summary>
       <table id="detail"><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody></tbody></table>
     </details>
+
+    <div style="margin-top:14px">
+      <button id="btnCsv" class="sec">⬇ 导出指标 CSV</button>
+      <button id="btnPng" class="sec">⬇ 导出三张图 (PNG)</button>
+    </div>
   </div>
 </div>
 
@@ -145,6 +150,9 @@ function corr(a,b){
 }
 
 const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
+
+// 保存最近一次计算结果，供导出使用
+let lastResult=null;
 
 /* ============ 主计算 ============ */
 function calc(){
@@ -220,6 +228,9 @@ function calc(){
     ['理论超规 PPM(组内)',fmt(ppmWithin,1)],['理论超规 PPM(整体)',fmt(ppmOverall,1)],
     ['实测超规 PPM',fmt(obsPpm,1)]];
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+
+  // 保存结果供导出
+  lastResult={rows, nums, lsl, usl, target, m, sd, sw};
 
   msg.className='note';msg.textContent='✅ 计算完成。';
 
@@ -337,7 +348,43 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('normNote').innerHTML='';
   document.getElementById('msg').className='note';
   document.getElementById('msg').textContent='👈 粘贴数据后点「计算 Cpk」。';
+  lastResult=null;
 };
+
+/* ============ 导出 ============ */
+function downloadBlob(blob,name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportCsv(){
+  if(!lastResult){alert('请先点「计算 Cpk」再导出。');return;}
+  const lines=['指标,数值'];
+  lastResult.rows.forEach(([k,v])=>lines.push(k+','+v));
+  // 附带原始数据
+  lines.push('');lines.push('原始数据');
+  lastResult.nums.forEach(v=>lines.push(String(v)));
+  const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  downloadBlob(blob,'cpk_结果.csv');
+}
+function exportPng(){
+  if(!lastResult){alert('请先点「计算 Cpk」再导出。');return;}
+  const cvs=['cvHist','cvBox','cvQuant'];
+  if(cvs.length===1){return;}
+  // 把三张图纵向拼到一张大 canvas 上导出
+  const src=cvs.map(id=>document.getElementById(id));
+  const pad=20, gap=24, W=720;
+  let H=pad*2; src.forEach(c=>H+=c.height+gap);
+  const big=document.createElement('canvas');big.width=W;big.height=H;
+  const ctx=big.getContext('2d');
+  ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
+  let y=pad;
+  src.forEach(c=>{ctx.drawImage(c,Math.max(0,(W-c.width)/2),y);y+=c.height+gap;});
+  big.toBlob(b=>downloadBlob(b,'cpk_图表.png'),'image/png');
+}
+document.getElementById('btnCsv').onclick=exportCsv;
+document.getElementById('btnPng').onclick=exportPng;
 </script>
 </body>
 </html>
