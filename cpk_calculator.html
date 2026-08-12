@@ -46,6 +46,7 @@
   button.sec{background:#eef1f4;color:#32383f}
   button.sec:hover{background:#e2e7ec}
   .hint{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+  .subhint{display:block;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:9px;margin:12px 0}
   .metric{background:#fbfcfd;border:1px solid var(--border);border-left:4px solid #c9d1d9;
           border-radius:8px;padding:9px 8px;text-align:center}
@@ -96,6 +97,7 @@
     </div>
     <div class="row">
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="20"></label>
+      <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（用子组极差法）。</span>
     </div>
     <p class="hint">· LSL / USL 留空会自动预填为 均值 ± 3σ。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
