@@ -15,7 +15,7 @@ st.title("📊 Cpk-JMP Studio")
 st.caption("模仿 JMP 的 Process Capability：上传数据 → 设规格限 → 算能力指数 + 画图")
 st.markdown(
     "🔗 [📂 项目仓库 / 源码（GitHub）](https://github.com/GTX950L/cpk-jmp-studio) "
-    "· [🚀 Open in Streamlit（一键在线运行）](https://share.streamlit.io/deploy?repository=https://github.com/GTX950L/cpk-jmp-studio)"
+    "· 💡 想零安装使用？直接下载 [`cpk_calculator.html`](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html) 双击浏览器打开即可"
 )
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
