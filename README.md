@@ -1,5 +1,10 @@
 # Cpk-JMP Studio
 
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/deploy?repository=https://github.com/GTX950L/cpk-jmp-studio)
+
+> 🔗 项目仓库：[github.com/GTX950L/cpk-jmp-studio](https://github.com/GTX950L/cpk-jmp-studio)
+> 🚀 点上方徽章 **Open in Streamlit** 即可一键部署并在线进入使用（无需本地安装）。
+
 一个模仿 **JMP**「Process Capability（过程能力分析）」体验的轻量工具：上传测量数据 → 设定规格限 → 一键得到 Cp / Cpk / Pp / Ppk / Cpm 等能力指数，并自动绘制直方图、能力箱线图、正态概率图。
 
 适合制造业质量管理、设备保养记录、SPC 分析等场景。基于 Python + Streamlit，你熟稔的 pandas 栈，改起来零门槛。
@@ -24,7 +29,7 @@
 
 ```bash
 # 1. 克隆仓库
-git clone <你的仓库地址>
+git clone https://github.com/GTX950L/cpk-jmp-studio.git
 cd cpk-jmp-studio
 
 # 2. 创建虚拟环境（可选但推荐）
@@ -77,7 +82,7 @@ git init
 git add .
 git commit -m "feat: 类 JMP 的 Cpk 能力分析工具"
 git branch -M main
-git remote add origin <你的仓库地址>
+git remote add origin https://github.com/GTX950L/cpk-jmp-studio.git
 git push -u origin main
 ```
 
