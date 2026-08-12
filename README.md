@@ -1,6 +1,6 @@
 # Cpk-JMP Studio
 
-> 🟢 **最简单用法（推荐）**：下载 [`cpk_calculator.html`](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html) → 双击用浏览器打开即可，**无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
+> 🟢 **最简单用法（推荐）**：在线打开 👉 **[cpk_calculator.html（点击运行）](https://gtx950l.github.io/cpk-jmp-studio/cpk_calculator.html)**，或[下载本地文件](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)双击用浏览器打开 —— **无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
 >
 > 🔗 项目仓库：[github.com/GTX950L/cpk-jmp-studio](https://github.com/GTX950L/cpk-jmp-studio)
 
@@ -32,9 +32,9 @@
 
 ## 🌐 离线单文件版（推荐，无需安装 / 无需联网）
 
-**[`cpk_calculator.html`](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)** 是本项目最简单直接的入口：
+**[在线运行 cpk_calculator.html](https://gtx950l.github.io/cpk-jmp-studio/cpk_calculator.html)** 是本项目最简单直接的入口（GitHub Pages 托管，浏览器直接打开即用）：
 
-- 下载后用任意浏览器**双击打开即可**，**完全离线运行**——计算与绘图全部由 JavaScript 实现（不依赖任何外部库 / CDN），数据不出本机
+- 点击上方链接即可在浏览器中**直接打开使用**；或[查看源码](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)下载到本地双击打开，**完全离线运行**——计算与绘图全部由 JavaScript 实现（不依赖任何外部库 / CDN），数据不出本机
 - 用法：粘贴数据（去表头）→ 点「计算 Cpk」，得到 Cp / Cpk / Pp / Ppk / Cpm 指标卡（按能力等级自动变色）+ 三张图（直方图+规格线、能力箱线图、正态概率图）
 - 顶部还有**能力判级横幅**（A/B/C/D 级结论），并支持导出 CSV 指标与 PNG 图表
 - 适合「手头有数据、只想立刻算一下」的场景，也是本仓库的**首选使用方式**
