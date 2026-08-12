@@ -1,0 +1,11 @@
+# Python（本仓库为纯 HTML 工具，留作安全网）
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
