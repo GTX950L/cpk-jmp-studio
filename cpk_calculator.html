@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cpk 计算器（离线单文件版）</title>
+<style>
+  :root{
+    --c-data:#4C78A8; --c-fit:#E45756; --c-lsl:#54A24B; --c-usl:#F58518;
+    --bg:#f6f8fa; --card:#fff; --border:#e1e4e8; --text:#24292e; --muted:#6a737d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI","Microsoft YaHei",Helvetica,Arial,sans-serif;
+       background:var(--bg);color:var(--text);line-height:1.5}
+  header{padding:16px 20px;background:#24292e;color:#fff}
+  header h1{margin:0;font-size:18px}
+  header p{margin:4px 0 0;font-size:12px;color:#c8d1d9}
+  .wrap{display:flex;flex-wrap:wrap;gap:16px;padding:16px 20px;align-items:flex-start}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;flex:1 1 320px;min-width:300px}
+  .panel h2{margin:0 0 10px;font-size:14px;border-bottom:1px solid var(--border);padding-bottom:6px}
+  textarea{width:100%;height:180px;font-family:Consolas,Menlo,monospace;font-size:13px;
+           border:1px solid var(--border);border-radius:6px;padding:8px;resize:vertical}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  .row label{flex:1 1 120px;font-size:12px;color:var(--muted)}
+  .row input[type=number]{width:100%;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px}
+  .chk{font-size:13px;margin:4px 0}
+  button{background:#2ea44f;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:13px;cursor:pointer;margin-right:8px}
+  button.sec{background:#6a737d}
+  button:hover{opacity:.9}
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}
+  .metric{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 6px;text-align:center}
+  .metric .k{font-size:11px;color:var(--muted)}
+  .metric .v{font-size:18px;font-weight:600;margin-top:2px}
+  .note{font-size:12px;padding:8px 10px;border-radius:6px;background:#eaf4ff;border:1px solid #b6d9ff;color:#0a4f9c;margin:8px 0}
+  .warn{background:#fff5e6;border-color:#ffd8a8;color:#8a4b00}
+  canvas{background:#fff;border:1px solid var(--border);border-radius:6px;max-width:100%}
+  .chart-title{font-size:13px;font-weight:600;margin:14px 0 4px}
+  table{border-collapse:collapse;font-size:12px;width:100%}
+  th,td{border:1px solid var(--border);padding:5px 8px;text-align:left}
+  th{background:#f0f3f6}
+  details{margin-top:10px}
+  code{background:#f0f3f6;padding:1px 4px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 Cpk 计算器（离线单文件版）</h1>
+  <p>模仿 JMP 过程能力分析 · 无需 Python / 安装 / 联网 · 直接粘贴数据即可</p>
+</header>
+
+<div class="wrap">
+  <!-- 左侧：输入 -->
+  <div class="panel">
+    <h2>① 数据（去掉表头，仅留测量值）</h2>
+    <textarea id="data" placeholder="例如：&#10;10.01&#10;9.98&#10;10.03&#10;9.97&#10;…（每行一个，或空格/逗号分隔均可，多列一起粘也行）"></textarea>
+    <div style="margin-top:8px">
+      <button id="btnCalc">计算 Cpk</button>
+      <button id="btnSample" class="sec">填入示例</button>
+      <button id="btnClear" class="sec">清空</button>
+    </div>
+
+    <h2 style="margin-top:16px">② 规格限与参数</h2>
+    <label class="chk"><input type="checkbox" id="useLsl" checked> 启用最小值 LSL（下限）</label>
+    <label class="chk"><input type="checkbox" id="useUsl" checked> 启用最大值 USL（上限）</label>
+    <div class="row">
+      <label>最小值 LSL<input type="number" id="lsl" step="any"></label>
+      <label>最大值 USL<input type="number" id="usl" step="any"></label>
+    </div>
+    <div class="row">
+      <label>标准值 Target<input type="number" id="target" step="any"></label>
+      <label>子组大小（0=个体）<input type="number" id="sub" value="0" min="0" max="20"></label>
+    </div>
+    <p style="font-size:11px;color:var(--muted)">提示：LSL/USL/Target 留空会自动按当前数据预填（均值±3σ / 中点）。</p>
+  </div>
+
+  <!-- 右侧：结果 -->
+  <div class="panel" style="flex:2 1 520px">
+    <h2>③ 结果</h2>
+    <div id="msg" class="note">👈 粘贴数据后点「计算 Cpk」。</div>
+    <div id="metrics" class="metrics"></div>
+    <div id="normNote"></div>
+
+    <div class="chart-title">直方图 + 正态曲线 + 规格线</div>
+    <canvas id="cvHist" width="700" height="360"></canvas>
+
+    <div class="chart-title">能力箱线图（Capability Box Plot）</div>
+    <canvas id="cvBox" width="700" height="150"></canvas>
+
+    <div class="chart-title">正态概率图（Quantile Plot）</div>
+    <canvas id="cvQuant" width="440" height="440"></canvas>
+
+    <details>
+      <summary>查看全部指标明细</summary>
+      <table id="detail"><thead><tr><th>指标</th><th>数值</th></tr></thead><tbody></tbody></table>
+    </details>
+  </div>
+</div>
+
+<script>
+/* ============ 统计辅助函数 ============ */
+function mean(a){return a.reduce((s,v)=>s+v,0)/a.length;}
+function sampleStd(a){const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**2,0)/(a.length-1));}
+
+// 误差函数近似（Abramowitz & Stegun 7.1.26）
+function erf(x){
+  const t=1/(1+0.3275911*Math.abs(x));
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x);
+  return x>=0?y:-y;
+}
+function normCdf(x,mu,s){return 0.5*(1+erf((x-mu)/(s*Math.SQRT2)));}
+
+// 逆正态 CDF（Acklam 算法）
+function normInv(p){
+  if(p<=0)return -Infinity; if(p>=1)return Infinity;
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const plow=0.02425,phigh=1-plow;let q,r;
+  if(p<plow){q=Math.sqrt(-2*Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+  else if(p<=phigh){q=p-0.5;r=q*q;
+    return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);}
+  else{q=Math.sqrt(-2*Math.log(1-p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
+}
+
+// 子组 d2 常数（无偏估计）
+const D2={2:1.128,3:1.693,4:2.059,5:2.326,6:2.534,7:2.704,8:2.847,9:2.970,10:3.078};
+
+// 组内 sigma：个体用移动极差法，子组用极差法
+function withinSigma(x,sub){
+  if(sub&&sub>1){
+    const n=sub, tail=x.length%n; const xx=tail?x.slice(0,x.length-tail):x.slice();
+    let rbar=0; for(let i=0;i<xx.length;i+=n){let g=xx.slice(i,i+n);rbar+=Math.max(...g)-Math.min(...g);}
+    rbar/=Math.floor(xx.length/n); return rbar/(D2[n]||3.078);
+  }
+  let mr=0; for(let i=1;i<x.length;i++)mr+=Math.abs(x[i]-x[i-1]); return (mr/(x.length-1))/D2[2];
+}
+
+// 相关系数
+function corr(a,b){
+  const n=a.length;let sa=0,sb=0,saa=0,sbb=0,sab=0;
+  for(let i=0;i<n;i++){sa+=a[i];sb+=b[i];saa+=a[i]*a[i];sbb+=b[i]*b[i];sab+=a[i]*b[i];}
+  return (n*sab-sa*sb)/Math.sqrt((n*saa-sa*sa)*(n*sbb-sb*sb));
+}
+
+const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
+
+/* ============ 主计算 ============ */
+function calc(){
+  const raw=document.getElementById('data').value;
+  const nums=raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length)
+                .map(Number).filter(v=>!isNaN(v));
+  const msg=document.getElementById('msg');
+  if(nums.length<2){msg.className='note warn';msg.textContent='⚠ 有效数据至少需要 2 个数值，请检查粘贴内容。';return;}
+
+  const n=nums.length;
+  const m=mean(nums), sd=sampleStd(nums);
+  const sub=parseInt(document.getElementById('sub').value)||0;
+  const sw=withinSigma(nums,sub);
+
+  // 规格限
+  const useLsl=document.getElementById('useLsl').checked;
+  const useUsl=document.getElementById('useUsl').checked;
+  let lsl=useLsl?(parseFloat(document.getElementById('lsl').value)):null;
+  let usl=useUsl?(parseFloat(document.getElementById('usl').value)):null;
+  if(useLsl&&isNaN(lsl))lsl=m-3*sd;
+  if(useUsl&&isNaN(usl))usl=m+3*sd;
+  let target=parseFloat(document.getElementById('target').value);
+  if(isNaN(target))target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
+
+  if(lsl==null&&usl==null){msg.className='note warn';msg.textContent='⚠ 请至少启用一个规格限（最小值或最大值）。';return;}
+
+  // 指标
+  const both=lsl!=null&&usl!=null;
+  const cp=both?(usl-lsl)/(6*sw):NaN;
+  const cpu=usl!=null?(usl-m)/(3*sw):Infinity;
+  const cpl=lsl!=null?(m-lsl)/(3*sw):Infinity;
+  const cpk=Math.min(cpu,cpl);
+  const pp=both?(usl-lsl)/(6*sd):NaN;
+  const ppu=usl!=null?(usl-m)/(3*sd):Infinity;
+  const ppl=lsl!=null?(m-lsl)/(3*sd):Infinity;
+  const ppk=Math.min(ppu,ppl);
+  const cpm=both?(usl-lsl)/(6*Math.sqrt(sd*sd+(m-target)**2)):NaN;
+
+  // PPM（理论，正态近似）
+  const pAbove=usl!=null?1-normCdf(usl,m,sd):0;
+  const pBelow=lsl!=null?normCdf(lsl,m,sd):0;
+  const ppmOverall=1e6*(pAbove+pBelow);
+  const pAboveW=usl!=null?1-normCdf(usl,m,sw):0;
+  const pBelowW=lsl!=null?normCdf(lsl,m,sw):0;
+  const ppmWithin=1e6*(pAboveW+pBelowW);
+  // PPM（实测）
+  let obs=0; if(usl!=null)obs+=nums.filter(v=>v>usl).length; if(lsl!=null)obs+=nums.filter(v=>v<lsl).length;
+  const obsPpm=1e6*obs/n;
+
+  // 正态性（Shapiro-Francia 近似 = Q-Q 图 R²）
+  const sorted=[...nums].sort((a,b)=>a-b);
+  const z=sorted.map((_,i)=>normInv((i+1-0.375)/(n+0.25)));
+  const r2=corr(sorted,z)**2;
+  const normOk=r2>0.95;
+
+  // ---- 渲染指标卡 ----
+  const cards=[['Cp（组内）',fmt(cp)],['Cpk（组内）',fmt(cpk)],['Pp（整体）',fmt(pp)],
+               ['Ppk（整体）',fmt(ppk)],['Cpm（含目标）',fmt(cpm)],
+               ['样本量 n',n],['均值 μ',fmt(m,4)],['组内 σ',fmt(sw,4)],
+               ['整体 σ',fmt(sd,4)],['实测超规 PPM',obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})]];
+  document.getElementById('metrics').innerHTML=cards.map(([k,v])=>
+     `<div class="metric"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  // ---- 正态性提示 ----
+  document.getElementById('normNote').innerHTML=
+    `<div class="note ${normOk?'':'warn'}">正态性检验（Shapiro-Francia 近似，= Q-Q 图 R²）：R² = ${r2.toFixed(4)}`+
+    ` → ${normOk?'数据近似正态，可用 Cpk 正态法 ✅':'数据可能非正态，建议谨慎解读 ⚠️'}</div>`;
+
+  // ---- 明细表 ----
+  const rows=[['样本量 n',fmt(n,0)],['均值 μ',fmt(m,4)],['目标 T',fmt(target,4)],
+    ['组内 σ',fmt(sw,4)],['整体 σ',fmt(sd,4)],['Cp',fmt(cp)],['Cpk',fmt(cpk)],
+    ['Pp',fmt(pp)],['Ppk',fmt(ppk)],['Cpm',fmt(cpm)],
+    ['理论超规 PPM(组内)',fmt(ppmWithin,1)],['理论超规 PPM(整体)',fmt(ppmOverall,1)],
+    ['实测超规 PPM',fmt(obsPpm,1)]];
+  document.querySelector('#detail tbody').innerHTML=rows.map(([k,v])=>`<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+
+  msg.className='note';msg.textContent='✅ 计算完成。';
+
+  drawHist(nums,lsl,usl,target,m,sd);
+  drawBox(nums,lsl,usl,target,m);
+  drawQuant(sorted,z);
+}
+
+/* ============ 绘图 ============ */
+function drawV(ctx,px,top,h,color,label){
+  ctx.save();ctx.strokeStyle=color;ctx.setLineDash([5,4]);ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.moveTo(px,top);ctx.lineTo(px,top+h);ctx.stroke();
+  ctx.setLineDash([]);ctx.fillStyle=color;ctx.font='11px sans-serif';
+  ctx.fillText(label,px+3,top+12);ctx.restore();
+}
+function axis(ctx,W,H,padL,padT,plotW,plotH,x2px,lo,hi,title){
+  ctx.strokeStyle='#888';ctx.lineWidth=1;ctx.beginPath();
+  ctx.moveTo(padL,padT+plotH);ctx.lineTo(padL+plotW,padT+plotH);
+  ctx.moveTo(padL,padT);ctx.lineTo(padL,padT+plotH);ctx.stroke();
+  ctx.fillStyle='#6a737d';ctx.font='10px sans-serif';
+  ctx.fillText(lo.toFixed(3),padL,padT+plotH+12);
+  ctx.fillText(hi.toFixed(3),padL+plotW-30,padT+plotH+12);
+  ctx.fillText(title,padL,padT-4);
+}
+
+function drawHist(x,lsl,usl,target,m,sd){
+  const cv=document.getElementById('cvHist'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const padL=45,padR=15,padT=15,padB=30,plotW=W-padL-padR,plotH=H-padT-padB;
+  const min=Math.min(...x),max=Math.max(...x),range=(max-min)||1;
+  const lo=min-range*0.05,hi=max+range*0.05;
+  const k=Math.max(5,Math.ceil(Math.log2(x.length))+1),binW=(hi-lo)/k;
+  const bins=new Array(k).fill(0);
+  for(const v of x){let i=Math.floor((v-lo)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
+  const densMax=Math.max(...bins)/(x.length*binW);
+  const yMax=densMax*1.15||1;
+  const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
+  ctx.fillStyle=getCss('--c-data');
+  for(let i=0;i<k;i++){const x0=lo+i*binW,d=bins[i]/(x.length*binW);
+    const px0=x2px(x0),px1=x2px(x0+binW),py=y2px(d);
+    ctx.fillRect(px0,py,Math.max(1,px1-px0-1),padT+plotH-py);}
+  ctx.strokeStyle=getCss('--c-fit');ctx.lineWidth=2;ctx.beginPath();
+  for(let i=0;i<=100;i++){const v=lo+(hi-lo)*i/100;
+    const d=Math.exp(-0.5*((v-m)/sd)**2)/(sd*Math.sqrt(2*Math.PI));
+    const px=x2px(v),py=y2px(d);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();
+  if(lsl!=null)drawV(ctx,x2px(lsl),padT,plotH,getCss('--c-lsl'),'LSL');
+  if(usl!=null)drawV(ctx,x2px(usl),padT,plotH,getCss('--c-usl'),'USL');
+  if(target!=null)drawV(ctx,x2px(target),padT,plotH,'#000','Target');
+  axis(ctx,W,H,padL,padT,plotW,plotH,x2px,lo,hi,'直方图 + 正态曲线 + 规格限');
+}
+
+function drawBox(x,lsl,usl,target,m){
+  const cv=document.getElementById('cvBox'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const padL=45,padR=15,padT=25,padB=25,plotW=W-padL-padR,plotH=H-padT-padB;
+  const xs=x.slice().sort((a,b)=>a-b);
+  const lo=xs[0],hi=xs[xs.length-1],span=(hi-lo)||1;
+  const a=lo-span*0.1,b=hi+span*0.1;
+  const x2px=v=>padL+(v-a)/(b-a)*plotW;
+  const yMid=padT+plotH/2;
+  if(lsl!=null&&usl!=null){ctx.strokeStyle='rgba(120,120,120,.4)';ctx.lineWidth=12;
+    ctx.beginPath();ctx.moveTo(x2px(lsl),yMid);ctx.lineTo(x2px(usl),yMid);ctx.stroke();}
+  if(lsl!=null)drawV(ctx,x2px(lsl),padT-6,plotH+12,getCss('--c-lsl'),'LSL');
+  if(usl!=null)drawV(ctx,x2px(usl),padT-6,plotH+12,getCss('--c-usl'),'USL');
+  const q1=xs[Math.floor(xs.length*0.25)],q2=xs[Math.floor(xs.length*0.5)],q3=xs[Math.floor(xs.length*0.75)];
+  ctx.fillStyle=getCss('--c-data');ctx.fillRect(x2px(q1),yMid-9,(x2px(q3)-x2px(q1))||2,18);
+  ctx.fillStyle='#000';ctx.beginPath();ctx.arc(x2px(m),yMid,5,0,7);ctx.fill();
+  if(target!=null)drawV(ctx,x2px(target),padT-6,plotH+12,'#000','Target');
+  axis(ctx,W,H,padL,padT,plotW,plotH,x2px,a,b,'能力箱线图');
+}
+
+function drawQuant(sorted,z){
+  const cv=document.getElementById('cvQuant'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const padL=45,padR=15,padT=15,padB=35,plotW=W-padL-padR,plotH=H-padT-padB;
+  const zmin=Math.min(...z),zmax=Math.max(...z),x2px=v=>padL+(v-zmin)/((zmax-zmin)||1)*plotW;
+  const dmin=Math.min(...sorted),dmax=Math.max(...sorted),y2px=v=>padT+plotH-(v-dmin)/((dmax-dmin)||1)*plotH;
+  // 拟合线
+  const r=corr(sorted,z),b_=cov_(sorted,z)/cov_(z,z),a_=mean(sorted)-b_*mean(z);
+  ctx.strokeStyle=getCss('--c-fit');ctx.lineWidth=2;ctx.beginPath();
+  ctx.moveTo(x2px(zmin),y2px(a_+b_*zmin));ctx.lineTo(x2px(zmax),y2px(a_+b_*zmax));ctx.stroke();
+  ctx.fillStyle=getCss('--c-data');
+  for(let i=0;i<sorted.length;i++){ctx.beginPath();ctx.arc(x2px(z[i]),y2px(sorted[i]),2.5,0,7);ctx.fill();}
+  ctx.strokeStyle='#888';ctx.lineWidth=1;ctx.beginPath();
+  ctx.moveTo(padL,padT+plotH);ctx.lineTo(padL+plotW,padT+plotH);
+  ctx.moveTo(padL,padT);ctx.lineTo(padL,padT+plotH);ctx.stroke();
+  ctx.fillStyle='#6a737d';ctx.font='10px sans-serif';
+  ctx.fillText('R² = '+ (r*r).toFixed(4), padL, padT-4);
+  ctx.fillText('正态概率图 (Quantile Plot)', padL+60, padT-4);
+  function cov_(p,q){const mp=mean(p),mq=mean(q);let s=0;for(let i=0;i<p.length;i++)s+=(p[i]-mp)*(q[i]-mq);return s/p.length;}
+}
+
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+
+/* ============ 交互 ============ */
+function autofill(){
+  const raw=document.getElementById('data').value;
+  const nums=raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length).map(Number).filter(v=>!isNaN(v));
+  if(nums.length<2)return;
+  const m=mean(nums),sd=sampleStd(nums);
+  if(document.getElementById('useLsl').checked)document.getElementById('lsl').value=(m-3*sd).toFixed(4);
+  if(document.getElementById('useUsl').checked)document.getElementById('usl').value=(m+3*sd).toFixed(4);
+  const lsl=parseFloat(document.getElementById('lsl').value),usl=parseFloat(document.getElementById('usl').value);
+  if(!isNaN(lsl)&&!isNaN(usl))document.getElementById('target').value=((lsl+usl)/2).toFixed(4);
+}
+
+document.getElementById('btnCalc').onclick=calc;
+document.getElementById('btnSample').onclick=()=>{
+  let s=0;const out=[];for(let i=0;i<60;i++){s=(s*9301+49297)%233280;const r=s/233280;
+    out.push((10.005+0.012*Math.sqrt(-2*Math.log(r+1e-9))*Math.cos(2*Math.PI*((s*9301+1)%233280/233280))).toFixed(4));}
+  document.getElementById('data').value=out.join('\n');autofill();calc();
+};
+document.getElementById('btnClear').onclick=()=>{
+  document.getElementById('data').value='';
+  ['lsl','usl','target'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('metrics').innerHTML='';
+  document.getElementById('normNote').innerHTML='';
+  document.getElementById('msg').className='note';
+  document.getElementById('msg').textContent='👈 粘贴数据后点「计算 Cpk」。';
+};
+</script>
+</body>
+</html>

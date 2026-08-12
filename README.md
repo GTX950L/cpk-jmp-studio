@@ -35,6 +35,16 @@
 4. 在左侧填入 **最小值 LSL / 最大值 USL / 标准值 Target**（子组大小默认 0 = 个体测量）
 5. 下方实时给出 Cp / Cpk / Pp / Ppk / Cpm 指标卡 + 三张图（直方图+规格线、能力箱线图、正态概率图）
 
+## 🌐 离线单文件版（无需安装 / 无需联网）
+
+如果你不想装 Python、也不想登录 Streamlit Cloud，直接用 **`cpk_calculator.html`**：
+
+- 双击用任意浏览器打开即可，**完全离线运行**，计算与绘图全部由 JavaScript 实现（不依赖任何外部库 / CDN）
+- 用法：粘贴数据（去表头）→ 点「计算 Cpk」，得到 Cp / Cpk / Pp / Ppk / Cpm 指标卡 + 直方图+规格线 / 能力箱线图 / 正态概率图三张图
+- 适合「手头有数据、只想立刻算一下」的场景
+
+> 该版本的正态性检验采用 **Shapiro-Francia 近似（= Q-Q 图 R²）**，与 Python 版的 Shapiro-Wilk 略有不同，但结论一致；计算数值已用 `examples/sample_data.csv` 校验，与 Python 版一致。
+
 ## 🚀 安装与运行
 
 ```bash
