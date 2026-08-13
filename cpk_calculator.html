@@ -523,9 +523,15 @@ function drawHist(x,lsl,usl,target,m,sd){
   if(lo===Infinity)lo=dmin-dspan*0.08;
   if(hi===-Infinity)hi=dmax+dspan*0.08;
   const range=(hi-lo)||1; lo-=range*0.02; hi+=range*0.02;  // 规格线不贴边
-  const k=Math.max(6,Math.round(Math.ceil(Math.log2(x.length))+1)),binW=(hi-lo)/k;
+  // bin 数：Freedman-Diaconis 自适应（柱更细、贴合数据分布），限制在 8~40；
+  // bin 宽基于「数据范围」而非扩展后的绘图范围——规格线在远处时柱子不会跟着被拉粗
+  const sx=x.slice().sort((a,b)=>a-b);
+  const iqr=sx[Math.floor(sx.length*0.75)]-sx[Math.floor(sx.length*0.25)];
+  let k=iqr>0?Math.ceil(dspan/(2*iqr/Math.cbrt(sx.length))):Math.ceil(Math.sqrt(sx.length));
+  k=Math.min(40,Math.max(8,k));
+  const binW=dspan/k;
   const bins=new Array(k).fill(0);
-  for(const v of x){let i=Math.floor((v-lo)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
+  for(const v of x){let i=Math.floor((v-dmin)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
   const densMax=arrayMax(bins)/(x.length*binW);
   // y 上界取"直方图密度峰值"与"正态曲线峰值"两者较大，再留 15% 余量；
   // 用 niceCeil 保证上界刻度 >= 该值，柱顶与曲线峰值不会被裁出绘图区
@@ -534,8 +540,8 @@ function drawHist(x,lsl,usl,target,m,sd){
   const yMax=niceCeil(0,yLimit,4)||yLimit;
   const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
 
-  // 直方图（圆角柱）
-  for(let i=0;i<k;i++){const x0=lo+i*binW,d=bins[i]/(x.length*binW);
+  // 直方图（圆角柱）：柱边界用数据范围坐标（dmin+i*binW），再经 x2px 映射到绘图区
+  for(let i=0;i<k;i++){const x0=dmin+i*binW,d=bins[i]/(x.length*binW);
     const px0=x2px(x0),px1=x2px(x0+binW),py=y2px(d),bw=Math.max(1,px1-px0-1.5);
     ctx.fillStyle='rgba(47,109,181,.78)';
     roundRectTop(ctx,px0,py,bw,padT+plotH-py,2);}
