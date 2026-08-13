@@ -59,7 +59,7 @@
   .note{font-size:12.5px;padding:9px 12px;border-radius:8px;background:#eaf3fb;border:1px solid #c6e0f7;
         color:#0a4f9c;margin:8px 0}
   .warn{background:#fff6e9;border-color:#ffe1b0;color:#8a4b00}
-  canvas{background:#fff;border:1px solid var(--border);border-radius:8px;max-width:100%;display:block;margin:0 auto}
+  canvas{background:#fff;border:1px solid var(--border);border-radius:8px;max-width:100%;display:block;margin:0 auto;box-sizing:border-box}
   .chart-title{font-size:13.5px;font-weight:650;margin:18px 0 6px;color:#32383f}
   table{border-collapse:collapse;font-size:12.5px;width:100%}
   th,td{border:1px solid var(--border);padding:6px 9px;text-align:left}
@@ -469,13 +469,15 @@ function prepCanvas(cv, logicW, logicH){
   const dpr=window.devicePixelRatio||1;
   const avail=cv.parentElement?cv.parentElement.clientWidth:logicW;
   const scale=Math.min(1,(avail-8)/logicW);        // 容器不够宽则等比缩小
-  const cssW=Math.round(logicW*scale), cssH=Math.round(logicH*scale);
+  const cssW=Math.max(1,Math.round(logicW*scale)), cssH=Math.max(1,Math.round(logicH*scale));
   cv.width=Math.round(cssW*dpr);
   cv.height=Math.round(cssH*dpr);
   cv.style.width=cssW+'px';
   cv.style.height=cssH+'px';
   const ctx=cv.getContext('2d');
-  ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);
+  // 用「逻辑→物理像素」精确比例（而非舍入前的 scale），避免亚像素错位导致文字/线条发糊
+  const k=cssW*dpr/logicW;
+  ctx.setTransform(k,0,0,k,0,0);
   return ctx;
 }
 
@@ -514,8 +516,13 @@ function drawHist(x,lsl,usl,target,m,sd){
   const W=720,H=380;
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=26,padB=42,plotW=W-padL-padR,plotH=H-padT-padB;
-  const min=arrayMin(x),max=arrayMax(x),range=(max-min)||1;
-  const lo=min-range*0.08,hi=max+range*0.08;
+  // x 轴范围必须覆盖数据与所有规格线（LSL/USL/目标 T），否则线会画出画面不可见
+  const dmin=arrayMin(x),dmax=arrayMax(x),dspan=(dmax-dmin)||1;
+  let lo=Math.min(dmin-dspan*0.08, lsl!=null?lsl:Infinity, target!=null?target:Infinity);
+  let hi=Math.max(dmax+dspan*0.08, usl!=null?usl:-Infinity, target!=null?target:-Infinity);
+  if(lo===Infinity)lo=dmin-dspan*0.08;
+  if(hi===-Infinity)hi=dmax+dspan*0.08;
+  const range=(hi-lo)||1; lo-=range*0.02; hi+=range*0.02;  // 规格线不贴边
   const k=Math.max(6,Math.round(Math.ceil(Math.log2(x.length))+1)),binW=(hi-lo)/k;
   const bins=new Array(k).fill(0);
   for(const v of x){let i=Math.floor((v-lo)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
@@ -573,9 +580,14 @@ function drawBox(x,lsl,usl,target,m){
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=34,padB=40,plotW=W-padL-padR,plotH=H-padT-padB;
   const xs=x.slice().sort((a,b)=>a-b);
-  const lo=xs[0],hi=xs[xs.length-1],span=(hi-lo)||1;
-  const a=lo-span*0.12,b=hi+span*0.12;
-  const x2px=v=>padL+(v-a)/(b-a)*plotW;
+  const lo=xs[0],hi=xs[xs.length-1],span=(hi-lo)||1;   // lo/hi 保留为数据 min/max（须线用）
+  // x 范围覆盖数据与规格线，避免 LSL/USL/T 画出画面
+  let a=Math.min(lo-span*0.12, lsl!=null?lsl:Infinity, target!=null?target:Infinity);
+  let b=Math.max(hi+span*0.12, usl!=null?usl:-Infinity, target!=null?target:-Infinity);
+  if(a===Infinity)a=lo-span*0.12;
+  if(b===-Infinity)b=hi+span*0.12;
+  const ab=b-a||1; a-=ab*0.02; b+=ab*0.02;              // 规格线不贴边
+  const x2px=v=>padL+(v-a)/(b-a||1)*plotW;
   const yMid=padT+plotH/2, half=plotH/2-6;
   // 规格带
   if(lsl!=null&&usl!=null){
@@ -858,9 +870,10 @@ function exportCsv(){
 function exportPng(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const src=['cvHist','cvBox','cvQuant'].map(id=>document.getElementById(id));
-  const pad=24, gap=28, W=760, dw=720;   // 报告里图表统一缩放到 720 逻辑宽
-  // 源 canvas 已按 DPR 放大像素，导出时等比缩回逻辑尺寸（c.width 为实际像素）
-  const dims=src.map(c=>({dw, dh:Math.round(c.height*(dw/c.width))}));
+  const pad=24, gap=28, W=760;   // 报告统一宽 760
+  // 目标宽取「720」与「源图逻辑宽」的较小值：源图已被窄容器缩小时不放大，避免导出模糊
+  const dpr=window.devicePixelRatio||1;
+  const dims=src.map(c=>{const dw=Math.min(720,Math.round(c.width/dpr));return {dw, dh:Math.round(c.height*(dw/c.width))};});
   let H=pad*2+58; dims.forEach(d=>H+=d.dh+gap);
   const big=document.createElement('canvas');big.width=W;big.height=H;
   const ctx=big.getContext('2d');
