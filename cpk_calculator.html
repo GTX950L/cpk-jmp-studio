@@ -413,6 +413,22 @@ function getCss(v){return getComputedStyle(document.documentElement).getProperty
 const C={data:()=>getCss('--c-data'),fit:()=>getCss('--c-fit'),lsl:()=>getCss('--c-lsl'),
          usl:()=>getCss('--c-usl'),target:()=>getCss('--c-target'),grid:()=>getCss('--c-grid'),axis:()=>getCss('--c-axis')};
 
+// 按设备像素比（DPR）放大 canvas 实际分辨率，绘制坐标仍用逻辑像素。
+// 避免高分屏下浏览器拉伸位图导致图表发虚；窄容器时等比缩小不变形。
+function prepCanvas(cv, logicW, logicH){
+  const dpr=window.devicePixelRatio||1;
+  const avail=cv.parentElement?cv.parentElement.clientWidth:logicW;
+  const scale=Math.min(1,(avail-8)/logicW);        // 容器不够宽则等比缩小
+  const cssW=Math.round(logicW*scale), cssH=Math.round(logicH*scale);
+  cv.width=Math.round(cssW*dpr);
+  cv.height=Math.round(cssH*dpr);
+  cv.style.width=cssW+'px';
+  cv.style.height=cssH+'px';
+  const ctx=cv.getContext('2d');
+  ctx.setTransform(dpr*scale,0,0,dpr*scale,0,0);
+  return ctx;
+}
+
 // 通用坐标轴（带网格、刻度数字、轴标题、外框）
 function frame(ctx,W,H,padL,padT,plotW,plotH){
   ctx.strokeStyle=C.axis();ctx.lineWidth=1;ctx.fillStyle=C.axis();ctx.font='10.5px sans-serif';
@@ -443,7 +459,9 @@ function vline(ctx,px,top,h,color,label,labColor){
 }
 
 function drawHist(x,lsl,usl,target,m,sd){
-  const cv=document.getElementById('cvHist'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  const cv=document.getElementById('cvHist');
+  const ctx=prepCanvas(cv,720,380);
+  const W=720,H=380;
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=18,padB=42,plotW=W-padL-padR,plotH=H-padT-padB;
   const min=arrayMin(x),max=arrayMax(x),range=(max-min)||1;
@@ -490,7 +508,9 @@ function roundRectTop(ctx,x,y,w,h,r){
 }
 
 function drawBox(x,lsl,usl,target,m){
-  const cv=document.getElementById('cvBox'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  const cv=document.getElementById('cvBox');
+  const ctx=prepCanvas(cv,720,170);
+  const W=720,H=170;
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=34,padB=40,plotW=W-padL-padR,plotH=H-padT-padB;
   const xs=x.slice().sort((a,b)=>a-b);
@@ -547,7 +567,9 @@ function drawBox(x,lsl,usl,target,m){
 }
 
 function drawQuant(sorted,z){
-  const cv=document.getElementById('cvQuant'),ctx=cv.getContext('2d'),W=cv.width,H=cv.height;
+  const cv=document.getElementById('cvQuant');
+  const ctx=prepCanvas(cv,460,430);
+  const W=460,H=430;
   ctx.clearRect(0,0,W,H);
   const padL=54,padR=18,padT=18,padB=46,plotW=W-padL-padR,plotH=H-padT-padB;
   const zmin=arrayMin(z),zmax=arrayMax(z);
@@ -690,7 +712,7 @@ function downloadBlob(blob,name){
   URL.revokeObjectURL(url);
 }
 function exportCsv(){
-  if(!lastResult){alert('请先点「计算 Cpk」再导出。');return;}
+  if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const lines=['指标,数值,说明'];
   lastResult.rows.forEach(([k,v,d])=>lines.push(k+','+v+','+(d||'')));
   lines.push('');lines.push('原始数据');
@@ -699,10 +721,12 @@ function exportCsv(){
   downloadBlob(blob,'cpk_结果.csv');
 }
 function exportPng(){
-  if(!lastResult){alert('请先点「计算 Cpk」再导出。');return;}
+  if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const src=['cvHist','cvBox','cvQuant'].map(id=>document.getElementById(id));
-  const pad=24, gap=28, W=760;
-  let H=pad*2+40; src.forEach(c=>H+=c.height+gap);
+  const pad=24, gap=28, W=760, dw=720;   // 报告里图表统一缩放到 720 逻辑宽
+  // 源 canvas 已按 DPR 放大像素，导出时等比缩回逻辑尺寸（c.width 为实际像素）
+  const dims=src.map(c=>({dw, dh:Math.round(c.height*(dw/c.width))}));
+  let H=pad*2+58; dims.forEach(d=>H+=d.dh+gap);
   const big=document.createElement('canvas');big.width=W;big.height=H;
   const ctx=big.getContext('2d');
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
@@ -717,10 +741,11 @@ function exportPng(){
   ctx.font='bold 13px sans-serif';ctx.fillStyle='#1f2328';
   ctx.fillText(sumLine,pad,pad+44);
   let y=pad+58;
-  src.forEach(c=>{
+  src.forEach((c,i)=>{
+    const d=dims[i];
     // 白底卡片效果
-    ctx.fillStyle='#fbfcfd';ctx.fillRect((W-c.width)/2-6,y-6,c.width+12,c.height+12);
-    ctx.drawImage(c,Math.max(0,(W-c.width)/2),y);y+=c.height+gap;
+    ctx.fillStyle='#fbfcfd';ctx.fillRect((W-d.dw)/2-6,y-6,d.dw+12,d.dh+12);
+    ctx.drawImage(c,Math.max(0,(W-d.dw)/2),y,d.dw,d.dh);y+=d.dh+gap;
   });
   big.toBlob(b=>downloadBlob(b,'cpk_图表.png'),'image/png');
 }
