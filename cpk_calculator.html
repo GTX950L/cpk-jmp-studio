@@ -101,6 +101,23 @@
     </div>
     <div id="sampleInfo" class="subhint"></div>
 
+    <details id="genBox" style="margin-top:10px">
+      <summary>🔧 反向生成测试数据（按目标 Cpk 造数据）</summary>
+      <div class="row">
+        <label>目标 Cpk<input type="number" id="genCpk" step="any" min="0" value="1.33"></label>
+        <label>数量 n<input type="number" id="genN" min="2" max="100000" value="100"></label>
+      </div>
+      <div class="row">
+        <label>下限 LSL<input type="number" id="genLsl" step="any" placeholder="可留空"></label>
+        <label>上限 USL<input type="number" id="genUsl" step="any" placeholder="可留空"></label>
+      </div>
+      <div class="row">
+        <label>均值 μ（留空=规格中点）<input type="number" id="genMu" step="any" placeholder="双侧留空即可"></label>
+      </div>
+      <button id="btnGen" class="sec">生成并填入</button>
+      <span class="subhint" style="display:block">按「目标 Cpk → σ」反推：σ = 中心到最近规格距离 ÷ (3×Cpk)，生成接近目标的正态数据（实际 Cpk 因随机波动与目标略有偏差）。双侧规格均值可留空自动取中点；单侧规格请填均值 μ。</span>
+    </details>
+
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
     <div class="note" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
     <label class="chk"><input type="checkbox" id="useLsl" checked> 启用最小值 LSL（规格下限）</label>
@@ -690,6 +707,46 @@ document.getElementById('btnSample').onclick=()=>{
   document.getElementById('usl').value='10.050';
   document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
+};
+
+// 反向生成：按目标 Cpk + 规格限 + 数量 n，反推 σ 生成正态测试数据
+document.getElementById('btnGen').onclick=()=>{
+  const gCpk=parseFloat(document.getElementById('genCpk').value);
+  const gN=parseInt(document.getElementById('genN').value)||100;
+  const gLslTxt=document.getElementById('genLsl').value.trim();
+  const gUslTxt=document.getElementById('genUsl').value.trim();
+  const gLsl=gLslTxt!==''?parseFloat(gLslTxt):null;
+  const gUsl=gUslTxt!==''?parseFloat(gUslTxt):null;
+  const gMuTxt=document.getElementById('genMu').value.trim();
+  // ---- 校验 ----
+  if(!(gCpk>0)){setMsg('warn','⚠ 目标 Cpk 需大于 0，例如 1.33。');return;}
+  if(!(gN>=2)){setMsg('warn','⚠ 数量 n 至少为 2（建议 30~300）。');return;}
+  if(gLsl==null&&gUsl==null){setMsg('warn','⚠ 请至少填一个规格限 LSL 或 USL。');return;}
+  if(gLsl!=null&&gUsl!=null&&gLsl>=gUsl){setMsg('warn','⚠ LSL 必须小于 USL。');return;}
+  // ---- 确定均值（双侧留空取中点；单侧必须显式给均值）----
+  let mean;
+  if(gMuTxt!==''){mean=parseFloat(gMuTxt);}
+  else if(gLsl!=null&&gUsl!=null){mean=(gLsl+gUsl)/2;}
+  else{setMsg('warn','⚠ 单侧规格时请填写均值 μ（生成器需要中心位置）。');return;}
+  if(isNaN(mean)){setMsg('warn','⚠ 均值 μ 不是有效数字。');return;}
+  const dist=Math.min(gUsl!=null?gUsl-mean:Infinity, gLsl!=null?mean-gLsl:Infinity);
+  if(!(dist>0)){setMsg('warn','⚠ 均值需落在规格范围内（单侧时在规格限内侧）。');return;}
+  const sigma=dist/(3*gCpk);
+  // ---- 分层采样 + 洗牌：样本分布更贴合目标正态，实际 Cpk 更接近目标 ----
+  const ps=[];
+  for(let i=0;i<gN;i++)ps.push((i+0.5)/gN);
+  for(let i=gN-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=ps[i];ps[i]=ps[j];ps[j]=t;}
+  const out=[];
+  for(let i=0;i<gN;i++)out.push((mean+sigma*normInv(ps[i])).toFixed(4));
+  // ---- 填入并计算 ----
+  document.getElementById('data').value=out.join('\n');
+  document.getElementById('useLsl').checked=gLsl!=null;
+  document.getElementById('useUsl').checked=gUsl!=null;
+  document.getElementById('lsl').value=gLsl!=null?String(gLsl):'';
+  document.getElementById('usl').value=gUsl!=null?String(gUsl):'';
+  document.getElementById('sub').value='0';
+  calc(false);saveState();
+  setMsg('ok','✅ 已生成 '+gN+' 个测试数据：目标 Cpk='+gCpk+'，μ='+mean.toFixed(4)+'，σ='+sigma.toFixed(6)+'（实际 Cpk 见指标卡，随机波动下与目标略有偏差）。');
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
