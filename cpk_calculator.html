@@ -69,6 +69,14 @@
   .legend{font-size:11.5px;color:var(--muted);margin-top:4px;text-align:center}
   footer{text-align:center;color:var(--muted);font-size:11.5px;padding:16px}
   code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12px}
+  .parseinfo{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:16px;line-height:1.5}
+  .parseinfo.ok{color:#1a7f37}
+  .parseinfo.warn{color:#bf8700}
+  #dropHint{position:fixed;left:0;top:0;right:0;bottom:0;z-index:999;display:none;
+    align-items:center;justify-content:center;background:rgba(31,35,40,.4);
+    color:#fff;font-size:21px;font-weight:600;letter-spacing:.5px;
+    pointer-events:none;backdrop-filter:blur(2px)}
+  #dropHint.drag{display:flex}
 </style>
 </head>
 <body>
@@ -77,11 +85,14 @@
   <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python / 安装 / 联网 · 数据不出本机</p>
 </header>
 
+<div id="dropHint">📂 松开鼠标，导入数据文件（支持 .txt / .csv / .dat）</div>
+
 <div class="wrap">
   <!-- 左侧：输入 -->
   <div class="panel">
-    <h2><span class="step">1</span> 数据（去表头，仅测量值）</h2>
-    <textarea id="data" placeholder="例如：&#10;10.01&#10;9.98&#10;10.03&#10;9.97&#10;…（每行一个，或空格/逗号分隔，多列一起粘也行）"></textarea>
+    <h2><span class="step">1</span> 数据（粘贴即算，无需去表头）</h2>
+    <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，也可把 .txt .csv 文件直接拖进来）"></textarea>
+    <div id="parseInfo" class="parseinfo"></div>
     <div style="margin-top:10px">
       <button id="btnCalc">计算 Cpk</button>
       <button id="btnSample" class="sec">填入示例</button>
@@ -99,13 +110,13 @@
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="20"></label>
       <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（用子组极差法）。</span>
     </div>
-    <p class="hint">· LSL / USL 留空会自动预填为 均值 ± 3σ。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
+    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空会自动预填为 均值 ± 3σ。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
 
   <!-- 右侧：结果 -->
   <div class="panel" style="flex:2 1 540px">
     <h2><span class="step">3</span> 结果</h2>
-    <div id="msg" class="note">👈 粘贴数据后点「计算 Cpk」。</div>
+    <div id="msg" class="note">👈 在左侧粘贴测量数据，即可自动计算。</div>
     <div id="verdict"></div>
     <div id="metrics" class="metrics"></div>
     <div id="normNote"></div>
@@ -223,24 +234,78 @@ function capTone(v){
 // 保存最近一次计算结果，供导出使用
 let lastResult=null;
 
-// 从文本框解析数值（空格 / 逗号 / 分号 / 换行分隔，自动扁平化）
-function parseNums(raw){return raw.split(/[\s,;]+/).map(s=>s.trim()).filter(s=>s.length).map(Number).filter(v=>!isNaN(v));}
+// 从一行中提取"有把握"的数值：纯数字直接取；数字开头带单位（10.005mm）提取数字；表头/文本忽略
+function rowNumbers(line){
+  const nums=[];
+  for(const t of line.split(/[\s,;，、]+/)){
+    if(!t) continue;
+    const clean=t.replace(/[,，]/g,'');               // 容忍千位分隔符
+    if(/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(clean)){ nums.push(parseFloat(clean)); continue; }
+    if(/^[-+]?\d/.test(clean)){                       // 数字 + 单位/文字后缀，如 10.005mm
+      const m=clean.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
+      if(m) nums.push(parseFloat(m[0]));
+    }
+  }
+  return nums;
+}
+
+// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header}
+function parseNums(raw){
+  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+  if(!lines.length) return {vals:[],skipped:0,header:0};
+  const rows=lines.map(rowNumbers);
+  const counts=rows.map(r=>r.length);
+  // 表头判定：多数数据行含相同个数的数字；首行数字数少于众数 → 视为表头
+  const freq={}; counts.forEach(c=>freq[c]=(freq[c]||0)+1);
+  let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
+  const vals=[]; let header=0,skipped=0;
+  counts.forEach((c,i)=>{
+    if(c===0){ if(i===0) header++; else skipped++; return; }
+    if(i===0 && c!==mode && c<mode && mode>0){ header++; return; }
+    vals.push(...rows[i]);
+  });
+  return {vals, skipped, header};
+}
+
+// 解析反馈条：显示解析出多少个数值、跳过/忽略了多少
+function showParseInfo(info){
+  const el=document.getElementById('parseInfo');
+  if(!info.vals.length){ el.textContent=''; el.className='parseinfo'; return; }
+  let txt='已解析 '+info.vals.length+' 个数值';
+  const notes=[];
+  if(info.header>0) notes.push('自动跳过表头 '+info.header+' 行');
+  if(info.skipped>0) notes.push('忽略 '+info.skipped+' 处文本');
+  if(notes.length) txt+='（'+notes.join(' · ')+'）';
+  el.textContent=txt;
+  el.className='parseinfo '+(info.skipped>0?'warn':'ok');
+}
+
+// 统一设置顶部提示条
+function setMsg(mode,text){
+  const msg=document.getElementById('msg');
+  msg.className='note'+(mode==='warn'?' warn':'');
+  msg.textContent=text;
+}
 
 /* ============ 主计算 ============ */
-function calc(){
-  const nums=parseNums(document.getElementById('data').value);
-  const msg=document.getElementById('msg');
-  if(nums.length<2){msg.className='note warn';msg.textContent='⚠ 有效数据至少需要 2 个数值，请检查粘贴内容。';return;}
+function calc(auto){
+  const info=parseNums(document.getElementById('data').value);
+  const nums=info.vals;
+  showParseInfo(info);
+  if(nums.length<2){
+    if(!auto) setMsg('warn','⚠ 有效数据至少需要 2 个数值，请检查粘贴内容。');
+    return;
+  }
 
   const n=nums.length;
   const m=mean(nums), sd=sampleStd(nums);
   const sub=parseInt(document.getElementById('sub').value)||0;
 
   // 边界检查：数据无波动 / 子组大小超过数据量
-  if(sd===0){msg.className='note warn';msg.textContent='⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。';return;}
-  if(sub>1&&sub>nums.length){msg.className='note warn';msg.textContent='⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。';return;}
+  if(sd===0){setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
+  if(sub>1&&sub>nums.length){setMsg('warn','⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
   const sw=withinSigma(nums,sub);
-  if(!isFinite(sw)||sw<=0){msg.className='note warn';msg.textContent='⚠ 组内波动计算异常，请检查数据与子组设置。';return;}
+  if(!isFinite(sw)||sw<=0){setMsg('warn','⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
 
   // 规格限
   const useLsl=document.getElementById('useLsl').checked;
@@ -253,7 +318,7 @@ function calc(){
   // 标准值 Target 已取消输入：自动取 (最大+最小)/2 作中心值（用于 Cpm）
   let target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
 
-  if(lsl==null&&usl==null){msg.className='note warn';msg.textContent='⚠ 请至少启用一个规格限（最小值或最大值）。';return;}
+  if(lsl==null&&usl==null){setMsg('warn','⚠ 请至少启用一个规格限（最小值或最大值）。');return;}
 
   // 指标
   const both=lsl!=null&&usl!=null;
@@ -335,7 +400,8 @@ function calc(){
   // 保存结果供导出
   lastResult={rows, nums, lsl, usl, target, m, sd, sw};
 
-  msg.className='note';msg.textContent='✅ 计算完成。';
+  setMsg('ok','✅ 计算完成。');
+  saveState();
 
   drawHist(nums,lsl,usl,target,m,sd);
   drawBox(nums,lsl,usl,target,m);
@@ -524,14 +590,44 @@ function drawQuant(sorted,z){
 
 /* ============ 交互 ============ */
 function autofill(){
-  const nums=parseNums(document.getElementById('data').value);
+  const nums=parseNums(document.getElementById('data').value).vals;
   if(nums.length<2)return;
   const m=mean(nums),sd=sampleStd(nums);
   if(document.getElementById('useLsl').checked)document.getElementById('lsl').value=(m-3*sd).toFixed(4);
   if(document.getElementById('useUsl').checked)document.getElementById('usl').value=(m+3*sd).toFixed(4);
 }
 
-document.getElementById('btnCalc').onclick=calc;
+/* ---- 本地记忆（localStorage）---- */
+const LS_KEY='cpk_jmp_state_v1';
+function saveState(){
+  try{
+    localStorage.setItem(LS_KEY,JSON.stringify({
+      data:document.getElementById('data').value,
+      useLsl:document.getElementById('useLsl').checked,
+      useUsl:document.getElementById('useUsl').checked,
+      lsl:document.getElementById('lsl').value,
+      usl:document.getElementById('usl').value,
+      sub:document.getElementById('sub').value
+    }));
+  }catch(e){/* 隐私模式等场景静默失败 */}
+}
+function restoreState(){
+  try{
+    const s=JSON.parse(localStorage.getItem(LS_KEY)||'null');
+    if(!s) return false;
+    const $=id=>document.getElementById(id);
+    if(s.data!=null)$('data').value=s.data;
+    $('useLsl').checked=s.useLsl!==false;
+    $('useUsl').checked=s.useUsl!==false;
+    if(s.lsl)$('lsl').value=s.lsl;
+    if(s.usl)$('usl').value=s.usl;
+    if(s.sub)$('sub').value=s.sub;
+    return !!s.data;
+  }catch(e){return false;}
+}
+
+/* ---- 事件绑定 ---- */
+document.getElementById('btnCalc').onclick=()=>calc(false);
 document.getElementById('btnSample').onclick=()=>{
   // Box-Muller 生成近似正态样本（轴径：中心 10.005，σ 0.012）
   const out=[];
@@ -540,7 +636,7 @@ document.getElementById('btnSample').onclick=()=>{
     const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
     out.push((10.005+0.012*g).toFixed(4));
   }
-  document.getElementById('data').value=out.join('\n');autofill();calc();
+  document.getElementById('data').value=out.join('\n');autofill();calc(false);saveState();
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
@@ -548,10 +644,43 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('metrics').innerHTML='';
   document.getElementById('normNote').innerHTML='';
   document.getElementById('verdict').innerHTML='';
-  document.getElementById('msg').className='note';
-  document.getElementById('msg').textContent='👈 粘贴数据后点「计算 Cpk」。';
+  document.getElementById('parseInfo').textContent='';
+  document.getElementById('parseInfo').className='parseinfo';
+  setMsg('ok','👈 在左侧粘贴测量数据，即可自动计算。');
   lastResult=null;
+  try{localStorage.removeItem(LS_KEY);}catch(e){}
 };
+
+// 粘贴即算：输入防抖 350ms 自动计算
+let calcTimer=null;
+document.getElementById('data').addEventListener('input',()=>{
+  clearTimeout(calcTimer);
+  calcTimer=setTimeout(()=>calc(true),350);
+});
+
+// 拖拽导入 .txt/.csv/.tsv/.dat
+const dropHint=document.getElementById('dropHint');
+let dragTimer=null;
+window.addEventListener('dragover',e=>{e.preventDefault();dropHint.classList.add('drag');clearTimeout(dragTimer);});
+window.addEventListener('dragleave',()=>{clearTimeout(dragTimer);dragTimer=setTimeout(()=>dropHint.classList.remove('drag'),120);});
+window.addEventListener('drop',e=>{
+  e.preventDefault();dropHint.classList.remove('drag');clearTimeout(dragTimer);
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(!f)return;
+  const ext=(f.name.split('.').pop()||'').toLowerCase();
+  if(!['txt','csv','tsv','dat'].includes(ext)){
+    setMsg('warn','⚠ 仅支持 .txt / .csv / .tsv / .dat 文本文件；也可以直接复制粘贴数据。');return;
+  }
+  const reader=new FileReader();
+  reader.onload=()=>{
+    document.getElementById('data').value=String(reader.result||'').trim();
+    calc(true);
+  };
+  reader.readAsText(f);
+});
+
+// 初始化：恢复上次数据并自动重算
+if(restoreState()) calc(true);
 
 /* ============ 导出 ============ */
 function downloadBlob(blob,name){
