@@ -101,6 +101,7 @@
     </div>
 
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
+    <div class="note" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
     <label class="chk"><input type="checkbox" id="useLsl" checked> 启用最小值 LSL（规格下限）</label>
     <label class="chk"><input type="checkbox" id="useUsl" checked> 启用最大值 USL（规格上限）</label>
     <div class="row">
@@ -111,7 +112,7 @@
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="20"></label>
       <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（用子组极差法）。</span>
     </div>
-    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空会自动预填为 均值 ± 3σ。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
+    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空时自动预填「均值 ± 3σ」（仅占位，判级前请填真实规格限）。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
 
   <!-- 右侧：结果 -->
