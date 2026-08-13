@@ -127,10 +127,14 @@
       <label>最大值 USL<input type="number" id="usl" step="any"></label>
     </div>
     <div class="row">
+      <label>目标值 T（可选）<input type="number" id="target" step="any" placeholder="设计目标值；留空=取规格中点"></label>
+      <span class="subhint">图纸/客户要求的标称值（如 φ20 +0.1/-0.05 的目标是 20.00，不是规格中点 20.025）。留空时自动取 (LSL+USL)/2，仅用于 Cpm。</span>
+    </div>
+    <div class="row">
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="20"></label>
       <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（用子组极差法）。</span>
     </div>
-    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空时自动预填「均值 ± 3σ」（仅占位，判级前请填真实规格限）。<br>· 标准值 Target 已取消填写，自动取「(LSL+USL)/2」作中心值（用于 Cpm）。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
+    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空时自动预填「均值 ± 3σ」（仅占位，判级前请填真实规格限）。<br>· 目标值 T 可选填（图纸/设计标称值）；留空时自动取「(LSL+USL)/2」作中心值（用于 Cpm）。非对称公差建议填真实 T。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
 
   <!-- 右侧：结果 -->
@@ -140,6 +144,7 @@
     <div id="verdict"></div>
     <div id="metrics" class="metrics"></div>
     <div id="normNote"></div>
+    <div id="targetNote"></div>
 
     <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
     <canvas id="cvHist" width="720" height="380"></canvas>
@@ -345,13 +350,24 @@ function calc(auto){
   // 输入框留空时自动用 均值±3σ，并回填到输入框让用户看到实际使用的值
   if(useLsl&&isNaN(lsl)){lsl=m-3*sd;document.getElementById('lsl').value=lsl.toFixed(4);}
   if(useUsl&&isNaN(usl)){usl=m+3*sd;document.getElementById('usl').value=usl.toFixed(4);}
-  // 标准值 Target 已取消输入：自动取 (最大+最小)/2 作中心值（用于 Cpm）
-  let target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
+  // 目标值 T：用户显式输入优先；留空时自动取 (最大+最小)/2 作中心值（用于 Cpm）
+  const tInput=document.getElementById('target').value.trim();
+  let target=tInput!==''?parseFloat(tInput):NaN;
+  const targetFromInput=!isNaN(target);   // 是否由用户显式提供（非自动回退）
+  if(!targetFromInput){
+    target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
+  }
 
   if(lsl==null&&usl==null){setMsg('warn','⚠ 请至少启用一个规格限（最小值或最大值）。');return;}
 
   // 指标
   const both=lsl!=null&&usl!=null;
+  // 目标值检查：T 在规格外 → 硬警告；未填 T（自动取中点）→ 弱提示，避免非对称公差被掩盖
+  let targetNoteHtml='';
+  if(targetFromInput&&both&&(target<lsl||target>usl))
+    targetNoteHtml=`<div class="note warn">⚠ 目标值 T（${fmt(target,4)}）不在规格范围 [${fmt(lsl,4)}, ${fmt(usl,4)}] 内，请检查输入。</div>`;
+  else if(!targetFromInput&&both)
+    targetNoteHtml=`<div class="note">ℹ Cpm 使用目标 T = 规格中点（${fmt(target,4)}）。若设计目标不在中点（非对称公差，如 φ20 +0.1/-0.05 → T=20.00），请在左侧填写「目标值 T」。</div>`;
   const cp=both?(usl-lsl)/(6*sw):NaN;
   const cpu=usl!=null?(usl-m)/(3*sw):Infinity;
   const cpl=lsl!=null?(m-lsl)/(3*sw):Infinity;
@@ -393,7 +409,7 @@ function calc(auto){
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
-  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（含目标）',cpm]];
+  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（含目标）'+(targetFromInput?'':'*'),cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
     return `<div class="metric" style="border-left-color:${tone.c}">
@@ -410,11 +426,15 @@ function calc(auto){
     `<div class="note ${normOk?'':'warn'}">正态性检验（Shapiro-Francia 近似，即 Q-Q 图 R²）：R² = ${r2.toFixed(4)}`+
     ` → ${normOk?'数据近似正态，Cpk 正态法适用 ✅':'数据可能非正态，建议谨慎解读 ⚠️'}</div>`;
 
+  // ---- 目标值提示（T 来源 / 越界警告）----
+  document.getElementById('targetNote').innerHTML=targetNoteHtml;
+
   // ---- 明细表 ----
   const rows=[
     ['样本量 n',fmt(n,0),'参与计算的观测个数'],
     ['均值 μ',fmt(m,4),'数据算术平均'],
-    ['目标 T（自动取中点）',fmt(target,4),'(LSL+USL)/2，用于 Cpm'],
+    ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':'自动取 (LSL+USL)/2，用于 Cpm'],
+    ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':'均值相对规格中点的偏移（0=恰好居中）'],
     ['组内 σ',fmt(sw,4),'移动极差法（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
     ['Cp',fmt(cp),'潜在能力（仅规格宽度/σ）'],
@@ -659,6 +679,7 @@ function saveState(){
       useUsl:document.getElementById('useUsl').checked,
       lsl:document.getElementById('lsl').value,
       usl:document.getElementById('usl').value,
+      target:document.getElementById('target').value,
       sub:document.getElementById('sub').value
     }));
   }catch(e){/* 隐私模式等场景静默失败 */}
@@ -673,6 +694,7 @@ function restoreState(){
     $('useUsl').checked=s.useUsl!==false;
     if(s.lsl)$('lsl').value=s.lsl;
     if(s.usl)$('usl').value=s.usl;
+    if(s.target)$('target').value=s.target;
     if(s.sub)$('sub').value=s.sub;
     return !!s.data;
   }catch(e){return false;}
@@ -754,7 +776,7 @@ document.getElementById('btnGen').onclick=()=>{
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
-  ['lsl','usl'].forEach(id=>document.getElementById(id).value='');
+  ['lsl','usl','target'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('useLsl').checked=true;   // 恢复双侧规格默认
   document.getElementById('useUsl').checked=true;
   document.getElementById('sub').value='0';         // 恢复个体测量默认
@@ -781,7 +803,7 @@ let calcTimer=null;
 function scheduleCalc(ms){clearTimeout(calcTimer);calcTimer=setTimeout(()=>calc(true),ms);}
 document.getElementById('data').addEventListener('input',()=>scheduleCalc(350));
 // 规格限 / 子组大小改动实时重算（README 承诺的行为）
-['lsl','usl','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>scheduleCalc(350)));
+['lsl','usl','target','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>scheduleCalc(350)));
 ['useLsl','useUsl'].forEach(id=>document.getElementById(id).addEventListener('change',()=>scheduleCalc(80)));
 
 // 拖拽导入 .txt/.csv/.tsv/.dat
