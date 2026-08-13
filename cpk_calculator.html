@@ -221,6 +221,14 @@ function fmtTick(v){
   return v.toFixed(3);
 }
 
+// 返回 >= hi 的最小"漂亮"刻度（避免最后一个刻度小于数据上界导致图形超出绘图区被裁）
+function niceCeil(lo,hi,n){
+  const t=niceTicks(lo,hi,n);
+  if(t[t.length-1]>=hi) return t[t.length-1];
+  const step=t.length>1?t[1]-t[0]:(hi-lo)||hi;
+  return +(t[t.length-1]+step).toFixed(10);
+}
+
 // 能力等级配色（直接十六进制，与 CSS 变量同值，避免运行时解析）
 const CAPCOLORS={good:'#1a7f37',ok:'#0969da',mar:'#bf8700',bad:'#cf222e',na:'#8a949e'};
 function capTone(v){
@@ -463,14 +471,18 @@ function drawHist(x,lsl,usl,target,m,sd){
   const ctx=prepCanvas(cv,720,380);
   const W=720,H=380;
   ctx.clearRect(0,0,W,H);
-  const padL=52,padR=18,padT=18,padB=42,plotW=W-padL-padR,plotH=H-padT-padB;
+  const padL=52,padR=18,padT=26,padB=42,plotW=W-padL-padR,plotH=H-padT-padB;
   const min=arrayMin(x),max=arrayMax(x),range=(max-min)||1;
   const lo=min-range*0.08,hi=max+range*0.08;
   const k=Math.max(6,Math.round(Math.ceil(Math.log2(x.length))+1)),binW=(hi-lo)/k;
   const bins=new Array(k).fill(0);
   for(const v of x){let i=Math.floor((v-lo)/binW);if(i<0)i=0;if(i>=k)i=k-1;bins[i]++;}
   const densMax=arrayMax(bins)/(x.length*binW);
-  const yMax=niceTicks(0,densMax*1.1,4).slice(-1)[0]||densMax*1.1;
+  // y 上界取"直方图密度峰值"与"正态曲线峰值"两者较大，再留 15% 余量；
+  // 用 niceCeil 保证上界刻度 >= 该值，柱顶与曲线峰值不会被裁出绘图区
+  const curvePeak=1/(sd*Math.sqrt(2*Math.PI));
+  const yLimit=Math.max(densMax,curvePeak)*1.15;
+  const yMax=niceCeil(0,yLimit,4)||yLimit;
   const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
 
   // 直方图（圆角柱）
@@ -575,9 +587,12 @@ function drawQuant(sorted,z){
   const zmin=arrayMin(z),zmax=arrayMax(z);
   const dmin=arrayMin(sorted),dmax=arrayMax(sorted);
   const zt=niceTicks(zmin,zmax,6), dt=niceTicks(dmin,dmax,6);
-  const zspan=zt[zt.length-1]-zt[0], dspan=dt[dt.length-1]-dt[0];
-  const x2px=v=>padL+(v-zt[0])/zspan*plotW;
-  const y2px=v=>padT+plotH-(v-dt[0])/dspan*plotH;
+  // 绘图范围必须覆盖数据极值（首尾"漂亮"刻度可能大于极值，否则最左/最底散点会被裁掉）
+  const zlo=Math.min(zt[0],zmin), zhi=Math.max(zt[zt.length-1],zmax);
+  const dlo=Math.min(dt[0],dmin), dhi=Math.max(dt[dt.length-1],dmax);
+  const zspan=(zhi-zlo)||1, dspan=(dhi-dlo)||1;
+  const x2px=v=>padL+(v-zlo)/zspan*plotW;
+  const y2px=v=>padT+plotH-(v-dlo)/dspan*plotH;
   // 网格
   ctx.strokeStyle=C.grid();ctx.lineWidth=1;
   zt.forEach(t=>{const px=x2px(t);ctx.beginPath();ctx.moveTo(px,padT);ctx.lineTo(px,padT+plotH);ctx.stroke();});
