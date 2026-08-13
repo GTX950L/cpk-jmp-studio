@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cpk 计算器（离线单文件版）</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
 <style>
   :root{
     --c-data:#2f6db5;      /* 数据/直方图 */
@@ -85,12 +86,12 @@
   <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python / 安装 / 联网 · 数据不出本机</p>
 </header>
 
-<div id="dropHint">📂 松开鼠标，导入数据文件（支持 .txt / .csv / .dat）</div>
+<div id="dropHint">📂 松开鼠标，导入数据文件（支持 .txt / .csv / .tsv / .dat）</div>
 
 <div class="wrap">
   <!-- 左侧：输入 -->
   <div class="panel">
-    <h2><span class="step">1</span> 数据（粘贴即算，无需去表头）</h2>
+    <h2><span class="step">1</span> 数据（粘贴即算，自动跳过表头/单位）</h2>
     <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，也可把 .txt .csv 文件直接拖进来）"></textarea>
     <div id="parseInfo" class="parseinfo"></div>
     <div style="margin-top:10px">
@@ -245,12 +246,14 @@ let lastResult=null;
 // 从一行中提取"有把握"的数值：纯数字直接取；数字开头带单位（10.005mm）提取数字；表头/文本忽略
 function rowNumbers(line){
   const nums=[];
-  for(const t of line.split(/[\s,;，、]+/)){
+  // 先合并千位分隔符（10,005 → 10005，10,005.3 → 10005.3）；
+  // 仅当逗号后恰为 3 位数字才合并，不影响"逗号分隔多列"（如 10.01,9.98,10.03）
+  const line2=line.replace(/(\d),(?=\d{3}(?!\d))/g,'$1');
+  for(const t of line2.split(/[\s,;，、]+/)){
     if(!t) continue;
-    const clean=t.replace(/[,，]/g,'');               // 容忍千位分隔符
-    if(/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(clean)){ nums.push(parseFloat(clean)); continue; }
-    if(/^[-+]?\d/.test(clean)){                       // 数字 + 单位/文字后缀，如 10.005mm
-      const m=clean.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
+    if(/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(t)){ nums.push(parseFloat(t)); continue; }
+    if(/^[-+]?\d/.test(t)){                        // 数字 + 单位/文字后缀，如 10.005mm
+      const m=t.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
       if(m) nums.push(parseFloat(m[0]));
     }
   }
@@ -626,13 +629,6 @@ function drawQuant(sorted,z){
 }
 
 /* ============ 交互 ============ */
-function autofill(){
-  const nums=parseNums(document.getElementById('data').value).vals;
-  if(nums.length<2)return;
-  const m=mean(nums),sd=sampleStd(nums);
-  if(document.getElementById('useLsl').checked)document.getElementById('lsl').value=(m-3*sd).toFixed(4);
-  if(document.getElementById('useUsl').checked)document.getElementById('usl').value=(m+3*sd).toFixed(4);
-}
 
 /* ---- 本地记忆（localStorage）---- */
 const LS_KEY='cpk_jmp_state_v1';
@@ -666,18 +662,25 @@ function restoreState(){
 /* ---- 事件绑定 ---- */
 document.getElementById('btnCalc').onclick=()=>calc(false);
 document.getElementById('btnSample').onclick=()=>{
-  // Box-Muller 生成近似正态样本（轴径：中心 10.005，σ 0.012）
+  // Box-Muller 生成近似正态样本（轴径：中心 10.000，σ 0.011 → Cpk≈1.5，判为"合格"）
+  // 固定规格限 9.950~10.050，给用户一个直观的"合格"示例
   const out=[];
   for(let i=0;i<120;i++){
     const u1=Math.random()||1e-9,u2=Math.random();
     const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
-    out.push((10.005+0.012*g).toFixed(4));
+    out.push((10.000+0.011*g).toFixed(4));
   }
-  document.getElementById('data').value=out.join('\n');autofill();calc(false);saveState();
+  document.getElementById('data').value=out.join('\n');
+  document.getElementById('lsl').value='9.950';
+  document.getElementById('usl').value='10.050';
+  calc(false);saveState();
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
   ['lsl','usl'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('useLsl').checked=true;   // 恢复双侧规格默认
+  document.getElementById('useUsl').checked=true;
+  document.getElementById('sub').value='0';         // 恢复个体测量默认
   document.getElementById('metrics').innerHTML='';
   document.getElementById('normNote').innerHTML='';
   document.getElementById('verdict').innerHTML='';
