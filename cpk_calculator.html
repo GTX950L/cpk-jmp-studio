@@ -554,12 +554,12 @@ function drawHist(x,lsl,usl,target,m,sd){
   // 规格线
   if(lsl!=null)vline(ctx,x2px(lsl),padT,plotH,C.lsl(),'LSL',C.lsl());
   if(usl!=null)vline(ctx,x2px(usl),padT,plotH,C.usl(),'USL',C.usl());
-  if(target!=null)vline(ctx,x2px(target),padT,plotH,C.target(),'T',C.target());
-  // 均值线（越界时变红；与 T 标签过近时省略标签防重叠）
+  // 均值线（越界时变红；与 T 线重合时用「T/μ」合并标签，避免 μ 不可见）
   const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?'#cf222e':C.fit();
   const muPx=x2px(m),tPx=target!=null?x2px(target):null;
-  const muLab=(tPx==null||Math.abs(muPx-tPx)>20)?'μ':'';
-  vline(ctx,muPx,padT,plotH,muC,muLab,muC);
+  const nearT=(tPx!=null&&Math.abs(muPx-tPx)<=20);
+  if(target!=null)vline(ctx,tPx,padT,plotH,C.target(),nearT?'T/μ':'T',C.target());
+  vline(ctx,muPx,padT,plotH,muC,nearT?'':'μ',muC);
 
   // 网格与刻度
   xticks(ctx,niceTicks(lo,hi,7),x2px,padT,plotH,fmtTick);
