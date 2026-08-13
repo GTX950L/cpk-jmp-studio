@@ -148,7 +148,7 @@
 
     <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
     <canvas id="cvHist" width="720" height="380"></canvas>
-    <div class="legend">▮ 测量数据　┄ 正态拟合　┊ LSL/USL 规格限　▴ 目标值</div>
+    <div class="legend">▮ 测量数据　┄ 正态拟合　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
 
     <div class="chart-title">② 能力箱线图（观测值相对规格限的位置）</div>
     <canvas id="cvBox" width="720" height="170"></canvas>
@@ -542,6 +542,11 @@ function drawHist(x,lsl,usl,target,m,sd){
   if(lsl!=null)vline(ctx,x2px(lsl),padT,plotH,C.lsl(),'LSL',C.lsl());
   if(usl!=null)vline(ctx,x2px(usl),padT,plotH,C.usl(),C.usl());
   if(target!=null)vline(ctx,x2px(target),padT,plotH,C.target(),'T',C.target());
+  // 均值线（越界时变红；与 T 标签过近时省略标签防重叠）
+  const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?'#cf222e':C.fit();
+  const muPx=x2px(m),tPx=target!=null?x2px(target):null;
+  const muLab=(tPx==null||Math.abs(muPx-tPx)>20)?'μ':'';
+  vline(ctx,muPx,padT,plotH,muC,muLab,muC);
 
   // 网格与刻度
   xticks(ctx,niceTicks(lo,hi,7),x2px,padT,plotH,fmtTick);
@@ -592,9 +597,13 @@ function drawBox(x,lsl,usl,target,m){
   // 中位数线
   ctx.strokeStyle='#1f2328';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(x2px(q2),yMid-half);ctx.lineTo(x2px(q2),yMid+half);ctx.stroke();
-  // 均值点
-  ctx.fillStyle=C.fit();ctx.beginPath();ctx.arc(x2px(m),yMid,5,0,7);ctx.fill();
+  // 均值点（越界时变红）+ 数值标注（点正下方）
+  const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?'#cf222e':C.fit();
+  ctx.fillStyle=muC;ctx.beginPath();ctx.arc(x2px(m),yMid,5,0,7);ctx.fill();
   ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle=muC;ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.fillText('μ '+fmtTick(m),x2px(m),yMid+16);
+  ctx.textAlign='start';
   // 标注 Q1 / 中位数 / Q3 数值（箱体上方，间距过近时省略防重叠）
   ctx.fillStyle='#6a737d';ctx.font='10px sans-serif';ctx.textAlign='center';
   const qx1=x2px(q1),qx2=x2px(q2),qx3=x2px(q3);
