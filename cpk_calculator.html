@@ -99,13 +99,13 @@
       <button id="btnSample" class="sec">填入示例</button>
       <button id="btnClear" class="sec">清空</button>
     </div>
-    <div id="sampleInfo" class="subhint"></div>
+    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 6 组不同能力等级的数据（不足→优秀）</div>
 
     <details id="genBox" style="margin-top:10px">
       <summary>🔧 反向生成测试数据（按目标 Cpk 造数据）</summary>
       <div class="row">
         <label>目标 Cpk<input type="number" id="genCpk" step="any" min="0" value="1.33"></label>
-        <label>数量 n<input type="number" id="genN" min="2" max="100000" value="100"></label>
+        <label>数量 n<input type="number" id="genN" min="2" max="10000" value="100"></label>
       </div>
       <div class="row">
         <label>下限 LSL<input type="number" id="genLsl" step="any" placeholder="可留空"></label>
@@ -705,6 +705,7 @@ document.getElementById('btnSample').onclick=()=>{
   document.getElementById('useUsl').checked=true;
   document.getElementById('lsl').value='9.950';
   document.getElementById('usl').value='10.050';
+  document.getElementById('sub').value='0';         // 示例按个体测量展示
   document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
 };
@@ -722,6 +723,8 @@ document.getElementById('btnGen').onclick=()=>{
   if(!(gCpk>0)){setMsg('warn','⚠ 目标 Cpk 需大于 0，例如 1.33。');return;}
   if(!(gN>=2)){setMsg('warn','⚠ 数量 n 至少为 2（建议 30~300）。');return;}
   if(gLsl==null&&gUsl==null){setMsg('warn','⚠ 请至少填一个规格限 LSL 或 USL。');return;}
+  if(gLsl!=null&&isNaN(gLsl)){setMsg('warn','⚠ 下限 LSL 不是有效数字。');return;}
+  if(gUsl!=null&&isNaN(gUsl)){setMsg('warn','⚠ 上限 USL 不是有效数字。');return;}
   if(gLsl!=null&&gUsl!=null&&gLsl>=gUsl){setMsg('warn','⚠ LSL 必须小于 USL。');return;}
   // ---- 确定均值（双侧留空取中点；单侧必须显式给均值）----
   let mean;
@@ -740,6 +743,7 @@ document.getElementById('btnGen').onclick=()=>{
   for(let i=0;i<gN;i++)out.push((mean+sigma*normInv(ps[i])).toFixed(4));
   // ---- 填入并计算 ----
   document.getElementById('data').value=out.join('\n');
+  document.getElementById('sampleInfo').textContent='';  // 清掉上一次的示例说明
   document.getElementById('useLsl').checked=gLsl!=null;
   document.getElementById('useUsl').checked=gUsl!=null;
   document.getElementById('lsl').value=gLsl!=null?String(gLsl):'';
@@ -761,6 +765,12 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('parseInfo').className='parseinfo';
   document.getElementById('sampleInfo').textContent='';
   sampleIdx=0;                                       // 示例计数器归零，下次从 ① 开始
+  // 生成器参数恢复默认（全新开始）
+  document.getElementById('genCpk').value='1.33';
+  document.getElementById('genN').value='100';
+  document.getElementById('genLsl').value='';
+  document.getElementById('genUsl').value='';
+  document.getElementById('genMu').value='';
   setMsg('ok','👈 在左侧粘贴测量数据，即可自动计算。');
   lastResult=null;
   try{localStorage.removeItem(LS_KEY);}catch(e){}
@@ -768,10 +778,11 @@ document.getElementById('btnClear').onclick=()=>{
 
 // 粘贴即算：输入防抖 350ms 自动计算
 let calcTimer=null;
-document.getElementById('data').addEventListener('input',()=>{
-  clearTimeout(calcTimer);
-  calcTimer=setTimeout(()=>calc(true),350);
-});
+function scheduleCalc(ms){clearTimeout(calcTimer);calcTimer=setTimeout(()=>calc(true),ms);}
+document.getElementById('data').addEventListener('input',()=>scheduleCalc(350));
+// 规格限 / 子组大小改动实时重算（README 承诺的行为）
+['lsl','usl','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>scheduleCalc(350)));
+['useLsl','useUsl'].forEach(id=>document.getElementById(id).addEventListener('change',()=>scheduleCalc(80)));
 
 // 拖拽导入 .txt/.csv/.tsv/.dat
 const dropHint=document.getElementById('dropHint');
