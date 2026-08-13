@@ -99,6 +99,7 @@
       <button id="btnSample" class="sec">填入示例</button>
       <button id="btnClear" class="sec">清空</button>
     </div>
+    <div id="sampleInfo" class="subhint"></div>
 
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
     <div class="note" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
@@ -662,18 +663,32 @@ function restoreState(){
 
 /* ---- 事件绑定 ---- */
 document.getElementById('btnCalc').onclick=()=>calc(false);
+
+// 6 组示例：从"完全离散"到"接近完美"，循环切换（规格限统一 9.950~10.050，能力差异由数据本身决定）
+const SAMPLE_SETS=[
+  {name:'① 能力不足（D 级）', desc:'波动极大（σ=0.035，Cpk≈0.5），过程失控，必须立即改善', mu:10.000, sigma:0.035},
+  {name:'② 均值偏移（D 级）', desc:'波动正常但中心严重偏上（μ=10.032），大部分超上差', mu:10.032, sigma:0.012},
+  {name:'③ 能力边缘（C 级）', desc:'σ=0.016，Cpk≈1.0，存在超规风险，需加强管控', mu:10.000, sigma:0.016},
+  {name:'④ 能力合格（B 级）', desc:'σ=0.011，Cpk≈1.5，满足一般工业要求，可维持监控', mu:10.000, sigma:0.011},
+  {name:'⑤ 能力优秀（A 级）', desc:'σ=0.009，Cpk≈1.9，过程稳定且余量充足', mu:10.000, sigma:0.009},
+  {name:'⑥ 接近完美（A 级）', desc:'σ=0.005，Cpk≈3.3，波动极小，几乎完美符合标准', mu:10.000, sigma:0.005}
+];
+let sampleIdx=0;
 document.getElementById('btnSample').onclick=()=>{
-  // Box-Muller 生成近似正态样本（轴径：中心 10.000，σ 0.011 → Cpk≈1.5，判为"合格"）
-  // 固定规格限 9.950~10.050，给用户一个直观的"合格"示例
+  const s=SAMPLE_SETS[sampleIdx%SAMPLE_SETS.length]; sampleIdx++;
+  // Box-Muller 生成近似正态样本
   const out=[];
   for(let i=0;i<120;i++){
     const u1=Math.random()||1e-9,u2=Math.random();
     const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
-    out.push((10.000+0.011*g).toFixed(4));
+    out.push((s.mu+s.sigma*g).toFixed(4));
   }
   document.getElementById('data').value=out.join('\n');
+  document.getElementById('useLsl').checked=true;   // 示例统一演示双侧规格
+  document.getElementById('useUsl').checked=true;
   document.getElementById('lsl').value='9.950';
   document.getElementById('usl').value='10.050';
+  document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
 };
 document.getElementById('btnClear').onclick=()=>{
@@ -687,6 +702,8 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('verdict').innerHTML='';
   document.getElementById('parseInfo').textContent='';
   document.getElementById('parseInfo').className='parseinfo';
+  document.getElementById('sampleInfo').textContent='';
+  sampleIdx=0;                                       // 示例计数器归零，下次从 ① 开始
   setMsg('ok','👈 在左侧粘贴测量数据，即可自动计算。');
   lastResult=null;
   try{localStorage.removeItem(LS_KEY);}catch(e){}
