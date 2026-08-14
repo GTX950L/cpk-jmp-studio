@@ -78,6 +78,24 @@
     color:#fff;font-size:21px;font-weight:600;letter-spacing:.5px;
     pointer-events:none;backdrop-filter:blur(2px)}
   #dropHint.drag{display:flex}
+  /* ---- JMP 报告式布局 ---- */
+  .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
+  .report-block{background:#fbfcfd;border:1px solid var(--border);border-radius:9px;padding:10px 12px 8px}
+  .report-block h4{margin:0 0 8px;font-size:12.5px;font-weight:650;color:#32383f;
+    border-bottom:2px solid #eef1f4;padding-bottom:6px}
+  .cap-table{width:100%;border-collapse:collapse;font-size:12px}
+  .cap-table th,.cap-table td{border:0;border-bottom:1px solid #edf0f3;padding:4px 6px}
+  .cap-table th{background:transparent;color:var(--muted);font-weight:550;font-size:11px;text-align:left}
+  .cap-table td.num,.cap-table th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .cap-table td.est{font-weight:700;color:#1f2328;text-align:right}
+  .cap-table td.na{color:#c0c6cd;text-align:right}
+  .cap-table .ci-note{font-size:10px;color:var(--muted)}
+  .summary-table td,.summary-table th{padding:4px 8px;font-size:12px}
+  .summary-table .k{color:var(--muted);font-weight:550;width:42%}
+  .summary-table .v{font-variant-numeric:tabular-nums;text-align:right}
+  .stability-high{color:var(--bad);font-weight:700}
+  .defect-row-total td{font-weight:650;background:#f3f5f7}
+  @media(max-width:640px){.report-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -146,9 +164,28 @@
     <div id="normNote"></div>
     <div id="targetNote"></div>
 
-    <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
-    <canvas id="cvHist" width="720" height="380"></canvas>
-    <div class="legend">▮ 测量数据　┄ 正态拟合　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
+    <div class="chart-title">① 直方图 + 正态曲线（实线=总体 / 虚线=组内）+ 规格限</div>
+    <canvas id="cvHist" width="720" height="400"></canvas>
+    <div class="legend">▮ 测量数据　─ 总体拟合(σ总)　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
+
+    <!-- ===== JMP 式报告区（截图即用） ===== -->
+    <div class="chart-title">④ 过程汇总（Process Summary）</div>
+    <div id="summaryTable" class="summary-table"></div>
+
+    <div class="report-grid">
+      <div class="report-block">
+        <h4>组内 Sigma 能力（短期能力）</h4>
+        <table class="cap-table" id="withinCap"><thead></thead><tbody></tbody></table>
+      </div>
+      <div class="report-block">
+        <h4>总 Sigma 能力（长期性能）</h4>
+        <table class="cap-table" id="overallCap"><thead></thead><tbody></tbody></table>
+      </div>
+    </div>
+
+    <div class="chart-title">⑤ 不合格分析（观测 vs 期望，% 超规格）</div>
+    <table class="cap-table" id="defectTable" style="max-width:640px"><thead></thead><tbody></tbody></table>
+    <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望总体% = 用整体 σ 的正态估计。<span class="ci-note">（95% 置信区间为近似值）</span></div>
 
     <div class="chart-title">② 能力箱线图（观测值相对规格限的位置）</div>
     <canvas id="cvBox" width="720" height="170"></canvas>
@@ -227,6 +264,40 @@ function corr(a,b){
 }
 
 const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
+
+// 正态分布双侧 95% 分位数 z_{0.975}（用于置信区间）
+const Z975=normInv(0.975);
+
+// 卡方分布 p 分位点（Wilson–Hilferty 近似），用于 Cp/Pp 的置信区间
+// 公式：χ²_p(df) ≈ df·(1 − 2/(9df) + z_p·√(2/(9df)))³
+function chi2Inv(p,df){
+  if(!(df>0))return NaN;
+  const z=normInv(p);
+  const v=1-2/(9*df)+z*Math.sqrt(2/(9*df));
+  return df*v*v*v;
+}
+
+// Cp/Pp 类指数的 95% 置信区间：CI = C·√(χ²_{p}(n−1)/(n−1))
+// p 取下尾 0.025 / 0.975 得 [下限, 上限]（近似，子组法通常用 ν≈组数×(n−1)，此处统一用 n−1 保守近似）
+function ciCpLike(C,n){
+  if(!(C>0)||!(n>2))return [null,null];
+  const df=n-1;
+  return [C*Math.sqrt(chi2Inv(0.025,df)/df), C*Math.sqrt(chi2Inv(0.975,df)/df)];
+}
+
+// Cpk/Cpl/Cpu/Ppk/Ppl/Ppu/Cpm 类指数的 95% 置信区间（Bissell / Kotz 近似）：
+// se ≈ √(1/(9n) + K²/(2(n−1)))，CI = K ± z_{0.975}·se
+function ciIndexLike(K,n){
+  if(!isFinite(K)||K==null)return [null,null];
+  const se=Math.sqrt(1/(9*n)+K*K/(2*(n-1)));
+  return [Math.max(0,K-Z975*se), K+Z975*se];
+}
+
+// 按指数类型取 CI：Cp/Pp 用卡方法，其余用正态近似
+function ciFor(name,K,n){
+  if(name==='Cp'||name==='Pp')return ciCpLike(K,n);
+  return ciIndexLike(K,n);
+}
 
 // 漂亮的刻度（1/2/5 序列）
 function niceTicks(lo,hi,n){
@@ -389,6 +460,29 @@ function calc(auto){
   let obs=0; if(usl!=null)obs+=nums.filter(v=>v>usl).length; if(lsl!=null)obs+=nums.filter(v=>v<lsl).length;
   const obsPpm=1e6*obs/n;
 
+  // ---- 稳定性指标（JMP：总 σ ÷ 组内 σ，>1 表示长期波动大于短期，存在组间漂移）----
+  const stability=sd/sw;
+
+  // ---- 不合格分析（观测 % / 期望组内 % / 期望总体 %）----
+  const obsBelowPct = lsl!=null ? 100*nums.filter(v=>v<lsl).length/n : 0;
+  const obsAbovePct = usl!=null ? 100*nums.filter(v=>v>usl).length/n : 0;
+  const expWBelowPct = lsl!=null ? 100*normCdf(lsl,m,sw) : 0;
+  const expWAbovePct = usl!=null ? 100*(1-normCdf(usl,m,sw)) : 0;
+  const expOBelowPct= lsl!=null ? 100*normCdf(lsl,m,sd) : 0;
+  const expOAbovePct= usl!=null ? 100*(1-normCdf(usl,m,sd)) : 0;
+  const defectRows=[
+    ['低于下规格限',obsBelowPct,expWBelowPct,expOBelowPct],
+    ['高于上规格限',obsAbovePct,expWAbovePct,expOAbovePct],
+    ['规格外合计',obsBelowPct+obsAbovePct,expWBelowPct+expWAbovePct,expOBelowPct+expOAbovePct]
+  ];
+
+  // ---- 各指数的 95% 置信区间（组内 & 总体）----
+  const withinIdx={Cpk:cpk,Cpl:cpl,Cpu:cpu,Cp:cp,Cpm:cpm};
+  const overallIdx={Ppk:ppk,Ppl:ppl,Ppu:ppu,Pp:pp,Cpm:cpm};
+  const withinCI={},overallCI={};
+  for(const k in withinIdx)withinCI[k]=ciFor(k,withinIdx[k],n);
+  for(const k in overallIdx)overallCI[k]=ciFor(k,overallIdx[k],n);
+
   // 正态性（Shapiro-Francia 近似 = Q-Q 图 R²）
   const sorted=[...nums].sort((a,b)=>a-b);
   const z=sorted.map((_,i)=>normInv((i+1-0.375)/(n+0.25)));
@@ -437,6 +531,7 @@ function calc(auto){
     ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':'均值相对规格中点的偏移（0=恰好居中）'],
     ['组内 σ',fmt(sw,4),'移动极差法（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
+    ['稳定性指标',fmt(stability,4),'整体σ ÷ 组内σ；>1.3 提示组间漂移/特殊原因'],
     ['Cp',fmt(cp),'潜在能力（仅规格宽度/σ）'],
     ['Cpk',fmt(cpk),'实际能力（含中心偏移）'],
     ['Pp',fmt(pp),'整体潜在能力'],
@@ -447,13 +542,50 @@ function calc(auto){
     ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`]];
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:#6a737d">${d}</td></tr>`).join('');
 
+  // ---- JMP 式报告区渲染 ----
+  // ① 过程汇总
+  document.getElementById('summaryTable').innerHTML =
+    `<table class="summary-table" style="width:100%"><tbody>
+      <tr><td class="k">规格下限 LSL</td><td class="v">${lsl!=null?fmt(lsl,4):'—'}</td>
+          <td class="k">目标值 T</td><td class="v">${fmt(target,4)}</td></tr>
+      <tr><td class="k">规格上限 USL</td><td class="v">${usl!=null?fmt(usl,4):'—'}</td>
+          <td class="k">数组（样本量 n）</td><td class="v">${n}</td></tr>
+      <tr><td class="k">样本均值 μ</td><td class="v">${fmt(m,4)}</td>
+          <td class="k">组内 Sigma</td><td class="v">${fmt(sw,4)}</td></tr>
+      <tr><td class="k">总 Sigma</td><td class="v">${fmt(sd,4)}</td>
+          <td class="k">稳定性指标</td><td class="v ${stability>1.3?'stability-high':''}">${fmt(stability,4)}${stability>1.3?' ⚠':''}</td></tr>
+    </tbody></table>
+    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。</div>`;
+
+  // ② 能力表（组内 & 总体），带 95% 置信区间
+  document.querySelector('#withinCap thead').innerHTML='<tr><th>指数</th><th class="num">估计值</th><th class="num">95% 下限</th><th class="num">95% 上限</th></tr>';
+  document.querySelector('#withinCap tbody').innerHTML=
+    Object.keys(withinIdx).map(k=>{
+      const v=withinIdx[k],ci=withinCI[k];const vOk=isFinite(v);
+      return `<tr><td>${k}</td><td class="est">${vOk?fmt(v):'—'}</td><td class="num">${vOk&&ci[0]!=null?fmt(ci[0]):'—'}</td><td class="num">${vOk&&ci[1]!=null?fmt(ci[1]):'—'}</td></tr>`;
+    }).join('');
+  document.querySelector('#overallCap thead').innerHTML='<tr><th>指数</th><th class="num">估计值</th><th class="num">95% 下限</th><th class="num">95% 上限</th></tr>';
+  document.querySelector('#overallCap tbody').innerHTML=
+    Object.keys(overallIdx).map(k=>{
+      const v=overallIdx[k],ci=overallCI[k];const vOk=isFinite(v);
+      return `<tr><td>${k}</td><td class="est">${vOk?fmt(v):'—'}</td><td class="num">${vOk&&ci[0]!=null?fmt(ci[0]):'—'}</td><td class="num">${vOk&&ci[1]!=null?fmt(ci[1]):'—'}</td></tr>`;
+    }).join('');
+
+  // ③ 不合格分析
+  const pct=v=>v.toFixed(4);
+  document.querySelector('#defectTable thead').innerHTML=
+    '<tr><th>对应部分</th><th class="num">观测 %</th><th class="num">期望组内 %</th><th class="num">期望总体 %</th></tr>';
+  document.querySelector('#defectTable tbody').innerHTML=
+    defectRows.map((r,i)=>`<tr class="${i===2?'defect-row-total':''}">
+      <td>${r[0]}</td><td class="num">${pct(r[1])}</td><td class="num">${pct(r[2])}</td><td class="num">${pct(r[3])}</td></tr>`).join('');
+
   // 保存结果供导出
-  lastResult={rows, nums, lsl, usl, target, m, sd, sw};
+  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, withinIdx, withinCI, overallIdx, overallCI, defectRows};
 
   setMsg('ok','✅ 计算完成。');
   saveState();
 
-  drawHist(nums,lsl,usl,target,m,sd);
+  drawHist(nums,lsl,usl,target,m,sd,sw);
   drawBox(nums,lsl,usl,target,m);
   drawQuant(sorted,z);
 }
@@ -510,7 +642,7 @@ function vline(ctx,px,top,h,color,label,labColor){
   ctx.textAlign='center';ctx.fillText(label,px,top-4);ctx.textAlign='start';ctx.restore();
 }
 
-function drawHist(x,lsl,usl,target,m,sd){
+function drawHist(x,lsl,usl,target,m,sd,sw){
   const cv=document.getElementById('cvHist');
   const ctx=prepCanvas(cv,720,380);
   const W=720,H=380;
@@ -535,8 +667,9 @@ function drawHist(x,lsl,usl,target,m,sd){
   const densMax=arrayMax(bins)/(x.length*binW);
   // y 上界取"直方图密度峰值"与"正态曲线峰值"两者较大，再留 15% 余量；
   // 用 niceCeil 保证上界刻度 >= 该值，柱顶与曲线峰值不会被裁出绘图区
-  const curvePeak=1/(sd*Math.sqrt(2*Math.PI));
-  const yLimit=Math.max(densMax,curvePeak)*1.15;
+  const peakOverall=1/(sd*Math.sqrt(2*Math.PI));
+  const peakWithin=sw>0?1/(sw*Math.sqrt(2*Math.PI)):0;
+  const yLimit=Math.max(densMax,peakOverall,peakWithin)*1.15;
   const yMax=niceCeil(0,yLimit,4)||yLimit;
   const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
 
@@ -545,11 +678,17 @@ function drawHist(x,lsl,usl,target,m,sd){
     const px0=x2px(x0),px1=x2px(x0+binW),py=y2px(d),bw=Math.max(1,px1-px0-1.5);
     ctx.fillStyle='rgba(47,109,181,.78)';
     roundRectTop(ctx,px0,py,bw,padT+plotH-py,2);}
-  // 正态拟合曲线
-  ctx.strokeStyle=C.fit();ctx.lineWidth=2.2;ctx.beginPath();
-  for(let i=0;i<=120;i++){const v=lo+(hi-lo)*i/120;
-    const d=Math.exp(-0.5*((v-m)/sd)**2)/(sd*Math.sqrt(2*Math.PI));
-    const px=x2px(v),py=y2px(d);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();
+  // 正态拟合曲线：实线 = 总体 σ（长期）；虚线 = 组内 σ（短期）
+  const curveFn=(s,dash,color)=>{
+    ctx.strokeStyle=color;ctx.lineWidth=dash?1.8:2.2;
+    ctx.setLineDash(dash?[5,4]:[]);ctx.beginPath();
+    for(let i=0;i<=120;i++){const v=lo+(hi-lo)*i/120;
+      const d=Math.exp(-0.5*((v-m)/s)**2)/(s*Math.sqrt(2*Math.PI));
+      const px=x2px(v),py=y2px(d);i?ctx.lineTo(px,py):ctx.moveTo(px,py);}ctx.stroke();
+    ctx.setLineDash([]);
+  };
+  curveFn(sd,false,'#e4572e');
+  if(sw>0)curveFn(sw,true,'#9a6dff');
 
   // 规格线
   if(lsl!=null)vline(ctx,x2px(lsl),padT,plotH,C.lsl(),'LSL',C.lsl());
@@ -868,6 +1007,19 @@ function exportCsv(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const lines=['指标,数值,说明'];
   lastResult.rows.forEach(([k,v,d])=>lines.push(k+','+v+','+(d||'')));
+  // 95% 置信区间（组内）
+  Object.keys(lastResult.withinIdx).forEach(k=>{
+    const ci=lastResult.withinCI[k];
+    lines.push(k+' 95%CI(组内),['+(ci[0]!=null?ci[0].toFixed(3):'—')+', '+(ci[1]!=null?ci[1].toFixed(3):'—')+'],组内指数近似置信区间');
+  });
+  // 95% 置信区间（总体）
+  Object.keys(lastResult.overallIdx).forEach(k=>{
+    const ci=lastResult.overallCI[k];
+    lines.push(k+' 95%CI(总体),['+(ci[0]!=null?ci[0].toFixed(3):'—')+', '+(ci[1]!=null?ci[1].toFixed(3):'—')+'],总体指数近似置信区间');
+  });
+  // 不合格分析
+  lines.push('对应部分,观测%,期望组内%,期望总体%');
+  lastResult.defectRows.forEach(r=>lines.push(r[0]+','+r[1].toFixed(4)+','+r[2].toFixed(4)+','+r[3].toFixed(4)));
   lines.push('');lines.push('原始数据');
   lastResult.nums.forEach(v=>lines.push(String(v)));
   const blob=new Blob(['\ufeff'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
@@ -880,7 +1032,13 @@ function exportPng(){
   // 目标宽取「720」与「源图逻辑宽」的较小值：源图已被窄容器缩小时不放大，避免导出模糊
   const dpr=window.devicePixelRatio||1;
   const dims=src.map(c=>{const dw=Math.min(720,Math.round(c.width/dpr));return {dw, dh:Math.round(c.height*(dw/c.width))};});
-  let H=pad*2+58; dims.forEach(d=>H+=d.dh+gap);
+  // 报告区（过程汇总 + 两张能力表 + 不合格分析）高度估算：文字行按 16px + 间距
+  const r=lastResult;
+  // 文本报告区行数估算（用于预留高度）
+  const sumRowsCount=4, capRowsCount=Object.keys(r.withinIdx).length, ocapRowsCount=Object.keys(r.overallIdx).length, defRowsCount=r.defectRows.length;
+  const textLines=2+sumRowsCount+2+capRowsCount+2+ocapRowsCount+2+defRowsCount;
+  const reportH=Math.max(120,textLines*17+30);
+  let H=pad*2+58+reportH+gap; dims.forEach(d=>H+=d.dh+gap);
   const big=document.createElement('canvas');big.width=W;big.height=H;
   const ctx=big.getContext('2d');
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
@@ -889,12 +1047,73 @@ function exportPng(){
   ctx.font='11px sans-serif';ctx.fillStyle='#6a737d';
   ctx.fillText('离线单文件版 · 定义对齐 JMP Process Capability',pad,pad+26);
   // 指标摘要行
-  const keyMap={}; lastResult.rows.forEach(r=>{if(['Cp','Cpk','Pp','Ppk','Cpm','样本量 n'].includes(r[0]))keyMap[r[0]]=r[1];});
+  const keyMap={}; r.rows.forEach(x=>{if(['Cp','Cpk','Pp','Ppk','Cpm','样本量 n'].includes(x[0]))keyMap[x[0]]=x[1];});
   const sumLine='Cp='+keyMap['Cp']+'   Cpk='+keyMap['Cpk']+'   Pp='+keyMap['Pp']+
                 '   Ppk='+keyMap['Ppk']+'   Cpm='+keyMap['Cpm']+'   n='+keyMap['样本量 n'];
   ctx.font='bold 13px sans-serif';ctx.fillStyle='#1f2328';
   ctx.fillText(sumLine,pad,pad+44);
+  // ---- 文本报告区（过程汇总 + 能力表 + 不合格分析）----
   let y=pad+58;
+  function drawTableBlock(heading, rows, colX){
+    ctx.fillStyle='#1f2328';ctx.font='bold 12px sans-serif';
+    ctx.fillText(heading,pad,y);y+=17;
+    ctx.font='11px sans-serif';
+    rows.forEach(row=>{
+      row.forEach((cell,j)=>{
+        ctx.fillStyle='#1f2328';
+        ctx.textAlign=j===0?'left':'right';ctx.textBaseline='top';
+        ctx.fillText(cell,colX[j],y);
+      });
+      y+=17;
+    });
+    y+=6;
+  }
+  // 过程汇总：两列四行
+  const sumColX=[pad,pad+150,pad+260,pad+390];
+  const sumRows=[
+    ['规格下限 LSL',r.lsl!=null?fmt(r.lsl,4):'—','目标值 T',fmt(r.target,4)],
+    ['规格上限 USL',r.usl!=null?fmt(r.usl,4):'—','数组（样本量）',r.nums.length],
+    ['样本均值 μ',fmt(r.m,4),'组内 Sigma',fmt(r.sw,4)],
+    ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)]
+  ];
+  drawTableBlock('■ 过程汇总', sumRows, sumColX);
+  // 两张能力表并排
+  const half=(W-2*pad-20)/2;
+  const capHeadX=[pad,pad+55,pad+130,pad+half-2];
+  const ocapHeadX=[pad+half+20,pad+half+75,pad+half+150,W-pad-2];
+  const capRows=Object.keys(r.withinIdx).map(k=>[k,fmt(r.withinIdx[k]),
+    r.withinCI[k][0]!=null?fmt(r.withinCI[k][0]):'—',r.withinCI[k][1]!=null?fmt(r.withinCI[k][1]):'—']);
+  const ocapRows=Object.keys(r.overallIdx).map(k=>[k,fmt(r.overallIdx[k]),
+    r.overallCI[k][0]!=null?fmt(r.overallCI[k][0]):'—',r.overallCI[k][1]!=null?fmt(r.overallCI[k][1]):'—']);
+  ctx.fillStyle='#1f2328';ctx.font='bold 12px sans-serif';ctx.fillText('■ 组内 Sigma 能力',pad,y);
+  ctx.fillText('■ 总 Sigma 能力',pad+half+20,y);
+  y+=16;
+  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#6a737d';
+    ctx.textAlign=j?'right':'left';ctx.fillText(t,capHeadX[j],y);ctx.textAlign='left';});
+  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#6a737d';
+    ctx.textAlign=j?'right':'left';ctx.fillText(t,ocapHeadX[j],y);ctx.textAlign='left';});
+  y+=15;
+  const capColX=[pad,pad+55,pad+130,pad+half-2];
+  const ocapColX=[pad+half+20,pad+half+75,pad+half+150,W-pad-2];
+  const maxCapRows=Math.max(capRowsCount,ocapRowsCount);
+  for(let i=0;i<maxCapRows;i++){
+    ctx.font='11px sans-serif';ctx.fillStyle='#1f2328';
+    if(i<capRowsCount){
+      const row=capRows[i];
+      ['left','right','right','right'].forEach((al,j)=>{ctx.textAlign=al;ctx.fillText(row[j],capColX[j],y);});
+    }
+    if(i<ocapRowsCount){
+      const row=ocapRows[i];
+      ['left','right','right','right'].forEach((al,j)=>{ctx.textAlign=al;ctx.fillText(row[j],ocapColX[j],y);});
+    }
+    ctx.textAlign='left';y+=16;
+  }
+  y+=8;
+  // 不合格分析
+  const defRows=r.defectRows.map(row=>[row[0],row[1].toFixed(4),row[2].toFixed(4),row[3].toFixed(4)]);
+  drawTableBlock('■ 不合格分析（观测% / 期望组内% / 期望总体%）', defRows, [pad,pad+150,pad+280,pad+410]);
+  // ---- 三张图 ----
+  y+=10;
   src.forEach((c,i)=>{
     const d=dims[i];
     // 白底卡片效果
