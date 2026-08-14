@@ -166,12 +166,13 @@
 
     <div class="chart-title">① 直方图 + 正态曲线（实线=总体 / 虚线=组内）+ 规格限</div>
     <canvas id="cvHist" width="720" height="400"></canvas>
-    <div class="legend">▮ 测量数据　─ 总体拟合(σ总)　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
+    <div class="legend">▮ 测量数据　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
 
     <!-- ===== JMP 式报告区（截图即用） ===== -->
-    <div class="chart-title">④ 过程汇总（Process Summary）</div>
+    <div class="chart-title">② 过程汇总（Process Summary）</div>
     <div id="summaryTable" class="summary-table"></div>
 
+    <div class="chart-title">③ 能力指数（含 95% 置信区间，近似）</div>
     <div class="report-grid">
       <div class="report-block">
         <h4>组内 Sigma 能力（短期能力）</h4>
@@ -183,14 +184,14 @@
       </div>
     </div>
 
-    <div class="chart-title">⑤ 不合格分析（观测 vs 期望，% 超规格）</div>
+    <div class="chart-title">④ 不合格分析（观测 vs 期望，% 超规格）</div>
     <table class="cap-table" id="defectTable" style="max-width:640px"><thead></thead><tbody></tbody></table>
-    <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望总体% = 用整体 σ 的正态估计。<span class="ci-note">（95% 置信区间为近似值）</span></div>
+    <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望总体% = 用整体 σ 的正态估计。</div>
 
-    <div class="chart-title">② 能力箱线图（观测值相对规格限的位置）</div>
+    <div class="chart-title">⑤ 能力箱线图（观测值相对规格限的位置）</div>
     <canvas id="cvBox" width="720" height="170"></canvas>
 
-    <div class="chart-title">③ 正态概率图（Quantile Plot，检验正态性）</div>
+    <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
     <canvas id="cvQuant" width="460" height="430"></canvas>
 
     <details>
@@ -200,7 +201,7 @@
 
     <div style="margin-top:16px">
       <button id="btnCsv" class="sec">⬇ 导出指标 CSV</button>
-      <button id="btnPng" class="sec">⬇ 导出三张图 (PNG)</button>
+      <button id="btnPng" class="sec">⬇ 导出完整报告 (PNG)</button>
     </div>
   </div>
 </div>
@@ -503,7 +504,7 @@ function calc(auto){
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
-  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（含目标）'+(targetFromInput?'':'*'),cpm]];
+  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（含目标）'+(targetFromInput?'':'*'),cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
     return `<div class="metric" style="border-left-color:${tone.c}">
@@ -512,8 +513,9 @@ function calc(auto){
   `<div class="metric" style="border-left-color:#c9d1d9"><div class="k">样本量 n</div><div class="v">${n}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">均值 μ</div><div class="v">${fmt(m,4)}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">整体 σ</div><div class="v">${fmt(sd,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">实测超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`;
+   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
+   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">实测超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
+  + (targetFromInput?'':`<div class="legend" style="text-align:left;margin:2px 0 0">* 目标值 T 未填写，Cpm 暂按规格中点计算；如需精确请在上方填真实目标值 T。</div>`);
 
   // ---- 正态性提示 ----
   document.getElementById('normNote').innerHTML=
@@ -540,6 +542,11 @@ function calc(auto){
     ['理论超规 PPM(组内)',fmt(ppmWithin,1),'基于组内σ的正态估计'],
     ['理论超规 PPM(整体)',fmt(ppmOverall,1),'基于整体σ的正态估计'],
     ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`]];
+  // 追加各指数的 95% 置信区间
+  const ciRow=(k,v,ci,suffix)=>{const vOk=isFinite(v);
+    return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}, ${fmt(ci[1])}]`:'—','近似置信区间（样本量 n='+n+'）'];};
+  for(const k in withinIdx)rows.push(ciRow(k,withinIdx[k],withinCI[k],'(组内)'));
+  for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(总)'));
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:#6a737d">${d}</td></tr>`).join('');
 
   // ---- JMP 式报告区渲染 ----
@@ -549,7 +556,7 @@ function calc(auto){
       <tr><td class="k">规格下限 LSL</td><td class="v">${lsl!=null?fmt(lsl,4):'—'}</td>
           <td class="k">目标值 T</td><td class="v">${fmt(target,4)}</td></tr>
       <tr><td class="k">规格上限 USL</td><td class="v">${usl!=null?fmt(usl,4):'—'}</td>
-          <td class="k">数组（样本量 n）</td><td class="v">${n}</td></tr>
+          <td class="k">样本量 n</td><td class="v">${n}</td></tr>
       <tr><td class="k">样本均值 μ</td><td class="v">${fmt(m,4)}</td>
           <td class="k">组内 Sigma</td><td class="v">${fmt(sw,4)}</td></tr>
       <tr><td class="k">总 Sigma</td><td class="v">${fmt(sd,4)}</td>
@@ -1007,16 +1014,6 @@ function exportCsv(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const lines=['指标,数值,说明'];
   lastResult.rows.forEach(([k,v,d])=>lines.push(k+','+v+','+(d||'')));
-  // 95% 置信区间（组内）
-  Object.keys(lastResult.withinIdx).forEach(k=>{
-    const ci=lastResult.withinCI[k];
-    lines.push(k+' 95%CI(组内),['+(ci[0]!=null?ci[0].toFixed(3):'—')+', '+(ci[1]!=null?ci[1].toFixed(3):'—')+'],组内指数近似置信区间');
-  });
-  // 95% 置信区间（总体）
-  Object.keys(lastResult.overallIdx).forEach(k=>{
-    const ci=lastResult.overallCI[k];
-    lines.push(k+' 95%CI(总体),['+(ci[0]!=null?ci[0].toFixed(3):'—')+', '+(ci[1]!=null?ci[1].toFixed(3):'—')+'],总体指数近似置信区间');
-  });
   // 不合格分析
   lines.push('对应部分,观测%,期望组内%,期望总体%');
   lastResult.defectRows.forEach(r=>lines.push(r[0]+','+r[1].toFixed(4)+','+r[2].toFixed(4)+','+r[3].toFixed(4)));
@@ -1072,7 +1069,7 @@ function exportPng(){
   const sumColX=[pad,pad+150,pad+260,pad+390];
   const sumRows=[
     ['规格下限 LSL',r.lsl!=null?fmt(r.lsl,4):'—','目标值 T',fmt(r.target,4)],
-    ['规格上限 USL',r.usl!=null?fmt(r.usl,4):'—','数组（样本量）',r.nums.length],
+    ['规格上限 USL',r.usl!=null?fmt(r.usl,4):'—','样本量 n',r.nums.length],
     ['样本均值 μ',fmt(r.m,4),'组内 Sigma',fmt(r.sw,4)],
     ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)]
   ];
@@ -1120,7 +1117,7 @@ function exportPng(){
     ctx.fillStyle='#fbfcfd';ctx.fillRect((W-d.dw)/2-6,y-6,d.dw+12,d.dh+12);
     ctx.drawImage(c,Math.max(0,(W-d.dw)/2),y,d.dw,d.dh);y+=d.dh+gap;
   });
-  big.toBlob(b=>downloadBlob(b,'cpk_图表.png'),'image/png');
+  big.toBlob(b=>downloadBlob(b,'cpk_报告.png'),'image/png');
 }
 document.getElementById('btnCsv').onclick=exportCsv;
 document.getElementById('btnPng').onclick=exportPng;
