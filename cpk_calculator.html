@@ -79,10 +79,14 @@
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:9px;margin:12px 0}
   .metric{background:var(--card);border:1px solid var(--border);border-left:4px solid #c9d1d9;
           border-radius:10px;padding:10px 8px;text-align:center;position:relative;overflow:hidden;
+          display:flex;flex-direction:column;justify-content:center;
           transition:transform .15s ease,box-shadow .15s ease}
   .metric:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
-  .metric .k{font-size:11px;color:var(--muted);font-weight:600}
-  .metric .v{font-size:21px;font-weight:800;margin-top:3px;color:#111827;font-variant-numeric:tabular-nums}
+  .metric .k{font-size:11px;color:var(--muted);font-weight:600;line-height:1.35;
+          min-height:30px;display:flex;align-items:center;justify-content:center;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 2px}
+  .metric .v{font-size:21px;font-weight:800;margin-top:2px;color:#111827;
+          font-variant-numeric:tabular-nums;line-height:1.1}
   .verdict{margin:6px 0 4px;padding:13px 16px;border-radius:12px;font-size:14px;font-weight:700;
            display:flex;align-items:center;gap:10px;border:1px solid;
            background:linear-gradient(90deg,var(--vc-bg),transparent);box-shadow:var(--shadow-sm)}
@@ -653,7 +657,7 @@ function calc(auto){
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
-  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（含目标）'+(targetFromInput?'':'*'),cpm]];
+  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（目标）'+(targetFromInput?'':'*'),cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
     return `<div class="metric" style="border-left-color:${tone.c}">
@@ -663,7 +667,7 @@ function calc(auto){
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">均值 μ</div><div class="v">${fmt(m,4)}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">实测超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
+   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
   + (targetFromInput?'':`<div class="legend" style="text-align:left;margin:2px 0 0">* 目标值 T 未填写，Cpm 暂按规格中点计算；如需精确请在上方填真实目标值 T。</div>`);
 
   // ---- 正态性提示 ----
