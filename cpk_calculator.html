@@ -304,7 +304,7 @@
 
     <div class="chart-title">① 直方图 + 正态曲线（实线=总体 / 虚线=组内）+ 规格限</div>
     <canvas id="cvHist" width="720" height="400"></canvas>
-    <div class="legend">▮ 测量数据　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）</div>
+    <div class="legend">▮ 测量数据　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 ‰，即千分之一）：柱高 = 该区间内单位测量值的概率密度，<b>不是</b>频数或百分比。所有柱面积之和 = 1000‰（=1，总概率）；正态曲线下方面积同样 = 1000‰，因此曲线与柱高可直接对比。曲线越高说明该处的数据越集中。</div>
 
     <!-- ===== JMP 式报告区（截图即用） ===== -->
     <div class="chart-title">② 过程汇总（Process Summary）</div>
@@ -328,9 +328,11 @@
 
     <div class="chart-title">⑤ 能力箱线图（观测值相对规格限的位置）</div>
     <canvas id="cvBox" width="720" height="170"></canvas>
+    <div class="legend">▦ 箱 = Q1~Q3（中间 50% 数据）　─ 中位数　● <span style="color:#e4572e">μ 均值</span>　┄ 须 = 最小~最大　<span style="background:rgba(46,139,87,.12);border:1px dashed rgba(46,139,87,.5)">&nbsp;绿区&nbsp;</span> = 规格带 LSL~USL。箱体全部落在绿区内且有余量 = 过程合格；箱体顶到/越过规格线 = 超规风险高。</div>
 
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
     <canvas id="cvQuant" width="460" height="430"></canvas>
+    <div class="legend">横轴 = <b>理论正态分位数 z</b>（标准正态分布的分位点，如 0=均值、±1.96=95% 边界）；纵轴 = 样本测量值。<b>点越接近直线，数据越接近正态</b>；右上角 R² = 拟合优度（&gt;0.95 视为近似正态，正态能力法才可靠）。</div>
 
     <div class="chart-title">⑦ 控制图（I-MR / Xbar-R / Xbar-S，过程稳定性判断）</div>
     <div class="legend" style="margin-bottom:2px">主图看<b>中心</b>稳定性（均值漂移），辅助图看<b>波动</b>稳定性（离散度变化）——两张须同时看：主图越界=均值异常，辅助图越界=波动异常。</div>
@@ -1811,6 +1813,12 @@ const GLOSS=[
    steps:['Q-Q 图 R²>0.95 视为近似正态'],
    impact:'非正态数据用正态法会系统性低估/高估超规率，判级结论不可靠。',
    action:'R²≤0.95 时先排查混批/离群点，必要时做 Box-Cox 变换或改用非参数能力评估。'},
+  {cat:'统计量',abbr:'概率密度',name:'Probability Density',cn:'概率密度',
+   def:'描述连续型数据在某个取值附近"稠密程度"的函数 f(x)：数值越大，说明数据落在该取值附近的概率越高。密度 × 小区间宽度 = 落在该区间的概率。',
+   formula:'P(a ≤ X ≤ b) = ∫ₐᵇ f(x) dx；正态密度 f(x) = 1/(σ√2π)·e^(−(x−μ)²/(2σ²))',
+   steps:['直方图柱高 = 频数/(n×bin宽) 即该区间的平均密度','正态曲线在 x 处的纵坐标 = f(x) 密度','密度曲线下总面积 = 1（=1000‰）'],
+   impact:'本工具直方图 Y 轴即概率密度（单位 ‰）：柱高和正态曲线可直接对比——柱顶贴合曲线说明数据接近正态；曲线越高处数据越集中。',
+   action:'读直方图时注意 Y 轴是密度不是频数/百分比：不要用"柱顶高低"直接比较不同 bin 宽下的数量，应看柱形与正态曲线的贴合程度。'},
   // ---------- 质量指标 ----------
   {cat:'质量指标',abbr:'PPM',name:'Parts Per Million',cn:'每百万件不合格数',
    def:'每生产一百万个产品中预期/实际不合格的件数。1% = 10000 PPM。本工具给出理论（正态估计）与实测两组 PPM。',
@@ -1904,6 +1912,12 @@ const GLOSS=[
    impact:'不同信号指向不同根因：越界=突变、9 点同侧=缓慢漂移、7 点趋势=渐变性因素（磨损/劣化）。',
    action:'结合信号类型定向排查：突变查换料/换班，漂移查磨损/老化，趋势查工装渐进劣化。'},
   // ---------- 图与交互 ----------
+  {cat:'图与交互',abbr:'Histogram',name:'Histogram',cn:'直方图',
+   def:'把数据按测量值分成若干区间（bin），用柱子高度显示各区间数据占比的图形。本工具的直方图 <b>Y 轴 = 概率密度</b>（单位 ‰，即千分之一），柱高 = 该区间单位测量值的概率密度，<b>不是</b>频数或百分比；所有柱面积之和 = 1000‰（=1）。',
+   formula:'柱密度 = 区间频数 ÷ (样本量 × 区间宽)；Y 轴单位 ‰',
+   steps:['用 Freedman-Diaconis 规则自动分箱（8~40 根）','每柱高度 = 频数/(n×bin宽) 换算成密度','叠加正态拟合曲线对比分布形态'],
+   impact:'Y 轴用密度而非频数，是为了让直方图能与正态概率密度曲线<b>直接叠加对比</b>：两者面积都等于 1（1000‰），柱形贴合曲线越好说明数据越接近正态。',
+   action:'观察柱形是否单峰对称、是否贴合正态曲线；明显偏态/双峰时排查混批或离群点，谨慎使用正态能力法。'},
   {cat:'图与交互',abbr:'Quantile Plot',name:'Normal Quantile Plot（Q-Q 图）',cn:'正态概率图',
    def:'把排序后的样本值（纵轴）对理论正态分位数 z（横轴）作图。点越接近直线，数据越接近正态；R² 即直线拟合优度。',
    formula:'x 轴：zᵢ = Φ⁻¹((i−0.375)/(n+0.25))；y 轴：排序后的数据',
