@@ -287,8 +287,8 @@
       <span class="subhint">图纸/客户要求的标称值（如 φ20 +0.1/-0.05 的目标是 20.00，不是规格中点 20.025）。留空时自动取 (LSL+USL)/2，仅用于 Cpm。</span>
     </div>
     <div class="row">
-      <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="20"></label>
-      <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（用子组极差法）。</span>
+      <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="25"></label>
+      <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（n≤10 用子组极差法 Xbar-R，n&gt;10 自动切换标准差法 Xbar-S）。</span>
     </div>
     <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空时自动预填「均值 ± 3σ」（仅占位，判级前请填真实规格限）。<br>· 目标值 T 可选填（图纸/设计标称值）；留空时自动取「(LSL+USL)/2」作中心值（用于 Cpm）。非对称公差建议填真实 T。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
@@ -332,7 +332,7 @@
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
     <canvas id="cvQuant" width="460" height="430"></canvas>
 
-    <div class="chart-title">⑦ 控制图（I-MR / Xbar-R，过程稳定性判断）</div>
+    <div class="chart-title">⑦ 控制图（I-MR / Xbar-R / Xbar-S，过程稳定性判断）</div>
     <canvas id="cvCtrl" width="720" height="330"></canvas>
     <div id="ctrlMsg"></div>
     <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限（图纸/客户给定）。控制限随过程波动动态变化，用于判断过程是否受控；规格限固定不变，用于判定产品是否合格——两套线需对比解读。</div>
@@ -403,16 +403,26 @@ function normInv(p){
     return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);}
 }
 
-// 子组 d2 常数（无偏估计），覆盖到 UI 允许的最大子组 20
+// 子组 d2 常数（无偏估计），覆盖到 UI 允许的最大子组 25（对应标准 SPC 系数表）
 const D2={2:1.128,3:1.693,4:2.059,5:2.326,6:2.534,7:2.704,8:2.847,9:2.970,10:3.078,
-          11:3.173,12:3.258,13:3.336,14:3.407,15:3.472,16:3.532,17:3.588,18:3.640,19:3.689,20:3.735};
+          11:3.173,12:3.258,13:3.336,14:3.407,15:3.472,16:3.532,17:3.588,18:3.640,19:3.689,20:3.735,
+          21:3.778,22:3.819,23:3.858,24:3.895,25:3.931};
 
-// 组内 sigma：个体用移动极差法，子组用极差法
+// 子组 c4 常数（Xbar-S 图用：σ=S̄/c4，S̄ 为子组样本标准差均值），覆盖 n=2~25
+const C4={2:0.7979,3:0.8862,4:0.9213,5:0.9400,6:0.9515,7:0.9594,8:0.9650,9:0.9693,10:0.9727,
+          11:0.9754,12:0.9776,13:0.9794,14:0.9810,15:0.9823,16:0.9835,17:0.9845,18:0.9854,19:0.9862,20:0.9869,
+          21:0.9876,22:0.9882,23:0.9887,24:0.9892,25:0.9896};
+
+// 组内 sigma：个体用移动极差法，子组 n≤10 用极差法（σ=R̄/d2），n>10 用标准差法（σ=S̄/c4，标准 SPC 惯例）
 function withinSigma(x,sub){
   if(sub&&sub>1){
     const n=sub, tail=x.length%n; const xx=tail?x.slice(0,x.length-tail):x.slice();
     const nGroups=Math.floor(xx.length/n);
     if(nGroups<1) return NaN; // 数据量不足一个完整子组，由调用方提示
+    if(n>10){ // Xbar-S：组内 σ = S̄ / c4
+      let sbar=0; for(let i=0;i<xx.length;i+=n){let g=xx.slice(i,i+n);sbar+=sampleStd(g);}
+      sbar/=nGroups; return sbar/(C4[n]||0.9727);
+    }
     let rbar=0; for(let i=0;i<xx.length;i+=n){let g=xx.slice(i,i+n);rbar+=arrayMax(g)-arrayMin(g);}
     rbar/=nGroups; return rbar/(D2[n]||3.078);
   }
@@ -429,24 +439,47 @@ function corr(a,b){
 const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
 
 /* ============ SPC 控制限（控制图） ============ */
-// 子组控制图常数表（n=2~20，覆盖 UI 允许范围）：A2=3/(d2·√n) 用于均值图，D3/D4 用于极差图
+// 子组控制图常数表（n=2~25，覆盖 UI 允许范围，对应标准 SPC 系数表）：
+//   Xbar-R 图（n≤10）：A2=3/(d2·√n) 用于均值图，D3/D4 用于极差图
+//   Xbar-S 图（n>10）：A3=3/(c4·√n) 用于均值图，B3/B4 用于标准差图
 const SPC_A2={2:1.880,3:1.023,4:0.729,5:0.577,6:0.483,7:0.419,8:0.373,9:0.337,10:0.308,
-              11:0.285,12:0.266,13:0.249,14:0.235,15:0.223,16:0.212,17:0.203,18:0.194,19:0.187,20:0.180};
+              11:0.285,12:0.266,13:0.249,14:0.235,15:0.223,16:0.212,17:0.203,18:0.194,19:0.187,20:0.180,
+              21:0.173,22:0.167,23:0.162,24:0.157,25:0.153};
 const SPC_D3={2:0,3:0,4:0,5:0,6:0,7:0.076,8:0.136,9:0.184,10:0.223,
-              11:0.256,12:0.284,13:0.308,14:0.329,15:0.348,16:0.364,17:0.379,18:0.392,19:0.404,20:0.414};
+              11:0.256,12:0.284,13:0.308,14:0.329,15:0.348,16:0.364,17:0.379,18:0.392,19:0.404,20:0.414,
+              21:0.425,22:0.434,23:0.443,24:0.452,25:0.459};
 const SPC_D4={2:3.267,3:2.575,4:2.282,5:2.115,6:2.004,7:1.924,8:1.864,9:1.816,10:1.777,
-              11:1.744,12:1.716,13:1.692,14:1.671,15:1.652,16:1.636,17:1.621,18:1.608,19:1.596,20:1.586};
+              11:1.744,12:1.716,13:1.692,14:1.671,15:1.652,16:1.636,17:1.621,18:1.608,19:1.596,20:1.586,
+              21:1.575,22:1.566,23:1.557,24:1.548,25:1.541};
+const SPC_A3={2:2.659,3:1.954,4:1.628,5:1.427,6:1.287,7:1.182,8:1.099,9:1.032,10:0.975,
+              11:0.927,12:0.886,13:0.850,14:0.817,15:0.789,16:0.763,17:0.739,18:0.718,19:0.698,20:0.680,
+              21:0.663,22:0.647,23:0.633,24:0.619,25:0.606};
+const SPC_B3={2:0,3:0,4:0,5:0,6:0.030,7:0.118,8:0.185,9:0.239,10:0.284,
+              11:0.321,12:0.354,13:0.382,14:0.406,15:0.428,16:0.448,17:0.466,18:0.482,19:0.497,20:0.510,
+              21:0.523,22:0.534,23:0.545,24:0.555,25:0.565};
+const SPC_B4={2:3.267,3:2.568,4:2.266,5:2.089,6:1.970,7:1.882,8:1.815,9:1.761,10:1.716,
+              11:1.679,12:1.646,13:1.618,14:1.594,15:1.572,16:1.552,17:1.534,18:1.518,19:1.503,20:1.490,
+              21:1.477,22:1.466,23:1.455,24:1.445,25:1.435};
 
-// 控制限计算：个体数据用 I-MR 法（UCL=x̄+2.66·MR̄，2.66=3/d2(2)），子组数据用 Xbar-R 法（UCL=x̄̄+A2·R̄）
-// 控制限随过程数据动态变化，是"过程稳不稳"的判据；规格限由图纸/客户固定，是"产品合不合格"的判据——两者是两套不同的线
+// 控制限计算：个体数据用 I-MR 法（UCL=x̄+2.66·MR̄，2.66=3/d2(2)），子组 n≤10 用 Xbar-R 法（UCL=x̄̄+A2·R̄），
+// 子组 n>10 用 Xbar-S 法（UCL=x̄̄+A3·S̄）。控制限随过程数据动态变化，是"过程稳不稳"的判据；
+// 规格限由图纸/客户固定，是"产品合不合格"的判据——两者是两套不同的线。
+// 注意：n 超出系数表范围（>25）时不再静默兜底，返回 null 由调用方提示（避免用错系数）
 function spcAnalysis(x,sub){
   if(sub&&sub>1){
-    const n=sub, tail=x.length%n, xx=tail?x.slice(0,x.length-tail):x.slice();
-    const gs=[]; for(let i=0;i<xx.length;i+=n){const g=xx.slice(i,i+n);gs.push({mean:mean(g),range:arrayMax(g)-arrayMin(g)});}
-    const xbar=mean(gs.map(g=>g.mean)), rbar=mean(gs.map(g=>g.range));
-    const a2=SPC_A2[n]||1.023, d3=SPC_D3[n]||0, d4=SPC_D4[n]||2.575;
-    return {type:'Xbar-R',sub:n,cl:xbar,ucl:xbar+a2*rbar,lcl:xbar-a2*rbar,
-      pts:gs.map(g=>g.mean),mpts:gs.map(g=>g.range),mcl:rbar,mucl:d4*rbar,mlcl:d3*rbar,groups:gs.length};
+    const n=sub;
+    if(n>25||n<2) return null; // 系数表覆盖 2~25，越界不静默用错值
+    const tail=x.length%n, xx=tail?x.slice(0,x.length-tail):x.slice();
+    const gs=[]; for(let i=0;i<xx.length;i+=n){const g=xx.slice(i,i+n);gs.push({mean:mean(g),range:arrayMax(g)-arrayMin(g),sd:sampleStd(g)});}
+    const xbar=mean(gs.map(g=>g.mean));
+    if(n>10){
+      const sbar=mean(gs.map(g=>g.sd));
+      return {type:'Xbar-S',sub:n,cl:xbar,ucl:xbar+SPC_A3[n]*sbar,lcl:xbar-SPC_A3[n]*sbar,
+        pts:gs.map(g=>g.mean),mpts:gs.map(g=>g.sd),mcl:sbar,mucl:SPC_B4[n]*sbar,mlcl:SPC_B3[n]*sbar,groups:gs.length};
+    }
+    const rbar=mean(gs.map(g=>g.range));
+    return {type:'Xbar-R',sub:n,cl:xbar,ucl:xbar+SPC_A2[n]*rbar,lcl:xbar-SPC_A2[n]*rbar,
+      pts:gs.map(g=>g.mean),mpts:gs.map(g=>g.range),mcl:rbar,mucl:SPC_D4[n]*rbar,mlcl:SPC_D3[n]*rbar,groups:gs.length};
   }
   const mrs=[]; for(let i=1;i<x.length;i++)mrs.push(Math.abs(x[i]-x[i-1]));
   const mrbar=mean(mrs), xbar=mean(x);
@@ -628,9 +661,10 @@ function calc(auto){
   const m=mean(nums), sd=sampleStd(nums);
   const sub=parseInt(document.getElementById('sub').value)||0;
 
-  // 边界检查：数据无波动 / 子组大小超过数据量
+  // 边界检查：数据无波动 / 子组大小超过数据量 / 超出系数表范围
   if(sd===0){setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
   if(sub>1&&sub>nums.length){setMsg('warn','⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
+  if(sub>25){setMsg('warn','⚠ 子组大小最大支持 25（标准 SPC 系数表上限），请调小。');return;}
   const sw=withinSigma(nums,sub);
   if(!isFinite(sw)||sw<=0){setMsg('warn','⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
 
@@ -686,9 +720,10 @@ function calc(auto){
   const stability=sd/sw;
 
   // ---- SPC 控制限与受控性判定（控制图）----
-  // 控制限 = 过程数据自身的 ±3σ（个体用 I-MR 法、子组用 Xbar-R 法），随数据动态变化；
+  // 控制限 = 过程数据自身的 ±3σ（个体用 I-MR 法、子组 n≤10 用 Xbar-R 法、n>10 用 Xbar-S 法），随数据动态变化；
   // 与规格限（图纸/客户固定）是两套不同的线：控制限判"过程稳不稳"，规格限判"产品合不合格"
   const spc=spcAnalysis(nums,sub);
+  if(!spc){setMsg('warn','⚠ 子组大小超出支持范围（2~25），无法计算控制限，请调小子组大小。');return;}
   const ctrl=checkControl(spc.pts,spc.cl,spc.ucl,spc.lcl);   // 主图（I 图 / Xbar 图）受控性
   const mCtrl=checkControl(spc.mpts,spc.mcl,spc.mucl,spc.mlcl); // 辅助图（MR 图 / R 图）越界
   // 控制限是否完全落在规格限内（理想：UCL<USL 且 LCL>LSL）
@@ -764,14 +799,14 @@ function calc(auto){
     ['均值 μ',fmt(m,4),'数据算术平均'],
     ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':'自动取 (LSL+USL)/2，用于 Cpm'],
     ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':'均值相对规格中点的偏移（0=恰好居中）'],
-    ['组内 σ',fmt(sw,4),'移动极差法（短期波动）'],
+    ['组内 σ',fmt(sw,4),sub>1?(sub>10?'子组标准差法 S̄/c4（短期波动）':'子组极差法 R̄/d2（短期波动）'):'移动极差法 MR̄/1.128（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
     ['稳定性指标',fmt(stability,4),'整体σ ÷ 组内σ；>1.3 提示组间漂移/特殊原因'],
     ['控制上限 UCL',fmt(spc.ucl,4),spc.type+' 图：中心线 + 3σ（过程数据算出，随波动动态变化）'],
     ['中心线 CL',fmt(spc.cl,4),spc.type+' 图中心线 = 过程均值'],
     ['控制下限 LCL',fmt(spc.lcl,4),spc.type+' 图：中心线 − 3σ（过程数据算出，随波动动态变化）'],
-    ['MR̄ / R̄',fmt(spc.mcl,4),spc.sub>1?'子组平均极差 R̄（Xbar-R 图）':'平均移动极差 MR̄（I-MR 图）'],
-    ['受控性判定',ctrl.stable&&mCtrl.out.length===0?'统计受控':'统计失控',ctrl.reasons.concat(mCtrl.out.length?['MR/R 图 '+mCtrl.out.length+' 点超出控制限']:[]).join('；')||'主图无越界、无异常模式（±3σ 判据）'],
+    ['MR̄ / R̄ / S̄',fmt(spc.mcl,4),spc.type==='Xbar-S'?'子组平均标准差 S̄（Xbar-S 图）':(spc.sub>1?'子组平均极差 R̄（Xbar-R 图）':'平均移动极差 MR̄（I-MR 图）')],
+    ['受控性判定',ctrl.stable&&mCtrl.out.length===0?'统计受控':'统计失控',ctrl.reasons.concat(mCtrl.out.length?[(spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 '))+mCtrl.out.length+' 点超出控制限']:[]).join('；')||'主图无越界、无异常模式（±3σ 判据）'],
     ['控制限∩规格限',ctrlInSpec?'控制限 ⊆ 规格限':'控制限超出规格限',ctrlInSpec?'±3σ 完全落在规格限内 → 理想过程区间':'±3σ 已越过规格限 → 即便受控也会出不合格品'],
     ['Cp',fmt(cp),'潜在能力（仅规格宽度/σ）'],
     ['Cpk',fmt(cpk),'实际能力（含中心偏移）'],
@@ -1093,7 +1128,7 @@ function drawQuant(sorted,z,axisLabel){
   function cov_(p,q){const mp=mean(p),mq=mean(q);let s=0;for(let i=0;i<p.length;i++)s+=(p[i]-mp)*(q[i]-mq);return s/p.length;}
 }
 
-/* ============ 控制图（SPC：I-MR / Xbar-R，含控制限与规格限叠加） ============ */
+/* ============ 控制图（SPC：I-MR / Xbar-R / Xbar-S，含控制限与规格限叠加） ============ */
 const CC={lim:'#c0392b',cl:'#2f6db5',mr:'#8a6d1f'};
 function drawCtrl(spc,lsl,usl,m,axisLabel){
   const cv=document.getElementById('cvCtrl');
@@ -1165,7 +1200,7 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
     ctx.beginPath();ctx.arc(px,my2px(v),oob?4:2.4,0,7);ctx.fill();
   });
   ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
-  ctx.fillText(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）',padL,yB0-10);
+  ctx.fillText(spc.type==='Xbar-S'?'S 图（子组标准差）':(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）'),padL,yB0-10);
 
   // x 轴刻度（样本序号，画在最底部，两段图共用）+ 框线
   // 限制在 [1,N] 且去重：niceTicks 的"漂亮刻度"可能落到 0 或超出数据个数（N=2 时会出现 0），序号刻度不应出界
@@ -1183,11 +1218,11 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
 function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,primary,specAuto){
   // ---- 受控性横幅 ----
   const c=stable?{c:'#1a7f37',t:'统计受控'}:{c:'#cf222e',t:'统计失控'};
-  const allReasons=ctrl.reasons.concat(mCtrl.out.length?['MR/R 图 '+mCtrl.out.length+' 点超出控制限']:[]);
+  const allReasons=ctrl.reasons.concat(mCtrl.out.length?[(spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 '))+mCtrl.out.length+' 点超出控制限']:[]);
   document.getElementById('ctrlMsg').innerHTML=
     `<div class="verdict" style="--vc-bg:${c.c}1f;border-color:${c.c}55;color:${c.c}">
        <span class="badge" style="background:${c.c}">${c.t}</span>
-       <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（MR/R）均无越界点、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>`;
+       <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（'+(spc.type==='Xbar-S'?'S':'MR/R')+'）均无越界点、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>`;
 
   // ---- 控制限 vs 规格限 对比 ----
   // 观测越界用「原始个体数据」统计（组均值越界 ≠ 个体越界，组均值会被平均掩盖超差个体）
@@ -1206,7 +1241,7 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
     d:'过程既失控、Cpk 又不达标，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
   const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读能力与规格限结论。</div>':'';
   const uslIn=usl!=null&&spc.ucl<usl, lslIn=lsl!=null&&spc.lcl>lsl;
-  const ctrlNote=spc.sub>1?'控制限 = 组均值 ± 3σ/√n（子组模式），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。':'控制限 = 单值 ± 3σ（个体模式），直接反映个体波动。';
+  const ctrlNote=spc.sub>1?(spc.type==='Xbar-S'?'控制限 = 组均值 ± A3·S̄（Xbar-S 子组模式，n>10），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。':'控制限 = 组均值 ± A2·R̄（Xbar-R 子组模式），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。'):'控制限 = 单值 ± 3σ（个体模式），直接反映个体波动。';
   document.getElementById('ctrlCompare').innerHTML=`
     <div class="report-grid">
       <div class="report-block">
@@ -1327,7 +1362,7 @@ document.getElementById('btnSample').onclick=()=>{
   document.getElementById('useUsl').checked=true;
   document.getElementById('lsl').value='9.950';
   document.getElementById('usl').value='10.050';
-  document.getElementById('sub').value='0';         // 示例按个体测量展示（可改子组看 Xbar-R 图）
+  document.getElementById('sub').value='0';         // 示例按个体测量展示（可改子组看 Xbar-R / Xbar-S 图）
   document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
 };
@@ -1446,7 +1481,7 @@ function exportCsv(){
   lines.push('控制上限 UCL,'+fmt(r.spc.ucl,4)+','+r.spc.type+' 控制图：中心线+3σ（数据算出，动态）');
   lines.push('中心线 CL,'+fmt(r.spc.cl,4)+',=过程均值');
   lines.push('控制下限 LCL,'+fmt(r.spc.lcl,4)+','+r.spc.type+' 控制图：中心线−3σ（数据算出，动态）');
-  lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / MR-R图 '+r.mCtrl.out.length);
+  lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / 辅助图('+(r.spc.type==='Xbar-S'?'S':'MR/R')+') '+r.mCtrl.out.length);
   lines.push('控制限∩规格限,'+(r.ctrlInSpec?'控制限在规格限内':'控制限超出规格限')+',理想=控制限完全落在规格限内部');
   // 不合格分析
   lines.push('对应部分,观测%,期望组内%,期望总体%');
@@ -1653,9 +1688,9 @@ const GLOSS=[
    impact:'σ 是能力指数的分母核心：σ 越大 → Cp/Cpk/Pp/Ppk 越小 → 超规 PPM 越大。波动是产品质量稳定性的最大敌人。',
    action:'σ 偏大时排查设备精度、工装磨损、原材料批次差异、环境温湿度等波动源，用 FACA 找到特殊原因。'},
   {cat:'统计量',abbr:'σ_within',name:'Within Sigma',cn:'组内标准差（短期波动）',
-   def:'反映过程<b>短期固有</b>波动：个体测量用移动极差法（MR̄/d2(2)），子组数据用极差法（R̄/d2(n)）。用于 Cp / Cpk 系列。',
-   formula:'个体：σ_within = MR̄ / d2(2)=1.128　·　子组：σ_within = R̄ / d2(n)',
-   steps:['个体测量：相邻两点差的绝对值求平均 → MR̄，再 ÷ 1.128','子组：每组 max−min 求平均 → R̄，再 ÷ d2(n)（查表，覆盖到 20）'],
+   def:'反映过程<b>短期固有</b>波动：个体测量用移动极差法（MR̄/d2(2)）；子组 n≤10 用极差法（R̄/d2(n)），n&gt;10 用标准差法（S̄/c4(n)，Xbar-S）。用于 Cp / Cpk 系列。',
+   formula:'个体：σ_within = MR̄ / d2(2)=1.128　·　子组 n≤10：σ_within = R̄ / d2(n)　·　子组 n&gt;10：σ_within = S̄ / c4(n)',
+   steps:['个体测量：相邻两点差的绝对值求平均 → MR̄，再 ÷ 1.128','子组 n≤10：每组 max−min 求平均 → R̄，再 ÷ d2(n)（查表，覆盖到 25）','子组 n&gt;10：每组算样本标准差求平均 → S̄，再 ÷ c4(n)（查表，覆盖到 25）'],
    impact:'σ_within 小说明过程短时间内的波动受控，是"过程本身稳不稳"的度量；它不包含换班、换料带来的长期漂移。',
    action:'若 Cpk 合格但 Ppk 不合格（σ_within ≪ σ_overall），说明短期稳定但长期漂移，重点管控批次间一致性。'},
   {cat:'统计量',abbr:'σ_overall',name:'Overall Sigma',cn:'整体标准差（长期波动）',
@@ -1676,6 +1711,12 @@ const GLOSS=[
    steps:['把数据按子组大小 n 分组','每组算极差 Rᵢ','求平均 R̄','σ_within = R̄ / d2(n)'],
    impact:'子组极差法比移动极差法更能反映真实的组内短期波动，子组划分不合理（混入不同批次）会高估组内 σ。',
    action:'子组应代表"同一条件下的短期连续生产"（如同一班次、同一模腔），不要跨批次混组。'},
+  {cat:'统计量',abbr:'S̄',name:'Average Sample StdDev',cn:'平均子组标准差',
+   def:'子组数据法中，各组样本标准差 Sᵢ 的平均值。配合 c4 常数估计组内 σ（Xbar-S 图，子组 n&gt;10 时使用）。',
+   formula:'S̄ = (S₁ + S₂ + … + Sₖ) / k，其中 Sᵢ = 子组样本标准差（ddof=1）',
+   steps:['把数据按子组大小 n 分组','每组算样本标准差 Sᵢ','求平均 S̄','σ_within = S̄ / c4(n)'],
+   impact:'n&gt;10 时标准差法比极差法（R̄/d2）效率更高、更稳定，是本工具自动切换 Xbar-S 图的原因；S̄ 对每组内个别离群点也更稳健。',
+   action:'子组 n&gt;10 时工具自动用 Xbar-S 法，无需手动干预；如人工核对，注意 S̄ 用各组样本标准差（除以 n−1），不是总体标准差。'},
   {cat:'统计量',abbr:'MR̄',name:'Average Moving Range',cn:'平均移动极差',
    def:'个体测量（子组=0）时，相邻两个测量值之差的绝对值的平均。用于估计组内 σ（移动极差法）。',
    formula:'MR̄ = Σ|xᵢ − xᵢ₋₁| / (n−1)，σ_within = MR̄ / 1.128',
@@ -1683,11 +1724,17 @@ const GLOSS=[
    impact:'对数据顺序敏感：测量顺序即生产顺序，顺序打乱会低估真实短期波动。',
    action:'粘贴数据请按生产/测量先后顺序排列，不要排序后再粘贴。'},
   {cat:'统计量',abbr:'d2',name:'d2 Constant',cn:'极差法无偏常数',
-   def:'把极差 R 转换成标准差 σ 的查表系数，取值取决于子组大小 n（本工具已覆盖 n=2~20）。',
+   def:'把极差 R 转换成标准差 σ 的查表系数，取值取决于子组大小 n（本工具已覆盖 n=2~25）。',
    formula:'σ = R̄ / d2(n)；例如 d2(2)=1.128, d2(5)=2.326, d2(10)=3.078',
    steps:['按子组大小查 d2 常数表','极差平均值除以对应 d2'],
    impact:'d2 是移动极差法 / 子组极差法的桥梁系数，选错子组大小会导致组内 σ 系统性偏差。',
    action:'子组大小按实际抽样方案填写（0=个体测量），不要为了凑数随意更改。'},
+  {cat:'统计量',abbr:'c4',name:'c4 Constant',cn:'标准差法无偏常数',
+   def:'把子组样本标准差 S 的平均值 S̄ 转换成标准差 σ 的查表系数，取值取决于子组大小 n（本工具已覆盖 n=2~25）。子组 n&gt;10 时（Xbar-S 图）使用。',
+   formula:'σ = S̄ / c4(n)；例如 c4(5)=0.9400, c4(10)=0.9727, c4(25)=0.9896',
+   steps:['每组算样本标准差 Sᵢ','取平均得 S̄','除以对应 c4 得到组内 σ'],
+   impact:'c4 随 n 增大趋近 1：n 越大，S 越接近真实 σ。n&gt;10 时用标准差法比极差法效率更高，是本工具 Xbar-S 图的标准做法。',
+   action:'子组 n&gt;10 时工具自动切换 Xbar-S 法（σ=S̄/c4），无需手动干预；如用其他软件核对，注意 n≤10 用 R 法、n&gt;10 用 S 法是 SPC 通用惯例。'},
   {cat:'统计量',abbr:'Q1 / Q3 / IQR',name:'Quartiles / Interquartile Range',cn:'四分位数 / 四分位距',
    def:'Q1=第 25 百分位、Q3=第 75 百分位，箱线图箱体边界；IQR = Q3−Q1，衡量中间 50% 数据的分散程度。',
    formula:'Q1 = 排序后第 25% 位置的值；Q3 = 第 75% 位置的值；IQR = Q3 − Q1',
@@ -1728,8 +1775,8 @@ const GLOSS=[
   // ---------- 控制图 ----------
   {cat:'控制图',abbr:'UCL / LCL',name:'Upper / Lower Control Limit',cn:'上 / 下控制限',
    def:'由<b>过程数据</b>计算出的控制界限，通常取中心线 ± 3σ：UCL = CL + 3σ，LCL = CL − 3σ。<b>不是</b>产品合格线！它判断"过程稳不稳"，随数据波动动态变化，与固定不变的规格限（判"产品合不合格"）是两套不同的线。',
-   formula:'个体（I 图）：UCL = x̄ + 2.66·MR̄，LCL = x̄ − 2.66·MR̄<br>子组（Xbar 图）：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄',
-   steps:['计算中心线 CL（个体=数据均值 x̄；子组=组均值之均值 x̄̄）','估计短期波动 σ（个体用 MR̄/d2(2)，子组用 R̄/d2(n)）','CL ± 3σ 得 UCL / LCL'],
+   formula:'个体（I 图）：UCL = x̄ + 2.66·MR̄，LCL = x̄ − 2.66·MR̄<br>子组 n≤10（Xbar-R 图）：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄<br>子组 n&gt;10（Xbar-S 图）：UCL = x̄̄ + A3·S̄，LCL = x̄̄ − A3·S̄',
+   steps:['计算中心线 CL（个体=数据均值 x̄；子组=组均值之均值 x̄̄）','估计短期波动 σ（个体用 MR̄/d2(2)；子组 n≤10 用 R̄/d2(n)、n&gt;10 用 S̄/c4(n)）','CL ± 3σ 得 UCL / LCL'],
    impact:'点超出控制限 = 过程出现<b>特殊原因</b>异常（失控）；点全在控制限内 = 过程<b>统计受控</b>。注意：受控 ≠ 合格——子组模式下控制限是"组均值 ± 3σ/√n"，只反映组均值是否稳定；个体是否合格要看 Cpk（用个体 σ_within），两者必须分开解读。',
    action:'控制图越界先找特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），用 5W2H / FACA 锁定根因后再调机；不要一越界就盲目调机。'},
   {cat:'控制图',abbr:'CL',name:'Center Line',cn:'中心线',
@@ -1739,17 +1786,23 @@ const GLOSS=[
    impact:'CL 与规格中点 / 目标 T 的偏差反映中心偏移；连续 7 点全部位于 CL 同一侧 = 均值漂移信号。',
    action:'CL 明显偏离规格中点时调整过程设定值；出现漂移模式时先排查特殊原因，再考虑调中心。'},
   {cat:'控制图',abbr:'Control Chart',name:'Control Chart',cn:'控制图（SPC）',
-   def:'按<b>生产 / 测量顺序</b>绘制的过程监控图，含中心线 CL 与上下控制限 UCL / LCL，用于区分普通原因（过程固有波动）与特殊原因（可纠正的异常）。本工具提供：个体数据 → <b>I-MR 图</b>（单值 + 移动极差）；子组数据 → <b>Xbar-R 图</b>（组均值 + 组极差）。',
-   formula:'I-MR：I 图看单值、MR 图看相邻点移动极差；Xbar-R：Xbar 图看组均值、R 图看组极差',
-   steps:['数据按生产顺序排列（不要排序！）','按子组设置选择 I-MR 或 Xbar-R','对比各点与控制限，识别越界点 / 连续 9 点同侧 / 连续 7 点趋势（Nelson 常用判据）'],
+   def:'按<b>生产 / 测量顺序</b>绘制的过程监控图，含中心线 CL 与上下控制限 UCL / LCL，用于区分普通原因（过程固有波动）与特殊原因（可纠正的异常）。本工具提供：个体数据 → <b>I-MR 图</b>（单值 + 移动极差）；子组 n≤10 → <b>Xbar-R 图</b>（组均值 + 组极差）；子组 n&gt;10 → <b>Xbar-S 图</b>（组均值 + 组标准差）。',
+   formula:'I-MR：I 图看单值、MR 图看相邻点移动极差；Xbar-R：Xbar 图看组均值、R 图看组极差；Xbar-S：Xbar 图看组均值、S 图看组标准差',
+   steps:['数据按生产顺序排列（不要排序！）','按子组设置自动选择 I-MR / Xbar-R / Xbar-S','对比各点与控制限，识别越界点 / 连续 9 点同侧 / 连续 7 点趋势（Nelson 常用判据）'],
    impact:'控制图是"过程稳不稳"的裁判：失控时即使产品暂时合格也存在批量隐患；受控时即使不合格也能稳定预测不良率。是 5S / 产线审核中最常被要求的过程证据。',
    action:'日常产线建议用控制图持续监控；失控时立即排查特殊原因，消除后确认点回归控制限内，再做能力（Cpk）判定。'},
-  {cat:'控制图',abbr:'A2 / D3 / D4',name:'Control Chart Constants',cn:'控制图常数（子组法）',
+  {cat:'控制图',abbr:'A2 / D3 / D4',name:'Control Chart Constants (R)',cn:'控制图常数（极差法）',
    def:'Xbar-R 控制图计算控制限所用的查表常数：<b>A2</b> 用于均值图（= 3/(d2·√n)），<b>D3 / D4</b> 用于极差图（R 图的上下控制限系数，n≤6 时 D3=0 即 R 图无下限）。',
    formula:'Xbar 图：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄<br>R 图：UCL = D4·R̄，LCL = D3·R̄',
-   steps:['按子组大小 n 查 A2 / D3 / D4 表（本工具覆盖 n=2~20）','分别代入 Xbar 图与 R 图公式'],
+   steps:['按子组大小 n 查 A2 / D3 / D4 表（本工具覆盖 n=2~25）','分别代入 Xbar 图与 R 图公式'],
    impact:'子组大小 n 不同，控制限宽度不同：n 越大，Xbar 图控制限越靠近中心线（组均值波动更小）；子组划分不合理会直接导致控制限失真。',
    action:'子组大小按实际抽样方案填写（0 = 个体测量），子组应代表"同一条件下短期连续生产"，不要跨批次混组。'},
+  {cat:'控制图',abbr:'A3 / B3 / B4',name:'Control Chart Constants (S)',cn:'控制图常数（标准差法）',
+   def:'Xbar-S 控制图计算控制限所用的查表常数：<b>A3</b> 用于均值图（= 3/(c4·√n)），<b>B3 / B4</b> 用于标准差图（S 图的上下控制限系数，n≤5 时 B3=0 即 S 图无下限）。子组 n&gt;10 时自动使用。',
+   formula:'Xbar 图：UCL = x̄̄ + A3·S̄，LCL = x̄̄ − A3·S̄<br>S 图：UCL = B4·S̄，LCL = B3·S̄',
+   steps:['按子组大小 n 查 A3 / B3 / B4 表（本工具覆盖 n=2~25）','分别代入 Xbar 图与 S 图公式'],
+   impact:'n&gt;10 时标准差法（Xbar-S）比极差法（Xbar-R）更精确、更稳健，是 SPC 通用惯例；n≤5 时 S 图无下限（B3=0），与 R 图 n≤6 无下限同理。',
+   action:'子组 n&gt;10 时工具自动切换 Xbar-S，无需手动选择；与客户 / 软件核对时注意双方是否采用同一套 n 分界惯例（通常为 10）。'},
   // ---------- 图与交互 ----------
   {cat:'图与交互',abbr:'Quantile Plot',name:'Normal Quantile Plot（Q-Q 图）',cn:'正态概率图',
    def:'把排序后的样本值（纵轴）对理论正态分位数 z（横轴）作图。点越接近直线，数据越接近正态；R² 即直线拟合优度。',
