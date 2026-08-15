@@ -509,22 +509,30 @@ function rowNumbers(line){
   return nums;
 }
 
-// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header}
+// 从表头行提取"像列名"的文字：跳过常见序号前缀，取剩余部分（供图表坐标轴标题使用）
+function extractHeaderText(line){
+  let toks=line.split(/[\s,;，、]+/).filter(Boolean);
+  if(toks[0]&&/^(no\.?|#|序号|编号|id|item)$/i.test(toks[0])) toks=toks.slice(1);
+  const txt=toks.join(' ');
+  return txt.length>24 ? txt.slice(0,24)+'…' : txt;
+}
+
+// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText}
 function parseNums(raw){
   const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
-  if(!lines.length) return {vals:[],skipped:0,header:0};
+  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:''};
   const rows=lines.map(rowNumbers);
   const counts=rows.map(r=>r.length);
   // 表头判定：多数数据行含相同个数的数字；首行数字数少于众数 → 视为表头
   const freq={}; counts.forEach(c=>freq[c]=(freq[c]||0)+1);
   let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
-  const vals=[]; let header=0,skipped=0;
+  const vals=[]; let header=0,skipped=0,headerText='';
   counts.forEach((c,i)=>{
-    if(c===0){ if(i===0) header++; else skipped++; return; }
-    if(i===0 && c!==mode && c<mode && mode>0){ header++; return; }
+    if(c===0){ if(i===0){ header++; headerText=extractHeaderText(lines[i]); } else skipped++; return; }
+    if(i===0 && c!==mode && c<mode && mode>0){ header++; headerText=extractHeaderText(lines[i]); return; }
     vals.push(...rows[i]);
   });
-  return {vals, skipped, header};
+  return {vals, skipped, header, headerText};
 }
 
 // 解析反馈条：显示解析出多少个数值、跳过/忽略了多少
@@ -533,7 +541,7 @@ function showParseInfo(info){
   if(!info.vals.length){ el.textContent=''; el.className='parseinfo'; return; }
   let txt='已解析 '+info.vals.length+' 个数值';
   const notes=[];
-  if(info.header>0) notes.push('自动跳过表头 '+info.header+' 行');
+  if(info.header>0) notes.push('自动跳过表头「'+info.headerText+'」');
   if(info.skipped>0) notes.push('忽略 '+info.skipped+' 处文本');
   if(notes.length) txt+='（'+notes.join(' · ')+'）';
   el.textContent=txt;
@@ -745,9 +753,12 @@ function calc(auto){
   setMsg('ok','✅ 计算完成。');
   saveState();
 
-  drawHist(nums,lsl,usl,target,m,sd,sw);
-  drawBox(nums,lsl,usl,target,m);
-  drawQuant(sorted,z);
+  // 坐标轴标题：优先用识别到的表头文字，没有则回退「测量值」
+  const axisLabel = info.headerText || '测量值';
+
+  drawHist(nums,lsl,usl,target,m,sd,sw,axisLabel);
+  drawBox(nums,lsl,usl,target,m,axisLabel);
+  drawQuant(sorted,z,axisLabel);
 }
 
 /* ============ 绘图 ============ */
@@ -802,7 +813,7 @@ function vline(ctx,px,top,h,color,label,labColor){
   ctx.textAlign='center';ctx.fillText(label,px,top-4);ctx.textAlign='start';ctx.restore();
 }
 
-function drawHist(x,lsl,usl,target,m,sd,sw){
+function drawHist(x,lsl,usl,target,m,sd,sw,axisLabel){
   const cv=document.getElementById('cvHist');
   const ctx=prepCanvas(cv,720,380);
   const W=720,H=380;
@@ -869,7 +880,7 @@ function drawHist(x,lsl,usl,target,m,sd,sw){
   frame(ctx,W,H,padL,padT,plotW,plotH);
   // 轴标题
   ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
-  ctx.fillText('测量值',padL+plotW/2,H-6);
+  ctx.fillText(axisLabel||'测量值',padL+plotW/2,H-6);
   ctx.save();ctx.translate(13,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText('概率密度',0,0);ctx.restore();
   ctx.textAlign='start';
 }
@@ -881,7 +892,7 @@ function roundRectTop(ctx,x,y,w,h,r){
   ctx.closePath();ctx.fill();
 }
 
-function drawBox(x,lsl,usl,target,m){
+function drawBox(x,lsl,usl,target,m,axisLabel){
   const cv=document.getElementById('cvBox');
   const ctx=prepCanvas(cv,720,170);
   const W=720,H=170;
@@ -944,7 +955,7 @@ function drawBox(x,lsl,usl,target,m){
   xticks(ctx,niceTicks(a,b,7),x2px,padT,plotH,fmtTick);
   frame(ctx,W,H,padL,padT,plotW,plotH);
   ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
-  ctx.fillText('测量值',padL+plotW/2,H-6);ctx.textAlign='start';
+  ctx.fillText(axisLabel||'测量值',padL+plotW/2,H-6);ctx.textAlign='start';
   // 图例
   ctx.font='10.5px sans-serif';
   ctx.fillStyle=C.data();ctx.fillRect(padL,12,14,9);ctx.fillStyle='#24344d';ctx.fillText('四分位箱',padL+18,20);
@@ -952,7 +963,7 @@ function drawBox(x,lsl,usl,target,m){
   ctx.fillStyle='#9aa4ad';ctx.fillRect(padL+145,12,14,9);ctx.fillStyle='#24344d';ctx.fillText('最小~最大',padL+163,20);
 }
 
-function drawQuant(sorted,z){
+function drawQuant(sorted,z,axisLabel){
   const cv=document.getElementById('cvQuant');
   const ctx=prepCanvas(cv,460,430);
   const W=460,H=430;
@@ -988,7 +999,7 @@ function drawQuant(sorted,z){
   // 轴标题
   ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('理论分位数 z',padL+plotW/2,H-7);
-  ctx.save();ctx.translate(14,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText('样本分位数',0,0);ctx.restore();
+  ctx.save();ctx.translate(14,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText(axisLabel||'样本分位数',0,0);ctx.restore();
   // R² 标注
   const r2Txt='R² = '+(r*r).toFixed(4);
   ctx.font='bold 12px sans-serif';const tw=ctx.measureText(r2Txt).width;
