@@ -333,7 +333,11 @@
     <canvas id="cvQuant" width="460" height="430"></canvas>
 
     <div class="chart-title">⑦ 控制图（I-MR / Xbar-R / Xbar-S，过程稳定性判断）</div>
-    <canvas id="cvCtrl" width="720" height="330"></canvas>
+    <div class="legend" style="margin-bottom:2px">主图看<b>中心</b>稳定性（均值漂移），辅助图看<b>波动</b>稳定性（离散度变化）——两张须同时看：主图越界=均值异常，辅助图越界=波动异常。</div>
+    <canvas id="cvCtrlMain" width="720" height="240"></canvas>
+    <div class="chart-subtitle" style="margin:4px 0 2px;color:#64748b;font-size:12px">▸ 主图：I / Xbar（含规格限叠加）</div>
+    <canvas id="cvCtrlAux" width="720" height="190"></canvas>
+    <div class="chart-subtitle" style="margin:4px 0 2px;color:#64748b;font-size:12px">▸ 辅助图：MR / R / S</div>
     <div id="ctrlMsg"></div>
     <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限（图纸/客户给定）。控制限随过程波动动态变化，用于判断过程是否受控；规格限固定不变，用于判定产品是否合格——两套线需对比解读。</div>
 
@@ -356,7 +360,7 @@
 <div id="glossOverlay">
   <div class="gloss-box" role="dialog" aria-label="术语百科">
     <div class="gloss-head">
-      <h2>📖 术语百科 —— 全项目英文简称速查</h2>
+      <h2>📖 术语百科 —— 全项目专业术语速查（英文简称 + 中文词汇）</h2>
       <input id="glossSearch" type="search" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
       <button class="gloss-close" id="glossClose">✕ 关闭</button>
     </div>
@@ -1128,20 +1132,20 @@ function drawQuant(sorted,z,axisLabel){
   function cov_(p,q){const mp=mean(p),mq=mean(q);let s=0;for(let i=0;i<p.length;i++)s+=(p[i]-mp)*(q[i]-mq);return s/p.length;}
 }
 
-/* ============ 控制图（SPC：I-MR / Xbar-R / Xbar-S，含控制限与规格限叠加） ============ */
+/* ============ 控制图（SPC：I-MR / Xbar-R / Xbar-S，主图与辅助图拆分为两个独立画布） ============ */
 const CC={lim:'#c0392b',cl:'#2f6db5',mr:'#8a6d1f'};
-function drawCtrl(spc,lsl,usl,m,axisLabel){
-  const cv=document.getElementById('cvCtrl');
-  const ctx=prepCanvas(cv,720,330);
-  const W=720,H=330;
-  ctx.clearRect(0,0,W,H);
-  const padL=52,padR=118,padT=34,padB=40,plotW=W-padL-padR;
-  const topH=Math.round((H-padT-padB)*0.60), botH=(H-padT-padB)-topH;
-  const N=spc.pts.length, M=spc.mpts.length;
-  const x2px=i=>padL+(N>1?i/(N-1):0.5)*plotW;      // i：0 基序号
-  const yT0=padT, yB0=padT+topH+10;
 
-  // ---- 上段：I / Xbar 主图 ----
+// ---- 主图：I / Xbar（含规格限叠加）----
+function drawCtrlMain(spc,lsl,usl,axisLabel){
+  const cv=document.getElementById('cvCtrlMain');
+  const ctx=prepCanvas(cv,720,240);
+  const W=720,H=240;
+  ctx.clearRect(0,0,W,H);
+  const padL=52,padR=118,padT=30,padB=34,plotW=W-padL-padR;
+  const plotH=H-padT-padB;
+  const N=spc.pts.length;
+  const x2px=i=>padL+(N>1?i/(N-1):0.5)*plotW;      // i：0 基序号
+
   let lo=Math.min(spc.lcl,arrayMin(spc.pts)), hi=Math.max(spc.ucl,arrayMax(spc.pts));
   const dspan=(hi-lo)||1;
   // 规格限纳入坐标轴：与主范围差距不超过 5 倍跨度，否则截断并在边缘画箭头提示
@@ -1149,7 +1153,7 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   if(lsl!=null){ if(lsl>=lo-dspan*5) lo=Math.min(lo,lsl); else lslOff=true; }
   if(usl!=null){ if(usl<=hi+dspan*5) hi=Math.max(hi,usl); else uslOff=true; }
   const yspan=(hi-lo)||1; lo-=yspan*0.06; hi+=yspan*0.06;
-  const y2px=v=>yT0+topH-(v-lo)/yspan*topH;
+  const y2px=v=>padT+plotH-(v-lo)/yspan*plotH;
   // 网格 + y 刻度
   yticks(ctx,niceTicks(lo,hi,4),y2px,padL,plotW,fmtTick);
   // 控制限 + 规格限水平线（右侧标签）
@@ -1163,7 +1167,7 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   hline(spc.ucl,CC.lim,true,'UCL '+fmtTick(spc.ucl));
   hline(spc.cl,CC.cl,false,'CL '+fmtTick(spc.cl));
   hline(spc.lcl,CC.lim,true,'LCL '+fmtTick(spc.lcl));
-  // 规格限：在坐标范围内画实际位置；超出图区（>5 倍跨度）时画在边缘并标注数值，避免线/标签画到画布外不可见
+  // 规格限：在坐标范围内画实际位置；超出图区（>5 倍跨度）时画在边缘并标注数值
   if(usl!=null) uslOff ? hline(hi,'#d9822b',true,'USL ↑ '+fmtTick(usl)) : hline(usl,'#d9822b',true,'USL '+fmtTick(usl));
   if(lsl!=null) lslOff ? hline(lo,'#2e8b57',true,'LSL ↓ '+fmtTick(lsl)) : hline(lsl,'#2e8b57',true,'LSL '+fmtTick(lsl));
   // 数据折线 + 点（越界点红色放大）
@@ -1176,11 +1180,31 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
     if(oob){ctx.strokeStyle='#cf222e';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x2px(i),y2px(v),6.2,0,7);ctx.stroke();}
   });
   ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
-  ctx.fillText(spc.sub>1?'Xbar 图（子组均值）':'I 图（单值）',padL,yT0-10);
+  ctx.fillText(spc.sub>1?'Xbar 图（子组均值）':'I 图（单值）',padL,padT-10);
 
-  // ---- 下段：MR / R 辅助图 ----
+  // x 轴刻度（样本序号）+ 框线
+  const xTicks=[...new Set(niceTicks(1,N,6).map(t=>Math.round(t)).filter(t=>t>=1&&t<=N))];
+  ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  xTicks.forEach(t=>ctx.fillText(t.toFixed(0),x2px(t-1),H-padB+6));
+  ctx.textAlign='start';ctx.textBaseline='alphabetic';
+  frame(ctx,W,H,padL,padT,plotW,plotH);
+  ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillText('样本序号（按生产/测量顺序）',padL+plotW/2,H-7);
+  ctx.textAlign='start';
+}
+
+// ---- 辅助图：MR / R / S ----
+function drawCtrlAux(spc){
+  const cv=document.getElementById('cvCtrlAux');
+  const ctx=prepCanvas(cv,720,190);
+  const W=720,H=190;
+  ctx.clearRect(0,0,W,H);
+  const padL=52,padR=118,padT=26,padB=34,plotW=W-padL-padR;
+  const plotH=H-padT-padB;
+  const N=spc.mpts.length;
+  const x2px=i=>padL+(N>1?i/(N-1):0.5)*plotW;
   const mMax=arrayMax(spc.mpts), m0=(Math.max(spc.mucl,mMax)*1.15)||1;
-  const my2px=v=>yB0+botH-v/m0*botH;
+  const my2px=v=>padT+plotH-v/m0*plotH;
   yticks(ctx,niceTicks(0,m0,3),my2px,padL,plotW,fmtTick);
   const mhline=(v,color,dash,label)=>{
     const py=my2px(v);ctx.save();
@@ -1193,26 +1217,30 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   mhline(spc.mucl,CC.lim,true,'UCL '+fmtTick(spc.mucl));
   if(spc.mlcl>0)mhline(spc.mlcl,CC.lim,true,'LCL '+fmtTick(spc.mlcl));
   ctx.strokeStyle='#8a6d1f';ctx.lineWidth=1.2;ctx.beginPath();
-  spc.mpts.forEach((v,i)=>{const px=x2px(spc.sub>1?i:i+1);i?ctx.lineTo(px,my2px(v)):ctx.moveTo(px,my2px(v));});ctx.stroke();
+  spc.mpts.forEach((v,i)=>{const px=x2px(i);i?ctx.lineTo(px,my2px(v)):ctx.moveTo(px,my2px(v));});ctx.stroke();
   spc.mpts.forEach((v,i)=>{
-    const px=x2px(spc.sub>1?i:i+1), oob=v>spc.mucl;
+    const px=x2px(i), oob=v>spc.mucl;
     ctx.fillStyle=oob?'#cf222e':'#8a6d1f';
     ctx.beginPath();ctx.arc(px,my2px(v),oob?4:2.4,0,7);ctx.fill();
   });
   ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
-  ctx.fillText(spc.type==='Xbar-S'?'S 图（子组标准差）':(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）'),padL,yB0-10);
+  ctx.fillText(spc.type==='Xbar-S'?'S 图（子组标准差）':(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）'),padL,padT-10);
 
-  // x 轴刻度（样本序号，画在最底部，两段图共用）+ 框线
-  // 限制在 [1,N] 且去重：niceTicks 的"漂亮刻度"可能落到 0 或超出数据个数（N=2 时会出现 0），序号刻度不应出界
+  // x 轴刻度 + 框线
   const xTicks=[...new Set(niceTicks(1,N,6).map(t=>Math.round(t)).filter(t=>t>=1&&t<=N))];
   ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   xTicks.forEach(t=>ctx.fillText(t.toFixed(0),x2px(t-1),H-padB+6));
   ctx.textAlign='start';ctx.textBaseline='alphabetic';
-  frame(ctx,W,H,padL,yT0,plotW,topH);
-  frame(ctx,W,H,padL,yB0,plotW,botH);
+  frame(ctx,W,H,padL,padT,plotW,plotH);
   ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('样本序号（按生产/测量顺序）',padL+plotW/2,H-7);
   ctx.textAlign='start';
+}
+
+// 兼容入口：主图 + 辅助图各画各的画布
+function drawCtrl(spc,lsl,usl,m,axisLabel){
+  drawCtrlMain(spc,lsl,usl,axisLabel);
+  drawCtrlAux(spc);
 }
 
 function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,primary,specAuto){
@@ -1493,7 +1521,7 @@ function exportCsv(){
 }
 function exportPng(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
-  const src=['cvHist','cvBox','cvQuant','cvCtrl'].map(id=>document.getElementById(id));
+  const src=['cvHist','cvBox','cvQuant','cvCtrlMain','cvCtrlAux'].map(id=>document.getElementById(id));
   const pad=24, gap=28, W=760;   // 报告统一宽 760
   // 目标宽取「720」与「源图逻辑宽」的较小值：源图已被窄容器缩小时不放大，避免导出模糊
   const dpr=window.devicePixelRatio||1;
@@ -1876,7 +1904,80 @@ const GLOSS=[
    formula:'—',
    steps:['点「导出指标 CSV」或「导出完整报告 (PNG)」'],
    impact:'便于把分析结果沉淀为可追溯的质量记录，供审核与改善跟踪使用。',
-   action:'判级结论、改善前后对比建议截图/导出存档，纳入质量管理记录。'}
+   action:'判级结论、改善前后对比建议截图/导出存档，纳入质量管理记录。'},
+  // ---------- 中文专业词汇（可按中文搜索） ----------
+  {cat:'中文术语',abbr:'统计受控 / 统计失控',name:'Statistically In/Out of Control',cn:'统计受控 / 统计失控',
+   def:'控制图判定的过程状态：所有点落在 UCL/LCL 内且无异常模式 → <b>统计受控</b>（波动全部来自普通原因）；有点越界或出现 9 点同侧 / 7 点趋势 → <b>统计失控</b>（存在特殊原因）。',
+   formula:'受控 = 主图与辅助图均无越界点、无异常模式',
+   steps:['工具自动运行三判据：±3σ 越界 / 连续 9 点同侧 / 连续 7 点趋势','全部通过 = 受控；任一触发 = 失控'],
+   impact:'受控 ≠ 合格：受控只说明波动稳定可预测；Cpk 才是是否合格的判据。失控时产品质量不可预测，随时可能批量超差。',
+   action:'失控先找特殊原因（换班/换料/刀具磨损/环境），用 5W2H / FACA 定位后再调机；不要盲目调机掩盖问题。'},
+  {cat:'中文术语',abbr:'普通原因 / 特殊原因',name:'Common / Special Cause',cn:'普通原因 / 特殊原因',
+   def:'过程波动的两类来源：<b>普通原因</b> = 过程固有的、随机的小波动（如材料微差、振动），受控状态下的正常波动；<b>特殊原因</b> = 可纠正的异常（如刀具崩刃、换错料、温度突变），会导致过程失控。',
+   formula:'σ_total² = σ_common² + σ_special²（概念性分解）',
+   steps:['控制图越界/异常模式 → 存在特殊原因','全在限内 → 仅有普通原因'],
+   impact:'特殊原因要"找出来消除"，普通原因只能靠"改进工艺/设备"系统性减小——两者处置方式完全不同，是 SPC 的核心思想。',
+   action:'越界后先现场排查（人机料法环），锁定特殊原因消除之；普通原因则立项做工艺改善（DOE / FACA）。'},
+  {cat:'中文术语',abbr:'均值漂移',name:'Mean Shift',cn:'均值漂移',
+   def:'过程均值（μ）相对目标值或基准发生持续偏移，控制图上表现为连续 9 点位于中心线同一侧或整体上移/下移。是典型的过程异常信号。',
+   formula:'连续 9 点同侧（Nelson 规则 2）',
+   steps:['工具自动检测连续 9 点同侧','触发即提示均值漂移'],
+   impact:'均值漂移会直接压低 Cpk（Cpu 或 Cpl 单侧恶化），即使 Cp 高也会批量超单侧规格。',
+   action:'排查设定值变更、刀具磨损、材料批次、工装定位等因素，把中心调回目标。'},
+  {cat:'中文术语',abbr:'子组',name:'Subgroup',cn:'子组（抽样组）',
+   def:'在短时间、相同条件下连续抽取的一组样品（n 个），代表某一时刻过程的短期状态。子组划分合理与否直接影响 R̄/S̄ 与组内 σ 的准确性。',
+   formula:'子组大小 n = 每组样品数；组数 k = 数据量 ÷ n',
+   steps:['按实际抽样方案填子组大小（0=个体）','n≤10 用 Xbar-R，n>10 自动 Xbar-S'],
+   impact:'子组混入不同批次/班次 → 组内 σ 被高估、控制限失真；子组太小则组内波动估计不稳。',
+   action:'子组应代表"同一条件下短期连续生产"（同班次、同模腔），不要跨批次混组。'},
+  {cat:'中文术语',abbr:'移动极差',name:'Moving Range',cn:'移动极差',
+   def:'个体测量（子组=0）时，相邻两个测量值之差的绝对值：MRᵢ = |xᵢ − xᵢ₋₁|。其平均 MR̄ 用于估计组内 σ（÷ d2(2)=1.128）并绘制 MR 辅助图。',
+   formula:'MRᵢ = |xᵢ − xᵢ₋₁|；MR̄ = ΣMRᵢ/(n−1)；σ_within = MR̄/1.128',
+   steps:['相邻两点求差取绝对值 → 平均 → ÷1.128'],
+   impact:'对数据顺序敏感：顺序打乱会低估真实波动；MR 图越界说明相邻点间突变。',
+   action:'粘贴数据务必按生产/测量顺序排列，不要排序。'},
+  {cat:'中文术语',abbr:'越界点',name:'Out-of-Control Point',cn:'越界点（失控点）',
+   def:'控制图中超出 UCL 或低于 LCL 的数据点，是过程失控最直接的信号。主图越界 = 均值问题；辅助图（MR/R/S）越界 = 波动问题。',
+   formula:'x > UCL 或 x < LCL',
+   steps:['工具自动标红越界点并统计数量'],
+   impact:'越界点出现说明存在特殊原因；即使产品仍合格，后续也可能批量恶化。',
+   action:'出现越界立即停机/停线排查，确认特殊原因消除后再恢复生产。'},
+  {cat:'中文术语',abbr:'公差带',name:'Tolerance Band',cn:'公差带（规格带）',
+   def:'规格下限 LSL 到规格上限 USL 之间的允许范围，宽度 = USL − LSL。图纸标注（如 10±0.02）即定义公差带。',
+   formula:'公差带 = USL − LSL',
+   steps:['从图纸/客户要求提取 LSL 与 USL'],
+   impact:'公差带越窄，对过程波动要求越高；Cp/Cpk 本质是"过程 6σ 与公差带之比"。',
+   action:'公差带由设计决定，过程只能去适应；新项目早期介入 DFM 可避免过严公差。'},
+  {cat:'中文术语',abbr:'超差',name:'Out of Specification',cn:'超差（不合格品）',
+   def:'测量值超出规格限（>USL 或 <LSL），即不合格品。工具统计实测超差数量/百分比与理论 PPM。',
+   formula:'超差 = x > USL 或 x < LSL；超差率 = 超差数/n',
+   steps:['工具自动统计实测超差数与理论期望超差率'],
+   impact:'超差品流出 = 客户投诉/退货/审核不合格；理论 PPM 高于实测说明正态假设或规格填写可能有问题。',
+   action:'超差率高的特性优先排入改善计划；首件/巡检重点拦截。'},
+  {cat:'中文术语',abbr:'离群点',name:'Outlier',cn:'离群点',
+   def:'明显偏离主体分布的数据点（如因测量错误、抄写错误、混入其他批次产生）。会拉高 σ、拉低 Cpk，扭曲结论。',
+   formula:'常以"距均值 > 3σ"或 Q-Q 图上的远端点识别',
+   steps:['观察直方图/Q-Q 图两端的孤立点','核对原始记录确认是否为真实数据'],
+   impact:'不剔除会使 σ 虚高、Cpk 虚低，掩盖真实过程能力；随意剔除又会掩盖真实异常。',
+   action:'先核实原始记录与测量过程；确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。'},
+  {cat:'中文术语',abbr:'组间变异',name:'Between-Subgroup Variation',cn:'组间变异（批次间差异）',
+   def:'不同子组/批次/班次之间的均值差异，反映长期漂移。总 σ 包含组内+组间，组内 σ 只含组内；两者之比 = 稳定性指标。',
+   formula:'σ_overall² ≈ σ_within² + σ_between²；稳定性 = σ_overall/σ_within',
+   steps:['对比 Cpk（组内）与 Ppk（总）','比值 >1.3 提示组间变异显著'],
+   impact:'组间变异大 → Ppk 明显低于 Cpk → 客户长期绩效差，短期抽检却"看起来合格"。',
+   action:'按班次/机台/批次分层做控制图，锁定漂移源（换班/换料/温湿度）后针对性管控。'},
+  {cat:'中文术语',abbr:'正态分布',name:'Normal Distribution',cn:'正态分布',
+   def:'连续数据的经典对称钟形分布，约 68.3% 数据落在 μ±1σ、95.4% 落在 μ±2σ、99.7% 落在 μ±3σ。Cpk/PPM 等均假设数据近似正态。',
+   formula:'f(x) = 1/(σ√2π)·e^(−(x−μ)²/(2σ²))',
+   steps:['Q-Q 图 R²>0.95 视为近似正态'],
+   impact:'非正态数据用正态法会系统性低估/高估超规率，判级结论不可靠。',
+   action:'R²≤0.95 时先排查混批/离群点，必要时做 Box-Cox 变换或改用非参数能力评估。'},
+  {cat:'中文术语',abbr:'失控信号',name:'Out-of-Control Signal',cn:'失控信号（异常模式）',
+   def:'控制图上提示特殊原因存在的模式，本工具检测三类：越界点（±3σ）、连续 9 点同侧（均值漂移）、连续 7 点趋势（AIAG 常用）。',
+   formula:'越界 / 9 点同侧 / 7 点趋势',
+   steps:['工具自动检测并输出具体是第几个点触发的哪种模式'],
+   impact:'不同信号指向不同根因：越界=突变、9 点同侧=缓慢漂移、7 点趋势=渐变性因素（磨损/劣化）。',
+   action:'结合信号类型定向排查：突变查换料/换班，漂移查磨损/老化，趋势查工装渐进劣化。'}
 ];
 
 // 分类（保持数据顺序去重）
