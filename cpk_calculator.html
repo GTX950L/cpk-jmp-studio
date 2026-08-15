@@ -91,7 +91,7 @@
            display:flex;align-items:center;gap:10px;border:1px solid;
            background:linear-gradient(90deg,var(--vc-bg),transparent);box-shadow:var(--shadow-sm)}
   .verdict .badge{font-size:11px;font-weight:800;padding:3px 11px;border-radius:20px;color:#fff;letter-spacing:.5px;
-           box-shadow:0 2px 5px rgba(0,0,0,.2)}
+           box-shadow:0 2px 5px rgba(0,0,0,.2);white-space:nowrap;flex:0 0 auto}
   .note{font-size:12.5px;padding:10px 13px;border-radius:10px;background:#eaf3fb;border:1px solid #c6e0f7;
         color:#0a4f9c;margin:8px 0}
   .warn{background:#fff6e9;border-color:#ffe1b0;color:#8a4b00}
@@ -337,7 +337,7 @@
     <div id="ctrlMsg"></div>
     <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限（图纸/客户给定）。控制限随过程波动动态变化，用于判断过程是否受控；规格限固定不变，用于判定产品是否合格——两套线需对比解读。</div>
 
-    <div class="chart-title">⑧ 控制限 vs 规格限（受控性 × 能力场景判定）</div>
+    <div class="chart-title">⑧ 控制限 vs 规格限（受控性 × 能力等级判定）</div>
     <div id="ctrlCompare"></div>
 
     <details>
@@ -454,7 +454,7 @@ function spcAnalysis(x,sub){
     pts:x.slice(),mpts:mrs,mcl:mrbar,mucl:3.267*mrbar,mlcl:0,groups:x.length};
 }
 
-// 受控性判定（常用判据）：①越界点（±3σ 之外）②连续 7 点同侧（均值漂移）③连续 7 点单调趋势
+// 受控性判定（常用判据）：①越界点（±3σ 之外）②连续 7 点同侧（均值漂移）③连续 7 点单调趋势（AIAG）
 function checkControl(pts,cl,ucl,lcl){
   const out=[];
   for(let i=0;i<pts.length;i++)if(pts[i]>ucl||pts[i]<lcl)out.push(i);
@@ -463,8 +463,9 @@ function checkControl(pts,cl,ucl,lcl){
     same = pts[i]>cl?same+1:(pts[i]<cl?same-1:0);
     if(same>=7&&sameIdx<0)sameIdx=i-6; else if(same<=-7&&sameIdx<0)sameIdx=i-6;
     if(i>0){
-      if(pts[i]>pts[i-1]){up++;dn=0;if(up>=7&&trendIdx<0)trendIdx=i-6;}
-      else if(pts[i]<pts[i-1]){dn++;up=0;if(dn>=7&&trendIdx<0)trendIdx=i-6;}
+      // 趋势规则：连续 7 个点单调上升/下降（7 点 = 6 个差分），AIAG 常用判据
+      if(pts[i]>pts[i-1]){up++;dn=0;if(up>=6&&trendIdx<0)trendIdx=i-6;}
+      else if(pts[i]<pts[i-1]){dn++;up=0;if(dn>=6&&trendIdx<0)trendIdx=i-6;}
       else{up=0;dn=0;}
     }
   }
@@ -838,7 +839,7 @@ function calc(auto){
   drawBox(nums,lsl,usl,target,m,axisLabel);
   drawQuant(sorted,z,axisLabel);
   drawCtrl(spc,lsl,usl,m,axisLabel);
-  renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,lslAuto||uslAuto);
+  renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,primary,lslAuto||uslAuto);
 }
 
 /* ============ 绘图 ============ */
@@ -1125,8 +1126,9 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   hline(spc.ucl,CC.lim,true,'UCL '+fmtTick(spc.ucl));
   hline(spc.cl,CC.cl,false,'CL '+fmtTick(spc.cl));
   hline(spc.lcl,CC.lim,true,'LCL '+fmtTick(spc.lcl));
-  if(usl!=null)hline(usl,'#d9822b',true,uslOff?'USL↑(超界)':'USL '+fmtTick(usl));
-  if(lsl!=null)hline(lsl,'#2e8b57',true,lslOff?'LSL↓(超界)':'LSL '+fmtTick(lsl));
+  // 规格限：在坐标范围内画实际位置；超出图区（>5 倍跨度）时画在边缘并标注数值，避免线/标签画到画布外不可见
+  if(usl!=null) uslOff ? hline(hi,'#d9822b',true,'USL ↑ '+fmtTick(usl)) : hline(usl,'#d9822b',true,'USL '+fmtTick(usl));
+  if(lsl!=null) lslOff ? hline(lo,'#2e8b57',true,'LSL ↓ '+fmtTick(lsl)) : hline(lsl,'#2e8b57',true,'LSL '+fmtTick(lsl));
   // 数据折线 + 点（越界点红色放大）
   ctx.strokeStyle='#2f6db5';ctx.lineWidth=1.2;ctx.beginPath();
   spc.pts.forEach((v,i)=>{const px=x2px(i);i?ctx.lineTo(px,y2px(v)):ctx.moveTo(px,y2px(v));});ctx.stroke();
@@ -1164,7 +1166,8 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   ctx.fillText(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）',padL,yB0-10);
 
   // x 轴刻度（样本序号，画在最底部，两段图共用）+ 框线
-  const xTicks=niceTicks(1,N,6).map(t=>Math.round(t));
+  // 限制在 [1,N] 且去重：niceTicks 的"漂亮刻度"可能落到 0 或超出数据个数（N=2 时会出现 0），序号刻度不应出界
+  const xTicks=[...new Set(niceTicks(1,N,6).map(t=>Math.round(t)).filter(t=>t>=1&&t<=N))];
   ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   xTicks.forEach(t=>ctx.fillText(t.toFixed(0),x2px(t-1),H-padB+6));
   ctx.textAlign='start';ctx.textBaseline='alphabetic';
@@ -1175,7 +1178,7 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
   ctx.textAlign='start';
 }
 
-function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,specAuto){
+function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,primary,specAuto){
   // ---- 受控性横幅 ----
   const c=stable?{c:'#1a7f37',t:'统计受控'}:{c:'#cf222e',t:'统计失控'};
   const allReasons=ctrl.reasons.concat(mCtrl.out.length?['MR/R 图 '+mCtrl.out.length+' 点超出控制限']:[]);
@@ -1185,18 +1188,23 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,specA
        <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（MR/R）均无越界点、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>`;
 
   // ---- 控制限 vs 规格限 对比 ----
-  const obsN=(lsl!=null?spc.pts.filter(v=>v<lsl).length:0)+(usl!=null?spc.pts.filter(v=>v>usl).length:0);
+  // 观测越界用「原始个体数据」统计（组均值越界 ≠ 个体越界，组均值会被平均掩盖超差个体）
+  const obsN=(lsl!=null?nums.filter(v=>v<lsl).length:0)+(usl!=null?nums.filter(v=>v>usl).length:0);
+  // 场景判定：受控性 × 能力等级（Cpk 主判级指数；单侧用 Cpu/Cpl）。
+  // 子组模式下控制限 = 组均值 ±3σ/√n，仅反映组均值稳定性——控制限在规格内不代表个体合格，故能力维度以 Cpk 为准
+  const capOk=isFinite(primary)&&primary>=1.33;
   let sc;
-  if(stable&&ctrlInSpec)sc={c:'#1a7f37',t:'理想状态：受控且能力充足',
-    d:'控制限完全落在规格限内部（UCL&lt;USL 且 LCL&gt;LSL）：过程既统计稳定、又满足客户要求，理论合格率可达 99.7% 以上，维持现行监控即可。'};
-  else if(stable&&!ctrlInSpec)sc={c:'#bf8700',t:'过程受控，但能力不足',
-    d:'所有点都落在控制限内（过程统计稳定），但控制限已超出规格限——即便过程稳定也会持续产出不合格品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
-  else if(!stable&&ctrlInSpec)sc={c:'#bf8700',t:'当前合格，但过程失控',
-    d:'产品目前都落在规格限内，但过程已失控（存在特殊原因异常），存在后续批量不合格的风险。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再谈能力。'};
+  if(stable&&capOk)sc={c:'#1a7f37',t:'理想状态：受控且能力充足',
+    d:'过程统计稳定，且能力指数 Cpk≥1.33 满足要求（理论不合格率约 ≤66 PPM）。维持现行监控即可。'};
+  else if(stable&&!capOk)sc={c:'#bf8700',t:'过程受控，但能力不足',
+    d:'所有点都在控制限内（过程统计稳定），但 Cpk&lt;1.33——即便过程稳定也会持续产出超差品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
+  else if(!stable&&capOk)sc={c:'#bf8700',t:'能力达标，但过程失控',
+    d:'Cpk 暂时达标，但过程已失控（存在特殊原因异常），随时可能演变为批量不合格。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再评估能力。'};
   else sc={c:'#cf222e',t:'失控且能力不足：双重风险',
-    d:'过程既失控、控制限又超出规格限，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
-  const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读「控制限 ⊆ 规格限」结论。</div>':'';
+    d:'过程既失控、Cpk 又不达标，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
+  const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读能力与规格限结论。</div>':'';
   const uslIn=usl!=null&&spc.ucl<usl, lslIn=lsl!=null&&spc.lcl>lsl;
+  const ctrlNote=spc.sub>1?'控制限 = 组均值 ± 3σ/√n（子组模式），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。':'控制限 = 单值 ± 3σ（个体模式），直接反映个体波动。';
   document.getElementById('ctrlCompare').innerHTML=`
     <div class="report-grid">
       <div class="report-block">
@@ -1216,10 +1224,11 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,specA
           <tr><td>规格上限 USL</td><td class="num" style="color:#d9822b;font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:#64748b">${usl!=null?(uslIn?'UCL 在内 ✅':'UCL 越界 ⚠'):'未启用'}</td></tr>
           <tr><td>目标值 T</td><td class="num">${target!=null?fmt(target,4):'—'}</td><td class="num" style="color:#64748b">用于 Cpm</td></tr>
           <tr><td>规格下限 LSL</td><td class="num" style="color:#2e8b57;font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:#64748b">${lsl!=null?(lslIn?'LCL 在内 ✅':'LCL 越界 ⚠'):'未启用'}</td></tr>
-          <tr><td>观测越界</td><td class="num">${obsN} 个</td><td class="num" style="color:#64748b">实测超规格点数</td></tr>
+          <tr><td>观测越界</td><td class="num">${obsN} 个</td><td class="num" style="color:#64748b">原始个体数据超规格数</td></tr>
         </table>
       </div>
     </div>
+    <div class="legend" style="text-align:left;margin-top:4px">${ctrlNote}</div>
     <div class="verdict" style="margin-top:10px;--vc-bg:${sc.c}1f;border-color:${sc.c}55;color:${sc.c}">
       <span class="badge" style="background:${sc.c}">${sc.t}</span>
       <span>${sc.d}</span></div>${autoTip}`;
@@ -1688,7 +1697,7 @@ const GLOSS=[
    def:'由<b>过程数据</b>计算出的控制界限，通常取中心线 ± 3σ：UCL = CL + 3σ，LCL = CL − 3σ。<b>不是</b>产品合格线！它判断"过程稳不稳"，随数据波动动态变化，与固定不变的规格限（判"产品合不合格"）是两套不同的线。',
    formula:'个体（I 图）：UCL = x̄ + 2.66·MR̄，LCL = x̄ − 2.66·MR̄<br>子组（Xbar 图）：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄',
    steps:['计算中心线 CL（个体=数据均值 x̄；子组=组均值之均值 x̄̄）','估计短期波动 σ（个体用 MR̄/d2(2)，子组用 R̄/d2(n)）','CL ± 3σ 得 UCL / LCL'],
-   impact:'点超出控制限 = 过程出现<b>特殊原因</b>异常（失控）；点全在控制限内 = 过程<b>统计受控</b>。注意：受控 ≠ 合格——过程受控但控制限超出规格限时，仍会稳定地产出不合格品。',
+   impact:'点超出控制限 = 过程出现<b>特殊原因</b>异常（失控）；点全在控制限内 = 过程<b>统计受控</b>。注意：受控 ≠ 合格——子组模式下控制限是"组均值 ± 3σ/√n"，只反映组均值是否稳定；个体是否合格要看 Cpk（用个体 σ_within），两者必须分开解读。',
    action:'控制图越界先找特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），用 5W2H / FACA 锁定根因后再调机；不要一越界就盲目调机。'},
   {cat:'控制图',abbr:'CL',name:'Center Line',cn:'中心线',
    def:'控制图的基准线 = 过程均值（个体数据为 x̄，子组数据为 x̄̄）。UCL / LCL 以它为中心上下各 3σ。',
