@@ -254,7 +254,7 @@
       <button id="btnSample" class="sec">填入示例</button>
       <button id="btnClear" class="sec">清空</button>
     </div>
-    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 6 组不同能力等级的数据（不足→优秀）</div>
+    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定</div>
 
     <details id="genBox" style="margin-top:10px">
       <summary>🔧 反向生成测试数据（按目标 Cpk 造数据）</summary>
@@ -454,14 +454,16 @@ function spcAnalysis(x,sub){
     pts:x.slice(),mpts:mrs,mcl:mrbar,mucl:3.267*mrbar,mlcl:0,groups:x.length};
 }
 
-// 受控性判定（常用判据）：①越界点（±3σ 之外）②连续 7 点同侧（均值漂移）③连续 7 点单调趋势（AIAG）
+// 受控性判定（Nelson 常用判据）：①越界点（±3σ 之外）②连续 9 点同侧（均值漂移，Nelson 规则 2）
+// ③连续 7 点单调趋势（6 差分；随机数据 6 差分全同向概率≈0.04%，误报极低）
+// 注：同侧取 9 点而非 7 点——7 点在批量数据上误报率过高（约 90%，120 点随机数据几乎必触发），9 点是 Nelson 标准
 function checkControl(pts,cl,ucl,lcl){
   const out=[];
   for(let i=0;i<pts.length;i++)if(pts[i]>ucl||pts[i]<lcl)out.push(i);
   let same=0,sameIdx=-1,up=0,dn=0,trendIdx=-1;
   for(let i=0;i<pts.length;i++){
     same = pts[i]>cl?same+1:(pts[i]<cl?same-1:0);
-    if(same>=7&&sameIdx<0)sameIdx=i-6; else if(same<=-7&&sameIdx<0)sameIdx=i-6;
+    if(same>=9&&sameIdx<0)sameIdx=i-8; else if(same<=-9&&sameIdx<0)sameIdx=i-8;
     if(i>0){
       // 趋势规则：连续 7 个点单调上升/下降（7 点 = 6 个差分），AIAG 常用判据
       if(pts[i]>pts[i-1]){up++;dn=0;if(up>=6&&trendIdx<0)trendIdx=i-6;}
@@ -471,7 +473,7 @@ function checkControl(pts,cl,ucl,lcl){
   }
   const reasons=[];
   if(out.length)reasons.push(out.length+' 个点超出控制限（第 '+out.map(i=>i+1).join('、')+' 个）');
-  if(sameIdx>=0)reasons.push('第 '+(sameIdx+1)+'~'+(sameIdx+7)+' 点连续 7 点位于中心线同侧（均值漂移）');
+  if(sameIdx>=0)reasons.push('第 '+(sameIdx+1)+'~'+(sameIdx+9)+' 点连续 9 点位于中心线同侧（均值漂移）');
   if(trendIdx>=0)reasons.push('第 '+(trendIdx+1)+'~'+(trendIdx+7)+' 点连续 7 点持续上升/下降（趋势异常）');
   return {out,sameIdx,trendIdx,stable:reasons.length===0,reasons};
 }
@@ -1272,29 +1274,60 @@ document.getElementById('btnCalc').onclick=()=>calc(false);
 
 // 6 组示例：从"完全离散"到"接近完美"，循环切换（规格限统一 9.950~10.050，能力差异由数据本身决定）
 const SAMPLE_SETS=[
-  {name:'① 能力不足（D 级）', desc:'波动极大（σ=0.035，Cpk≈0.5），过程失控，必须立即改善', mu:10.000, sigma:0.035},
-  {name:'② 均值偏移（D 级）', desc:'波动正常但中心严重偏上（μ=10.032），大部分超上差', mu:10.032, sigma:0.012},
-  {name:'③ 能力边缘（C 级）', desc:'σ=0.016，Cpk≈1.0，存在超规风险，需加强管控', mu:10.000, sigma:0.016},
-  {name:'④ 能力合格（B 级）', desc:'σ=0.011，Cpk≈1.5，满足一般工业要求，可维持监控', mu:10.000, sigma:0.011},
-  {name:'⑤ 能力优秀（A 级）', desc:'σ=0.009，Cpk≈1.9，过程稳定且余量充足', mu:10.000, sigma:0.009},
-  {name:'⑥ 接近完美（A 级）', desc:'σ=0.005，Cpk≈3.3，波动极小，几乎完美符合标准', mu:10.000, sigma:0.005}
+  // 每组示例的目标档位（targetStable / targetCap）用于造数时定向控制，保证稳定演示四场景判定：
+  // 理想=受控+Cpk≥1.33；受控但能力不足；能力达标但失控；失控且能力不足
+  {name:'① 能力不足（D 级）', desc:'波动极大（σ=0.035，Cpk≈0.5），过程失控，必须立即改善', mu:10.000, sigma:0.035, targetStable:false, targetCap:false},
+  {name:'② 均值偏移（D 级）', desc:'波动正常但中心严重偏上（μ=10.032），Cp 高 Cpk 低（工艺陷阱），大部分超上差', mu:10.032, sigma:0.012, targetStable:true, targetCap:false},
+  {name:'③ 能力边缘（C 级）', desc:'σ=0.016，Cpk≈1.0，过程受控但能力不足，存在超规风险，需加强管控', mu:10.000, sigma:0.016, targetStable:true, targetCap:false},
+  {name:'④ 能力合格（B 级）', desc:'σ=0.011，Cpk≈1.5，受控且能力达标，满足一般工业要求，可维持监控', mu:10.000, sigma:0.011, targetStable:true, targetCap:true},
+  {name:'⑤ 能力优秀（A 级）', desc:'σ=0.009，Cpk≈1.9，过程受控且余量充足（理想状态）', mu:10.000, sigma:0.009, targetStable:true, targetCap:true},
+  {name:'⑥ 接近完美（A 级）', desc:'σ=0.005，Cpk≈3.3，波动极小，受控且能力极充足（理想状态）', mu:10.000, sigma:0.005, targetStable:true, targetCap:true},
+  {name:'⑦ 波动突增（失控·能力尚可）', desc:'前段稳定（σ=0.007）后段均值突增+5σ，过程失控但整体 Cpk 仍达标——典型「能力达标但失控」，须立即排查特殊原因', mu:10.000, sigma:0.007, targetStable:false, targetCap:true, jump:true}
 ];
 let sampleIdx=0;
+// 示例造数：按目标档位（是否受控 × 能力是否达标）反复生成，保证每次点击都稳定演示目标场景。
+// 只排除"长游程/越界"的极端样本，留下的仍是近似正态数据，不会失真。
+// jump=true 的示例（⑦ 波动突增）：前 3/4 段稳定、后 1/4 段均值阶跃，构造"能力达标但失控"
+function makeDemo(s, n){
+  const lsl=9.950, usl=10.050;
+  for(let k=0;k<60;k++){
+    const out=[];
+    if(s.jump){
+      const n1=Math.round(n*0.75);
+      for(let i=0;i<n;i++){
+        const u1=Math.random()||1e-9,u2=Math.random();
+        const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+        out.push(+( (i<n1?s.mu:s.mu+0.035) + s.sigma*g ).toFixed(4));   // 后 1/4 段均值突增 +5σ
+      }
+    }else{
+      for(let i=0;i<n;i++){
+        const u1=Math.random()||1e-9,u2=Math.random();
+        const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+        out.push(+(s.mu+s.sigma*g).toFixed(4));
+      }
+    }
+    const spc=spcAnalysis(out,0), ctrl=checkControl(spc.pts,spc.cl,spc.ucl,spc.lcl);
+    const mCtrl=checkControl(spc.mpts,spc.mcl,spc.mucl,spc.mlcl);
+    const stable=ctrl.stable&&mCtrl.out.length===0;
+    const m=mean(out), cpk=Math.min((usl-m)/(3*spc.mcl/1.128),(m-lsl)/(3*spc.mcl/1.128));
+    const cap=cpk>=1.33;
+    if(stable===s.targetStable&&cap===s.targetCap) return out.map(v=>v.toFixed(4));
+  }
+  // 兜底：返回最后一次生成（极端情况下未命中目标档，概率极低）
+  const out=[];
+  for(let i=0;i<n;i++){const u1=Math.random()||1e-9,u2=Math.random();out.push((s.mu+s.sigma*Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2)).toFixed(4));}
+  return out;
+}
 document.getElementById('btnSample').onclick=()=>{
   const s=SAMPLE_SETS[sampleIdx%SAMPLE_SETS.length]; sampleIdx++;
-  // Box-Muller 生成近似正态样本
-  const out=[];
-  for(let i=0;i<120;i++){
-    const u1=Math.random()||1e-9,u2=Math.random();
-    const g=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
-    out.push((s.mu+s.sigma*g).toFixed(4));
-  }
+  // 60 点（n≥30 满足判级建议；点数少 → 规则窗口少 → 受控判定更稳定）
+  const out=makeDemo(s,60);
   document.getElementById('data').value=out.join('\n');
   document.getElementById('useLsl').checked=true;   // 示例统一演示双侧规格
   document.getElementById('useUsl').checked=true;
   document.getElementById('lsl').value='9.950';
   document.getElementById('usl').value='10.050';
-  document.getElementById('sub').value='0';         // 示例按个体测量展示
+  document.getElementById('sub').value='0';         // 示例按个体测量展示（可改子组看 Xbar-R 图）
   document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
 };
@@ -1708,7 +1741,7 @@ const GLOSS=[
   {cat:'控制图',abbr:'Control Chart',name:'Control Chart',cn:'控制图（SPC）',
    def:'按<b>生产 / 测量顺序</b>绘制的过程监控图，含中心线 CL 与上下控制限 UCL / LCL，用于区分普通原因（过程固有波动）与特殊原因（可纠正的异常）。本工具提供：个体数据 → <b>I-MR 图</b>（单值 + 移动极差）；子组数据 → <b>Xbar-R 图</b>（组均值 + 组极差）。',
    formula:'I-MR：I 图看单值、MR 图看相邻点移动极差；Xbar-R：Xbar 图看组均值、R 图看组极差',
-   steps:['数据按生产顺序排列（不要排序！）','按子组设置选择 I-MR 或 Xbar-R','对比各点与控制限，识别越界点 / 连续 7 点同侧 / 连续 7 点趋势'],
+   steps:['数据按生产顺序排列（不要排序！）','按子组设置选择 I-MR 或 Xbar-R','对比各点与控制限，识别越界点 / 连续 9 点同侧 / 连续 7 点趋势（Nelson 常用判据）'],
    impact:'控制图是"过程稳不稳"的裁判：失控时即使产品暂时合格也存在批量隐患；受控时即使不合格也能稳定预测不良率。是 5S / 产线审核中最常被要求的过程证据。',
    action:'日常产线建议用控制图持续监控；失控时立即排查特殊原因，消除后确认点回归控制限内，再做能力（Cpk）判定。'},
   {cat:'控制图',abbr:'A2 / D3 / D4',name:'Control Chart Constants',cn:'控制图常数（子组法）',
