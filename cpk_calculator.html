@@ -15,139 +15,214 @@
     --c-grid:#e9edf1;      /* 网格线 */
     --c-axis:#8a949e;      /* 坐标轴/刻度 */
     --good:#1a7f37; --ok:#0969da; --mar:#bf8700; --bad:#cf222e;
-    --bg:#f4f6f8; --card:#ffffff; --border:#dfe3e8; --text:#1f2328; --muted:#6a737d;
+    --bg:#eef2f7; --card:#ffffff; --border:#e2e8f0; --text:#1f2937; --muted:#64748b;
+    --brand:#2f6db5; --brand-dark:#1e4d8c;
+    --shadow-sm:0 1px 3px rgba(16,32,64,.06);
+    --shadow-md:0 6px 18px rgba(16,32,64,.10);
+    --shadow-lg:0 14px 40px rgba(16,32,64,.18);
   }
   *{box-sizing:border-box}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#c6d0dc;border-radius:5px;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-thumb:hover{background:#a9b6c6;border:2px solid transparent;background-clip:content-box}
+  ::-webkit-scrollbar-track{background:transparent}
   body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Helvetica,Arial,sans-serif;
-       background:var(--bg);color:var(--text);line-height:1.55;font-size:14px}
-  header{padding:18px 24px;background:linear-gradient(95deg,#1f2328,#32383f);color:#fff;
-         box-shadow:0 1px 4px rgba(0,0,0,.15)}
-  header h1{margin:0;font-size:19px;font-weight:650;letter-spacing:.3px}
-  header p{margin:5px 0 0;font-size:12.5px;color:#b9c0c8}
-  .wrap{display:flex;flex-wrap:wrap;gap:18px;padding:18px 24px;align-items:flex-start}
-  .panel{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 18px;
-         flex:1 1 330px;min-width:300px;box-shadow:0 1px 3px rgba(27,31,36,.04)}
-  .panel h2{margin:0 0 12px;font-size:14px;font-weight:650;color:#32383f;
-            border-bottom:2px solid #eef1f4;padding-bottom:8px;display:flex;align-items:center;gap:7px}
-  .step{background:#32383f;color:#fff;border-radius:50%;width:20px;height:20px;font-size:11px;
-        display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+       background:
+         radial-gradient(1100px 520px at 88% -8%, rgba(47,109,181,.09), transparent 62%),
+         radial-gradient(760px 400px at -8% 12%, rgba(228,87,46,.05), transparent 55%),
+         linear-gradient(180deg,#f7fafc 0%,var(--bg) 100%);
+       background-attachment:fixed;
+       color:var(--text);line-height:1.55;font-size:14px}
+  header{position:relative;overflow:hidden;padding:20px 28px;
+         background:linear-gradient(120deg,#16273d 0%,#1e3a5f 46%,#24507e 100%);
+         color:#fff;box-shadow:0 2px 14px rgba(16,32,64,.28)}
+  header::before{content:'';position:absolute;right:-70px;top:-80px;width:260px;height:260px;
+         background:radial-gradient(circle,rgba(255,255,255,.13),transparent 70%);border-radius:50%}
+  header::after{content:'';position:absolute;left:42%;bottom:-90px;width:320px;height:320px;
+         background:radial-gradient(circle,rgba(47,109,181,.38),transparent 70%);border-radius:50%}
+  header>*{position:relative;z-index:1}
+  header h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.4px;
+         text-shadow:0 1px 3px rgba(0,0,0,.25)}
+  header p{margin:5px 0 0;font-size:12.5px;color:#c3d3e4}
+  .wrap{display:flex;flex-wrap:wrap;gap:18px;padding:20px 28px;align-items:flex-start;max-width:1440px;margin:0 auto}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;
+         flex:1 1 330px;min-width:300px;box-shadow:var(--shadow-sm);
+         transition:box-shadow .2s ease,transform .2s ease}
+  .panel:hover{box-shadow:var(--shadow-md)}
+  .panel h2{margin:0 0 12px;font-size:14px;font-weight:700;color:#24344d;
+            border-bottom:2px solid #eef2f8;padding-bottom:9px;display:flex;align-items:center;gap:8px}
+  .step{background:linear-gradient(135deg,#3d83c9,#24507e);color:#fff;border-radius:50%;width:22px;height:22px;
+        font-size:11px;font-weight:700;
+        display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+        box-shadow:0 2px 5px rgba(36,80,126,.35)}
   textarea{width:100%;height:185px;font-family:Consolas,Menlo,"Courier New",monospace;font-size:13px;
-           border:1px solid var(--border);border-radius:7px;padding:9px;resize:vertical;color:#1f2328}
-  textarea:focus{outline:none;border-color:#2f6db5;box-shadow:0 0 0 3px rgba(47,109,181,.12)}
+           border:1px solid var(--border);border-radius:10px;padding:10px;resize:vertical;color:#1f2937;
+           background:#fbfcfe;transition:border-color .15s,box-shadow .15s}
+  textarea:focus{outline:none;border-color:#3d83c9;box-shadow:0 0 0 3px rgba(61,131,201,.15)}
   .row{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
-  .row label{flex:1 1 130px;font-size:12.5px;color:var(--muted);font-weight:550}
-  .row input[type=number]{width:100%;padding:7px 8px;margin-top:3px;border:1px solid var(--border);
-           border-radius:7px;font-size:13px;color:#1f2328}
-  .row input:focus{outline:none;border-color:#2f6db5;box-shadow:0 0 0 3px rgba(47,109,181,.12)}
-  .chk{font-size:13px;margin:6px 0;color:#32383f;display:flex;align-items:center;gap:6px;cursor:pointer}
-  .chk input{width:15px;height:15px;accent-color:#2f6db5}
-  button{background:#2f6db5;color:#fff;border:0;border-radius:7px;padding:9px 16px;font-size:13px;
-         font-weight:600;cursor:pointer;margin-right:8px;transition:filter .15s}
-  button:hover{filter:brightness(1.08)}
-  button.sec{background:#eef1f4;color:#32383f}
-  button.sec:hover{background:#e2e7ec}
+  .row label{flex:1 1 130px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .row input[type=number]{width:100%;padding:8px 9px;margin-top:3px;border:1px solid var(--border);
+           border-radius:8px;font-size:13px;color:#1f2937;background:#fbfcfe;transition:border-color .15s,box-shadow .15s}
+  .row input:focus{outline:none;border-color:#3d83c9;box-shadow:0 0 0 3px rgba(61,131,201,.15)}
+  .chk{font-size:13px;margin:7px 0;color:#24344d;display:flex;align-items:center;gap:7px;cursor:pointer}
+  .chk input{width:15px;height:15px;accent-color:var(--brand)}
+  button{background:linear-gradient(135deg,#3d83c9,#2a5f9d);color:#fff;border:0;border-radius:9px;
+         padding:10px 18px;font-size:13px;font-weight:600;cursor:pointer;margin-right:8px;
+         box-shadow:0 2px 6px rgba(42,95,157,.28);
+         transition:transform .12s ease,box-shadow .12s ease,filter .12s ease}
+  button:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(42,95,157,.38);filter:brightness(1.06)}
+  button:active{transform:translateY(0)}
+  button.sec{background:#fff;color:#374151;border:1px solid var(--border);box-shadow:none}
+  button.sec:hover{background:#f1f5f9;transform:none;box-shadow:0 2px 8px rgba(16,32,64,.10)}
   .hint{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.5}
   .subhint{display:block;font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:9px;margin:12px 0}
-  .metric{background:#fbfcfd;border:1px solid var(--border);border-left:4px solid #c9d1d9;
-          border-radius:8px;padding:9px 8px;text-align:center}
-  .metric .k{font-size:11px;color:var(--muted)}
-  .metric .v{font-size:19px;font-weight:700;margin-top:3px;color:#1f2328}
-  .verdict{margin:6px 0 4px;padding:11px 14px;border-radius:9px;font-size:14px;font-weight:600;
-           display:flex;align-items:center;gap:10px;border:1px solid}
-  .verdict .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;color:#fff;letter-spacing:.5px}
-  .note{font-size:12.5px;padding:9px 12px;border-radius:8px;background:#eaf3fb;border:1px solid #c6e0f7;
+  .metric{background:var(--card);border:1px solid var(--border);border-left:4px solid #c9d1d9;
+          border-radius:10px;padding:10px 8px;text-align:center;position:relative;overflow:hidden;
+          transition:transform .15s ease,box-shadow .15s ease}
+  .metric:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .metric .k{font-size:11px;color:var(--muted);font-weight:600}
+  .metric .v{font-size:21px;font-weight:800;margin-top:3px;color:#111827;font-variant-numeric:tabular-nums}
+  .verdict{margin:6px 0 4px;padding:13px 16px;border-radius:12px;font-size:14px;font-weight:700;
+           display:flex;align-items:center;gap:10px;border:1px solid;
+           background:linear-gradient(90deg,var(--vc-bg),transparent);box-shadow:var(--shadow-sm)}
+  .verdict .badge{font-size:11px;font-weight:800;padding:3px 11px;border-radius:20px;color:#fff;letter-spacing:.5px;
+           box-shadow:0 2px 5px rgba(0,0,0,.2)}
+  .note{font-size:12.5px;padding:10px 13px;border-radius:10px;background:#eaf3fb;border:1px solid #c6e0f7;
         color:#0a4f9c;margin:8px 0}
   .warn{background:#fff6e9;border-color:#ffe1b0;color:#8a4b00}
-  canvas{background:#fff;border:1px solid var(--border);border-radius:8px;max-width:100%;display:block;margin:0 auto;box-sizing:border-box}
-  .chart-title{font-size:13.5px;font-weight:650;margin:18px 0 6px;color:#32383f}
-  table{border-collapse:collapse;font-size:12.5px;width:100%}
-  th,td{border:1px solid var(--border);padding:6px 9px;text-align:left}
-  th{background:#f3f5f7;font-weight:600}
-  tbody tr:nth-child(even){background:#fafbfc}
-  details{margin-top:12px;border:1px solid var(--border);border-radius:8px;padding:0 12px}
-  details summary{cursor:pointer;padding:10px 0;font-weight:600;font-size:13px;color:#32383f}
+  canvas{background:#fff;border:1px solid var(--border);border-radius:10px;max-width:100%;display:block;
+         margin:0 auto;box-sizing:border-box;box-shadow:0 1px 4px rgba(16,32,64,.07)}
+  .chart-title{font-size:13.5px;font-weight:700;margin:18px 0 8px;color:#24344d;
+         display:flex;align-items:center;gap:7px}
+  .chart-title::before{content:'';width:4px;height:15px;border-radius:2px;
+         background:linear-gradient(180deg,#3d83c9,#24507e)}
+  table{border-collapse:separate;border-spacing:0;font-size:12.5px;width:100%;
+         border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  th,td{border:0;border-bottom:1px solid var(--border);padding:7px 10px;text-align:left}
+  th{background:linear-gradient(180deg,#f6f9fc,#eef3f8);font-weight:650;color:#374151}
+  tbody tr:nth-child(even){background:#f8fafc}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:#f0f6fd}
+  details{margin-top:12px;border:1px solid var(--border);border-radius:10px;padding:0 12px;
+          background:var(--card);box-shadow:var(--shadow-sm)}
+  details summary{cursor:pointer;padding:10px 0;font-weight:650;font-size:13px;color:#24344d;
+          display:flex;align-items:center;gap:6px}
+  details summary:hover{color:var(--brand)}
   .legend{font-size:11.5px;color:var(--muted);margin-top:4px;text-align:center}
-  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:16px}
-  code{background:#eef1f4;padding:1px 5px;border-radius:4px;font-size:12px}
+  footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;
+         border-top:1px solid var(--border);background:rgba(255,255,255,.55);margin-top:8px}
+  code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12px;color:#1e4d8c}
   .parseinfo{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:16px;line-height:1.5}
-  .parseinfo.ok{color:#1a7f37}
-  .parseinfo.warn{color:#bf8700}
+  .parseinfo.ok{color:#1a7f37;font-weight:600}
+  .parseinfo.warn{color:#bf8700;font-weight:600}
   #dropHint{position:fixed;left:0;top:0;right:0;bottom:0;z-index:999;display:none;
-    align-items:center;justify-content:center;background:rgba(31,35,40,.4);
-    color:#fff;font-size:21px;font-weight:600;letter-spacing:.5px;
-    pointer-events:none;backdrop-filter:blur(2px)}
+    align-items:center;justify-content:center;background:rgba(16,32,64,.5);
+    color:#fff;font-size:21px;font-weight:700;letter-spacing:.5px;
+    pointer-events:none;backdrop-filter:blur(3px)}
   #dropHint.drag{display:flex}
+  #dropHint::before{content:'📂';font-size:30px;margin-right:12px;animation:bob 1.2s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
   /* ---- JMP 报告式布局 ---- */
   .report-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}
-  .report-block{background:#fbfcfd;border:1px solid var(--border);border-radius:9px;padding:10px 12px 8px}
-  .report-block h4{margin:0 0 8px;font-size:12.5px;font-weight:650;color:#32383f;
-    border-bottom:2px solid #eef1f4;padding-bottom:6px}
-  .cap-table{width:100%;border-collapse:collapse;font-size:12px}
+  .report-block{background:linear-gradient(180deg,#fbfcfe,#f6f9fc);border:1px solid var(--border);
+                border-radius:11px;padding:11px 13px 9px;box-shadow:var(--shadow-sm)}
+  .report-block h4{margin:0 0 8px;font-size:12.5px;font-weight:700;color:#24344d;
+    border-bottom:2px solid #e8eef5;padding-bottom:6px}
+  .cap-table{width:100%;border-collapse:collapse;font-size:12px;border:0;border-radius:0;overflow:visible}
   .cap-table th,.cap-table td{border:0;border-bottom:1px solid #edf0f3;padding:4px 6px}
-  .cap-table th{background:transparent;color:var(--muted);font-weight:550;font-size:11px;text-align:left}
+  .cap-table th{background:transparent;color:var(--muted);font-weight:600;font-size:11px;text-align:left}
   .cap-table td.num,.cap-table th.num{text-align:right;font-variant-numeric:tabular-nums}
-  .cap-table td.est{font-weight:700;color:#1f2328;text-align:right}
+  .cap-table td.est{font-weight:700;color:#1f2937;text-align:right}
   .cap-table td.na{color:#c0c6cd;text-align:right}
   .cap-table .ci-note{font-size:10px;color:var(--muted)}
-  .summary-table td,.summary-table th{padding:4px 8px;font-size:12px}
-  .summary-table .k{color:var(--muted);font-weight:550;width:42%}
-  .summary-table .v{font-variant-numeric:tabular-nums;text-align:right}
-  .stability-high{color:var(--bad);font-weight:700}
-  .defect-row-total td{font-weight:650;background:#f3f5f7}
+  .summary-table{border:0;border-radius:0;overflow:visible}
+  .summary-table td,.summary-table th{padding:5px 9px;font-size:12px}
+  .summary-table .k{color:var(--muted);font-weight:600;width:42%;background:#f6f9fc}
+  .summary-table .v{font-variant-numeric:tabular-nums;text-align:right;font-weight:600;color:#1f2937}
+  .stability-high{color:var(--bad);font-weight:800}
+  .defect-row-total td{font-weight:700;background:#f3f7fb}
   @media(max-width:640px){.report-grid{grid-template-columns:1fr}}
 
   /* ---- 术语百科 ---- */
   .head-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
-  .head-btn{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);
-            border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;
-            transition:background .15s;white-space:nowrap}
-  .head-btn:hover{background:rgba(255,255,255,.26)}
-  #glossOverlay{position:fixed;inset:0;background:rgba(20,24,28,.55);z-index:1000;
+  .head-btn{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.32);
+            border-radius:10px;padding:9px 16px;font-size:13px;font-weight:600;cursor:pointer;
+            backdrop-filter:blur(4px);
+            transition:background .15s,transform .12s,box-shadow .15s;white-space:nowrap;
+            box-shadow:0 2px 8px rgba(0,0,0,.18)}
+  .head-btn:hover{background:rgba(255,255,255,.28);transform:translateY(-1px);
+            box-shadow:0 4px 14px rgba(0,0,0,.26)}
+  .head-btn:active{transform:translateY(0)}
+  #glossOverlay{position:fixed;inset:0;background:rgba(16,32,64,.52);z-index:1000;
                 display:none;align-items:flex-start;justify-content:center;padding:28px 16px;
-                overflow-y:auto;backdrop-filter:blur(2px)}
-  #glossOverlay.open{display:flex}
-  .gloss-box{background:var(--card);border-radius:12px;max-width:900px;width:100%;
-             box-shadow:0 12px 40px rgba(0,0,0,.28);overflow:hidden}
-  .gloss-head{background:linear-gradient(95deg,#1f2328,#32383f);color:#fff;padding:16px 20px;
+                overflow-y:auto;backdrop-filter:blur(4px)}
+  #glossOverlay.open{display:flex;animation:fadeIn .18s ease}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .gloss-box{background:var(--card);border-radius:16px;max-width:900px;width:100%;
+             box-shadow:var(--shadow-lg);overflow:hidden;animation:slideUp .22s ease}
+  @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .gloss-head{position:relative;overflow:hidden;background:linear-gradient(120deg,#16273d 0%,#1e3a5f 46%,#24507e 100%);
+              color:#fff;padding:16px 20px;
               display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
-  .gloss-head h2{margin:0;font-size:16px;font-weight:650;flex:1 1 100%}
-  .gloss-head input{flex:1 1 220px;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.25);
-                    background:rgba(255,255,255,.1);color:#fff;font-size:13px;outline:none}
-  .gloss-head input::placeholder{color:#9aa4ad}
-  .gloss-head input:focus{border-color:#5b9bd5;background:rgba(255,255,255,.16)}
-  .gloss-close{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;
-               border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer}
-  .gloss-close:hover{background:rgba(255,255,255,.28)}
-  .gloss-cats{display:flex;gap:7px;flex-wrap:wrap;padding:10px 20px 0;background:#f7f9fb;border-bottom:1px solid var(--border)}
-  .gloss-cats button{border:1px solid var(--border);background:#fff;color:#57606a;border-radius:20px;
-                     padding:5px 13px;font-size:12px;cursor:pointer;transition:all .15s}
-  .gloss-cats button.on{background:#2f6db5;border-color:#2f6db5;color:#fff}
+  .gloss-head::after{content:'';position:absolute;right:-50px;top:-60px;width:220px;height:220px;
+              background:radial-gradient(circle,rgba(255,255,255,.10),transparent 70%);border-radius:50%;pointer-events:none}
+  .gloss-head>*{position:relative;z-index:1}
+  .gloss-head h2{margin:0;font-size:16px;font-weight:700;flex:1 1 100%;letter-spacing:.3px;
+              text-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .gloss-head input{flex:1 1 220px;padding:9px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.3);
+                    background:rgba(255,255,255,.12);color:#fff;font-size:13px;outline:none;
+                    transition:background .15s,border-color .15s;backdrop-filter:blur(2px)}
+  .gloss-head input::placeholder{color:#b8c9dc}
+  .gloss-head input:focus{border-color:#7fb0e0;background:rgba(255,255,255,.2)}
+  .gloss-close{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.32);color:#fff;
+               border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;
+               transition:background .15s,transform .12s}
+  .gloss-close:hover{background:rgba(255,255,255,.3);transform:translateY(-1px)}
+  .gloss-cats{display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px 10px;background:linear-gradient(180deg,#f8fafd,#f2f6fb);
+              border-bottom:1px solid var(--border)}
+  .gloss-cats button{border:1px solid var(--border);background:#fff;color:#4b5a6e;border-radius:20px;
+                     padding:6px 15px;font-size:12px;font-weight:600;cursor:pointer;
+                     transition:all .15s;box-shadow:0 1px 2px rgba(16,32,64,.04)}
+  .gloss-cats button:hover{border-color:#3d83c9;color:#1e4d8c;transform:translateY(-1px)}
+  .gloss-cats button.on{background:linear-gradient(135deg,#3d83c9,#24507e);border-color:transparent;color:#fff;
+                     box-shadow:0 3px 10px rgba(36,80,126,.35)}
   .gloss-body{padding:18px 20px;max-height:66vh;overflow-y:auto}
-  .gloss-count{font-size:12px;color:var(--muted);margin:0 0 12px}
-  .gcard{border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;
-         background:#fff;box-shadow:0 1px 2px rgba(27,31,36,.05)}
-  .gcard-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fbfcfd;
-              border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
-  .gcard-head:hover{background:#f3f6f9}
-  .g-abbr{font-family:Consolas,Menlo,monospace;font-weight:700;font-size:15px;color:#1f2328;
-          background:#eef1f4;padding:3px 10px;border-radius:6px;letter-spacing:.3px}
-  .g-name{font-size:13px;color:#32383f;font-weight:600;flex:1}
-  .g-cat{font-size:10.5px;color:#57606a;background:#eef1f4;border-radius:20px;padding:2px 9px;white-space:nowrap}
-  .g-arrow{color:#8a949e;font-size:12px;transition:transform .18s}
+  .gloss-count{font-size:12px;color:var(--muted);margin:0 0 12px;display:flex;align-items:center;gap:6px}
+  .gloss-count::before{content:'';width:4px;height:12px;border-radius:2px;background:linear-gradient(180deg,#3d83c9,#24507e)}
+  .gcard{border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;
+         background:#fff;box-shadow:0 1px 3px rgba(16,32,64,.05);
+         transition:box-shadow .18s ease,transform .18s ease}
+  .gcard:hover{box-shadow:var(--shadow-md)}
+  .gcard.open{border-color:#bcd3ea}
+  .gcard-head{display:flex;align-items:center;gap:10px;padding:12px 15px;background:linear-gradient(180deg,#fbfcfe,#f4f8fc);
+              border-bottom:1px solid var(--border);cursor:pointer;user-select:none;
+              transition:background .15s}
+  .gcard-head:hover{background:linear-gradient(180deg,#f0f6fd,#e8f0fa)}
+  .g-abbr{font-family:Consolas,Menlo,monospace;font-weight:700;font-size:15px;color:#1e4d8c;
+          background:#fff;border:1px solid #cfe0f2;padding:3px 10px;border-radius:7px;letter-spacing:.3px;
+          box-shadow:0 1px 2px rgba(36,80,126,.12);flex:0 0 auto}
+  .g-name{font-size:13px;color:#24344d;font-weight:650;flex:1}
+  .g-cat{font-size:10.5px;color:#4b5a6e;background:#e8eef6;border-radius:20px;padding:3px 10px;
+         white-space:nowrap;font-weight:600;flex:0 0 auto}
+  .g-arrow{color:#8a949e;font-size:12px;transition:transform .18s;flex:0 0 auto}
   .gcard.open .g-arrow{transform:rotate(90deg)}
-  .gcard-body{display:none;padding:12px 16px 14px;font-size:13px;line-height:1.65;color:#1f2328}
+  .gcard-body{display:none;padding:13px 17px 15px;font-size:13px;line-height:1.65;color:#1f2937;
+              animation:cardIn .2s ease}
   .gcard.open .gcard-body{display:block}
+  @keyframes cardIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
   .g-sec{margin:8px 0}
-  .g-sec b{color:#32383f}
-  .g-formula{background:#f4f6f8;border:1px solid #e3e8ee;border-radius:7px;padding:8px 12px;
+  .g-sec b{color:#24344d}
+  .g-formula{background:linear-gradient(180deg,#f6f9fd,#eef4fb);border:1px solid #dbe7f5;border-radius:8px;
+             padding:8px 12px;
              font-family:Consolas,Menlo,monospace;font-size:12.5px;margin:4px 0 6px;color:#0a4f9c;overflow-x:auto}
   .g-steps{padding-left:20px;margin:4px 0;display:grid;gap:3px}
-  .g-steps li::marker{color:#2f6db5}
-  .g-impact{background:#fff6e9;border-left:3px solid #d9822b;border-radius:0 7px 7px 0;padding:7px 11px}
-  .g-action{background:#eaf6ee;border-left:3px solid #1a7f37;border-radius:0 7px 7px 0;padding:7px 11px}
-  .g-tip{background:#eaf3fb;border-left:3px solid #2f6db5;border-radius:0 7px 7px 0;padding:7px 11px;font-size:12.5px;color:#0a4f9c}
-  .gloss-empty{padding:30px;text-align:center;color:var(--muted)}
+  .g-steps li::marker{color:#2f6db5;font-weight:700}
+  .g-impact{background:#fff6e9;border-left:3px solid #d9822b;border-radius:0 8px 8px 0;padding:8px 12px}
+  .g-action{background:#eaf6ee;border-left:3px solid #1a7f37;border-radius:0 8px 8px 0;padding:8px 12px}
+  .g-tip{background:#eaf3fb;border-left:3px solid #2f6db5;border-radius:0 8px 8px 0;padding:8px 12px;font-size:12.5px;color:#0a4f9c}
+  .gloss-empty{padding:34px;text-align:center;color:var(--muted)}
   @media(max-width:640px){.gloss-body{max-height:74vh}}
 </style>
 </head>
@@ -573,7 +648,7 @@ function calc(auto){
      :primary>=1.0 ?'过程能力边缘（C 级）：存在风险，需加强管控/减小波动。'
      :'过程能力不足（D 级）：超规风险高，须立即改善。');
   document.getElementById('verdict').innerHTML =
-     `<div class="verdict" style="background:${vt.c}14;border-color:${vt.c}55;color:${vt.c}">
+     `<div class="verdict" style="--vc-bg:${vt.c}1f;border-color:${vt.c}55;color:${vt.c}">
         <span class="badge" style="background:${vt.c}">${vt.t||'—'}</span>
         <span>${vText||'请先设置规格限'}</span></div>`;
 
@@ -621,7 +696,7 @@ function calc(auto){
     return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}, ${fmt(ci[1])}]`:'—','近似置信区间（样本量 n='+n+'）'];};
   for(const k in withinIdx)rows.push(ciRow(k,withinIdx[k],withinCI[k],'(组内)'));
   for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(总)'));
-  document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:#6a737d">${d}</td></tr>`).join('');
+  document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:#64748b">${d}</td></tr>`).join('');
 
   // ---- JMP 式报告区渲染 ----
   // ① 过程汇总
@@ -754,10 +829,13 @@ function drawHist(x,lsl,usl,target,m,sd,sw){
   const yMax=niceCeil(0,yLimit,4)||yLimit;
   const x2px=v=>padL+(v-lo)/(hi-lo)*plotW, y2px=d=>padT+plotH-d/yMax*plotH;
 
-  // 直方图（圆角柱）：柱边界用数据范围坐标（dmin+i*binW），再经 x2px 映射到绘图区
+  // 直方图（圆角柱，垂直渐变）：柱边界用数据范围坐标（dmin+i*binW），再经 x2px 映射到绘图区
   for(let i=0;i<k;i++){const x0=dmin+i*binW,d=bins[i]/(x.length*binW);
     const px0=x2px(x0),px1=x2px(x0+binW),py=y2px(d),bw=Math.max(1,px1-px0-1.5);
-    ctx.fillStyle='rgba(47,109,181,.78)';
+    const g=ctx.createLinearGradient(0,py,0,padT+plotH);
+    g.addColorStop(0,'rgba(61,131,201,.92)');
+    g.addColorStop(1,'rgba(36,80,126,.72)');
+    ctx.fillStyle=g;
     roundRectTop(ctx,px0,py,bw,padT+plotH-py,2);}
   // 正态拟合曲线：实线 = 总体 σ（长期）；虚线 = 组内 σ（短期）
   const curveFn=(s,dash,color)=>{
@@ -786,7 +864,7 @@ function drawHist(x,lsl,usl,target,m,sd,sw){
   yticks(ctx,niceTicks(0,yMax,4),y2px,padL,plotW,v=>(v*1000).toFixed(0)+'‰');
   frame(ctx,W,H,padL,padT,plotW,plotH);
   // 轴标题
-  ctx.fillStyle='#32383f';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('测量值',padL+plotW/2,H-6);
   ctx.save();ctx.translate(13,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText('概率密度',0,0);ctx.restore();
   ctx.textAlign='start';
@@ -827,13 +905,16 @@ function drawBox(x,lsl,usl,target,m){
   ctx.beginPath();ctx.moveTo(x2px(lo),yMid);ctx.lineTo(x2px(hi),yMid);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x2px(lo),yMid-half*0.5);ctx.lineTo(x2px(lo),yMid+half*0.5);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x2px(hi),yMid-half*0.5);ctx.lineTo(x2px(hi),yMid+half*0.5);ctx.stroke();
-  // 箱（Q1~Q3）
+  // 箱（Q1~Q3，渐变填充）
   const q1=xs[Math.floor(xs.length*0.25)],q3=xs[Math.floor(xs.length*0.75)],q2=xs[Math.floor(xs.length*0.5)];
   const bx0=x2px(q1),bx1=x2px(q3);
-  ctx.fillStyle='rgba(47,109,181,.20)';ctx.fillRect(bx0,yMid-half,bx1-bx0,half*2);
+  const bg=ctx.createLinearGradient(0,yMid-half,0,yMid+half);
+  bg.addColorStop(0,'rgba(61,131,201,.34)');
+  bg.addColorStop(1,'rgba(36,80,126,.16)');
+  ctx.fillStyle=bg;ctx.fillRect(bx0,yMid-half,bx1-bx0,half*2);
   ctx.strokeStyle=C.data();ctx.lineWidth=1.5;ctx.strokeRect(bx0,yMid-half,bx1-bx0,half*2);
   // 中位数线
-  ctx.strokeStyle='#1f2328';ctx.lineWidth=2;
+  ctx.strokeStyle='#24344d';ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(x2px(q2),yMid-half);ctx.lineTo(x2px(q2),yMid+half);ctx.stroke();
   // 均值点（越界时变红）+ 数值标注（点正下方）
   const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?'#cf222e':C.fit();
@@ -843,7 +924,7 @@ function drawBox(x,lsl,usl,target,m){
   ctx.fillText('μ '+fmtTick(m),x2px(m),yMid+16);
   ctx.textAlign='start';
   // 标注 Q1 / 中位数 / Q3 数值（箱体上方，间距过近时省略防重叠）
-  ctx.fillStyle='#6a737d';ctx.font='10px sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#64748b';ctx.font='10px sans-serif';ctx.textAlign='center';
   const qx1=x2px(q1),qx2=x2px(q2),qx3=x2px(q3);
   if(qx3-qx1>34){
     if(qx2-qx1>17)ctx.fillText(fmtTick(q1),qx1,yMid-half-4);
@@ -858,13 +939,13 @@ function drawBox(x,lsl,usl,target,m){
   // 刻度 + 轴标题
   xticks(ctx,niceTicks(a,b,7),x2px,padT,plotH,fmtTick);
   frame(ctx,W,H,padL,padT,plotW,plotH);
-  ctx.fillStyle='#32383f';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('测量值',padL+plotW/2,H-6);ctx.textAlign='start';
   // 图例
   ctx.font='10.5px sans-serif';
-  ctx.fillStyle=C.data();ctx.fillRect(padL,12,14,9);ctx.fillStyle='#32383f';ctx.fillText('四分位箱',padL+18,20);
-  ctx.fillStyle=C.fit();ctx.beginPath();ctx.arc(padL+92,16,5,0,7);ctx.fill();ctx.fillStyle='#32383f';ctx.fillText('均值',padL+100,20);
-  ctx.fillStyle='#9aa4ad';ctx.fillRect(padL+145,12,14,9);ctx.fillStyle='#32383f';ctx.fillText('最小~最大',padL+163,20);
+  ctx.fillStyle=C.data();ctx.fillRect(padL,12,14,9);ctx.fillStyle='#24344d';ctx.fillText('四分位箱',padL+18,20);
+  ctx.fillStyle=C.fit();ctx.beginPath();ctx.arc(padL+92,16,5,0,7);ctx.fill();ctx.fillStyle='#24344d';ctx.fillText('均值',padL+100,20);
+  ctx.fillStyle='#9aa4ad';ctx.fillRect(padL+145,12,14,9);ctx.fillStyle='#24344d';ctx.fillText('最小~最大',padL+163,20);
 }
 
 function drawQuant(sorted,z){
@@ -890,9 +971,9 @@ function drawQuant(sorted,z){
   const r=corr(sorted,z),b_=cov_(sorted,z)/cov_(z,z),a_=mean(sorted)-b_*mean(z);
   ctx.strokeStyle=C.fit();ctx.lineWidth=2;ctx.beginPath();
   ctx.moveTo(x2px(zmin),y2px(a_+b_*zmin));ctx.lineTo(x2px(zmax),y2px(a_+b_*zmax));ctx.stroke();
-  // 散点
-  ctx.fillStyle='rgba(47,109,181,.85)';
-  for(let i=0;i<sorted.length;i++){ctx.beginPath();ctx.arc(x2px(z[i]),y2px(sorted[i]),2.6,0,7);ctx.fill();}
+  // 散点（带透明度的数据蓝）
+  ctx.fillStyle='rgba(47,109,181,.72)';
+  for(let i=0;i<sorted.length;i++){ctx.beginPath();ctx.arc(x2px(z[i]),y2px(sorted[i]),2.8,0,7);ctx.fill();}
   // 刻度
   ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
   zt.forEach(t=>ctx.fillText(t.toFixed(2),x2px(t),padT+plotH+6));
@@ -901,13 +982,13 @@ function drawQuant(sorted,z){
   ctx.textAlign='start';ctx.textBaseline='alphabetic';
   frame(ctx,W,H,padL,padT,plotW,plotH);
   // 轴标题
-  ctx.fillStyle='#32383f';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('理论分位数 z',padL+plotW/2,H-7);
   ctx.save();ctx.translate(14,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText('样本分位数',0,0);ctx.restore();
   // R² 标注
   const r2Txt='R² = '+(r*r).toFixed(4);
   ctx.font='bold 12px sans-serif';const tw=ctx.measureText(r2Txt).width;
-  ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(padL+8,padT+8,tw+14,22);
+  ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillRect(padL+8,padT+8,tw+14,22);
   ctx.strokeStyle=C.fit();ctx.lineWidth=1;ctx.strokeRect(padL+8,padT+8,tw+14,22);
   ctx.fillStyle=C.fit();ctx.fillText(r2Txt,padL+15,padT+23);
   ctx.textAlign='start';
@@ -1113,25 +1194,25 @@ function exportPng(){
   const big=document.createElement('canvas');big.width=W;big.height=H;
   const ctx=big.getContext('2d');
   ctx.fillStyle='#ffffff';ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='#1f2328';ctx.font='bold 16px sans-serif';
+  ctx.fillStyle='#1f2937';ctx.font='bold 16px sans-serif';
   ctx.fillText('Cpk 过程能力分析报告',pad,pad+8);
-  ctx.font='11px sans-serif';ctx.fillStyle='#6a737d';
+  ctx.font='11px sans-serif';ctx.fillStyle='#64748b';
   ctx.fillText('离线单文件版 · 定义对齐 JMP Process Capability',pad,pad+26);
   // 指标摘要行
   const keyMap={}; r.rows.forEach(x=>{if(['Cp','Cpk','Pp','Ppk','Cpm','样本量 n'].includes(x[0]))keyMap[x[0]]=x[1];});
   const sumLine='Cp='+keyMap['Cp']+'   Cpk='+keyMap['Cpk']+'   Pp='+keyMap['Pp']+
                 '   Ppk='+keyMap['Ppk']+'   Cpm='+keyMap['Cpm']+'   n='+keyMap['样本量 n'];
-  ctx.font='bold 13px sans-serif';ctx.fillStyle='#1f2328';
+  ctx.font='bold 13px sans-serif';ctx.fillStyle='#1f2937';
   ctx.fillText(sumLine,pad,pad+44);
   // ---- 文本报告区（过程汇总 + 能力表 + 不合格分析）----
   let y=pad+58;
   function drawTableBlock(heading, rows, colX){
-    ctx.fillStyle='#1f2328';ctx.font='bold 12px sans-serif';
+    ctx.fillStyle='#1f2937';ctx.font='bold 12px sans-serif';
     ctx.fillText(heading,pad,y);y+=17;
     ctx.font='11px sans-serif';
     rows.forEach(row=>{
       row.forEach((cell,j)=>{
-        ctx.fillStyle='#1f2328';
+        ctx.fillStyle='#1f2937';
         ctx.textAlign=j===0?'left':'right';ctx.textBaseline='top';
         ctx.fillText(cell,colX[j],y);
       });
@@ -1156,19 +1237,19 @@ function exportPng(){
     r.withinCI[k][0]!=null?fmt(r.withinCI[k][0]):'—',r.withinCI[k][1]!=null?fmt(r.withinCI[k][1]):'—']);
   const ocapRows=Object.keys(r.overallIdx).map(k=>[k,fmt(r.overallIdx[k]),
     r.overallCI[k][0]!=null?fmt(r.overallCI[k][0]):'—',r.overallCI[k][1]!=null?fmt(r.overallCI[k][1]):'—']);
-  ctx.fillStyle='#1f2328';ctx.font='bold 12px sans-serif';ctx.fillText('■ 组内 Sigma 能力',pad,y);
+  ctx.fillStyle='#1f2937';ctx.font='bold 12px sans-serif';ctx.fillText('■ 组内 Sigma 能力',pad,y);
   ctx.fillText('■ 总 Sigma 能力',pad+half+20,y);
   y+=16;
-  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#6a737d';
+  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#64748b';
     ctx.textAlign=j?'right':'left';ctx.fillText(t,capHeadX[j],y);ctx.textAlign='left';});
-  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#6a737d';
+  ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle='#64748b';
     ctx.textAlign=j?'right':'left';ctx.fillText(t,ocapHeadX[j],y);ctx.textAlign='left';});
   y+=15;
   const capColX=[pad,pad+55,pad+130,pad+half-2];
   const ocapColX=[pad+half+20,pad+half+75,pad+half+150,W-pad-2];
   const maxCapRows=Math.max(capRowsCount,ocapRowsCount);
   for(let i=0;i<maxCapRows;i++){
-    ctx.font='11px sans-serif';ctx.fillStyle='#1f2328';
+    ctx.font='11px sans-serif';ctx.fillStyle='#1f2937';
     if(i<capRowsCount){
       const row=capRows[i];
       ['left','right','right','right'].forEach((al,j)=>{ctx.textAlign=al;ctx.fillText(row[j],capColX[j],y);});
@@ -1447,7 +1528,7 @@ function glossCard(g,open){
   return `<div class="gcard ${open?'open':''}">
     <div class="gcard-head">
       <span class="g-abbr">${g.abbr}</span>
-      <span class="g-name">${g.name}${g.cn?'<span style="color:#6a737d;font-weight:400"> · '+g.cn+'</span>':''}</span>
+      <span class="g-name">${g.name}${g.cn?'<span style="color:#64748b;font-weight:400"> · '+g.cn+'</span>':''}</span>
       <span class="g-cat">${g.cat}</span>
       <span class="g-arrow">▶</span>
     </div>
