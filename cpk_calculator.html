@@ -96,12 +96,70 @@
   .stability-high{color:var(--bad);font-weight:700}
   .defect-row-total td{font-weight:650;background:#f3f5f7}
   @media(max-width:640px){.report-grid{grid-template-columns:1fr}}
+
+  /* ---- 术语百科 ---- */
+  .head-row{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .head-btn{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.28);
+            border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;
+            transition:background .15s;white-space:nowrap}
+  .head-btn:hover{background:rgba(255,255,255,.26)}
+  #glossOverlay{position:fixed;inset:0;background:rgba(20,24,28,.55);z-index:1000;
+                display:none;align-items:flex-start;justify-content:center;padding:28px 16px;
+                overflow-y:auto;backdrop-filter:blur(2px)}
+  #glossOverlay.open{display:flex}
+  .gloss-box{background:var(--card);border-radius:12px;max-width:900px;width:100%;
+             box-shadow:0 12px 40px rgba(0,0,0,.28);overflow:hidden}
+  .gloss-head{background:linear-gradient(95deg,#1f2328,#32383f);color:#fff;padding:16px 20px;
+              display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+  .gloss-head h2{margin:0;font-size:16px;font-weight:650;flex:1 1 100%}
+  .gloss-head input{flex:1 1 220px;padding:8px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.25);
+                    background:rgba(255,255,255,.1);color:#fff;font-size:13px;outline:none}
+  .gloss-head input::placeholder{color:#9aa4ad}
+  .gloss-head input:focus{border-color:#5b9bd5;background:rgba(255,255,255,.16)}
+  .gloss-close{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;
+               border-radius:7px;padding:7px 12px;font-size:13px;cursor:pointer}
+  .gloss-close:hover{background:rgba(255,255,255,.28)}
+  .gloss-cats{display:flex;gap:7px;flex-wrap:wrap;padding:10px 20px 0;background:#f7f9fb;border-bottom:1px solid var(--border)}
+  .gloss-cats button{border:1px solid var(--border);background:#fff;color:#57606a;border-radius:20px;
+                     padding:5px 13px;font-size:12px;cursor:pointer;transition:all .15s}
+  .gloss-cats button.on{background:#2f6db5;border-color:#2f6db5;color:#fff}
+  .gloss-body{padding:18px 20px;max-height:66vh;overflow-y:auto}
+  .gloss-count{font-size:12px;color:var(--muted);margin:0 0 12px}
+  .gcard{border:1px solid var(--border);border-radius:10px;margin-bottom:12px;overflow:hidden;
+         background:#fff;box-shadow:0 1px 2px rgba(27,31,36,.05)}
+  .gcard-head{display:flex;align-items:center;gap:10px;padding:11px 14px;background:#fbfcfd;
+              border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+  .gcard-head:hover{background:#f3f6f9}
+  .g-abbr{font-family:Consolas,Menlo,monospace;font-weight:700;font-size:15px;color:#1f2328;
+          background:#eef1f4;padding:3px 10px;border-radius:6px;letter-spacing:.3px}
+  .g-name{font-size:13px;color:#32383f;font-weight:600;flex:1}
+  .g-cat{font-size:10.5px;color:#57606a;background:#eef1f4;border-radius:20px;padding:2px 9px;white-space:nowrap}
+  .g-arrow{color:#8a949e;font-size:12px;transition:transform .18s}
+  .gcard.open .g-arrow{transform:rotate(90deg)}
+  .gcard-body{display:none;padding:12px 16px 14px;font-size:13px;line-height:1.65;color:#1f2328}
+  .gcard.open .gcard-body{display:block}
+  .g-sec{margin:8px 0}
+  .g-sec b{color:#32383f}
+  .g-formula{background:#f4f6f8;border:1px solid #e3e8ee;border-radius:7px;padding:8px 12px;
+             font-family:Consolas,Menlo,monospace;font-size:12.5px;margin:4px 0 6px;color:#0a4f9c;overflow-x:auto}
+  .g-steps{padding-left:20px;margin:4px 0;display:grid;gap:3px}
+  .g-steps li::marker{color:#2f6db5}
+  .g-impact{background:#fff6e9;border-left:3px solid #d9822b;border-radius:0 7px 7px 0;padding:7px 11px}
+  .g-action{background:#eaf6ee;border-left:3px solid #1a7f37;border-radius:0 7px 7px 0;padding:7px 11px}
+  .g-tip{background:#eaf3fb;border-left:3px solid #2f6db5;border-radius:0 7px 7px 0;padding:7px 11px;font-size:12.5px;color:#0a4f9c}
+  .gloss-empty{padding:30px;text-align:center;color:var(--muted)}
+  @media(max-width:640px){.gloss-body{max-height:74vh}}
 </style>
 </head>
 <body>
 <header>
-  <h1>📊 Cpk 过程能力计算器</h1>
-  <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python / 安装 / 联网 · 数据不出本机</p>
+  <div class="head-row">
+    <div>
+      <h1>📊 Cpk 过程能力计算器</h1>
+      <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python / 安装 / 联网 · 数据不出本机</p>
+    </div>
+    <button id="btnGloss" class="head-btn">📖 术语百科</button>
+  </div>
 </header>
 
 <div id="dropHint">📂 松开鼠标，导入数据文件（支持 .txt / .csv / .tsv / .dat）</div>
@@ -202,6 +260,22 @@
     <div style="margin-top:16px">
       <button id="btnCsv" class="sec">⬇ 导出指标 CSV</button>
       <button id="btnPng" class="sec">⬇ 导出完整报告 (PNG)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 术语百科模态框 ===== -->
+<div id="glossOverlay">
+  <div class="gloss-box" role="dialog" aria-label="术语百科">
+    <div class="gloss-head">
+      <h2>📖 术语百科 —— 全项目英文简称速查</h2>
+      <input id="glossSearch" type="search" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
+      <button class="gloss-close" id="glossClose">✕ 关闭</button>
+    </div>
+    <div class="gloss-cats" id="glossCats"></div>
+    <div class="gloss-body">
+      <p class="gloss-count" id="glossCount"></p>
+      <div id="glossList"></div>
     </div>
   </div>
 </div>
@@ -1121,6 +1195,301 @@ function exportPng(){
 }
 document.getElementById('btnCsv').onclick=exportCsv;
 document.getElementById('btnPng').onclick=exportPng;
+
+/* ============ 术语百科 ============ */
+// 收录本项目（页面 + README）中出现的全部英文简称 / 术语。
+// 每条含：释义 / 公式 / 计算步骤 / 对产品的影响 / 推荐执行的行为。
+const GLOSS=[
+  // ---------- 能力指数 ----------
+  {cat:'能力指数',abbr:'Cpk',name:'Process Capability Index（修正过程能力指数）',cn:'实际过程能力指数',
+   def:'在 Cp 基础上同时考虑<b>中心偏移</b>，取"离规格线更近一侧"的能力值，反映过程<u>当前实际</u>能达到的质量水平。它是本工具判级（A/B/C/D）的主要依据，也是制造业最常用的出货能力指标。',
+   formula:'Cpk = min( Cpu, Cpl ) = min( (USL−μ) / (3σ<sub>within</sub>), (μ−LSL) / (3σ<sub>within</sub>) )',
+   steps:['计算样本均值 μ = Σxᵢ / n','计算组内标准差 σ_within：个体数据用移动极差法 σ=MR̄/d2(2)；子组数据用极差法 σ=R̄/d2(n)','算上侧 Cpu = (USL−μ) / (3σ_within)，下侧 Cpl = (μ−LSL) / (3σ_within)','取较小值：距离规格线更近那一侧，即最薄弱环节'],
+   impact:'Cpk≥1.33 时理论不合格率一般可控制在 66 PPM 以内；Cpk 在 1.0~1.33 之间属于边缘，超规风险上升；Cpk<1.0 时超规概率显著放大，客户处易出现批量退货、投诉或审核不通过。',
+   action:'按判级执行：A/B 级维持现有监控；C 级加强管控（加密抽检、减小波动、排查特殊原因）；D 级必须立即改善（调机、修设备、改工艺参数、做 FACA 找根因）。改善后再测，确认 Cpk 回升。',
+   tip:'判级前务必填真实规格限 LSL/USL（来自图纸或客户），否则 Cpk 会被严重高估。'},
+  {cat:'能力指数',abbr:'Cp',name:'Process Capability Index（潜在过程能力指数）',cn:'潜在过程能力指数',
+   def:'只衡量<b>波动宽度 vs 规格宽度</b>，假设中心完美对准规格中点时理论上能达到的最大能力。<b>不反映中心偏移</b>。',
+   formula:'Cp = (USL − LSL) / (6σ<sub>within</sub>)',
+   steps:['规格宽度 = USL − LSL（公差带宽度）','6σ_within = 6 × 组内标准差（过程短期波动的 6 倍）','两者相除'],
+   impact:'Cp 高但 Cpk 低 → 典型"工艺有潜力但中心偏了"（均值偏移陷阱）：波动虽小，产品却大量超一侧规格。只看 Cp 会误判过程良好。',
+   action:'当 Cp 明显高于 Cpk 时，优先<b>调整过程中心</b>（刀具补偿、定位基准、参数微调），而不是急于减小波动；两者都低才需要改善工艺波动。',
+   tip:'本工具 6 组示例中的「② 均值偏移」就是专门演示 Cp 高、Cpk 低的情形。'},
+  {cat:'能力指数',abbr:'Cpu',name:'Process Capability Index（上限）',cn:'单侧上限能力指数',
+   def:'仅针对<b>规格上限 USL</b> 的单侧能力，用于"不超过某值"的要求（如粗糙度、杂质含量、翘曲度）。',
+   formula:'Cpu = (USL − μ) / (3σ<sub>within</sub>)',
+   steps:['计算均值 μ 与组内 σ','上限到均值的距离 = USL − μ','除以 3σ_within'],
+   impact:'Cpu 低说明过程中心太靠近上限，产品集中在上限附近，随时可能超上差。',
+   action:'把过程中心往下调整（降低设定值），并观察波动是否同步收窄。单侧规格时页面用 Cpu 代替 Cpk 判级。'},
+  {cat:'能力指数',abbr:'Cpl',name:'Process Capability Index（下限）',cn:'单侧下限能力指数',
+   def:'仅针对<b>规格下限 LSL</b> 的单侧能力，用于"不低于某值"的要求（如强度、厚度、附着力下限）。',
+   formula:'Cpl = (μ − LSL) / (3σ<sub>within</sub>)',
+   steps:['计算均值 μ 与组内 σ','均值到下限的距离 = μ − LSL','除以 3σ_within'],
+   impact:'Cpl 低说明中心太靠近下限，产品集中在下限附近，存在批量低于标准的风险（强度/尺寸不足）。',
+   action:'把过程中心往上调整，同时检查原材料、工装磨损等导致下限偏薄的因素。'},
+  {cat:'能力指数',abbr:'Ppk',name:'Process Performance Index（长期实际性能指数）',cn:'长期实际性能指数',
+   def:'用<b>整体标准差 σ_overall</b>（样本标准差）替代组内 σ，并考虑中心偏移，反映包含批次间漂移在内的<b>长期真实</b>性能。客户 PPAP / 初始过程能力研究通常以此为准。',
+   formula:'Ppk = min( (USL−μ) / (3σ<sub>overall</sub>), (μ−LSL) / (3σ<sub>overall</sub>) )',
+   steps:['计算整体标准差 σ_overall = 样本标准差（ddof=1，代码内实现）','同上侧/下侧距离公式（分母用 3σ_overall）','取较小值'],
+   impact:'Ppk≥1.67 一般被客户视为初始过程能力合格；Ppk 明显低于 Cpk 说明存在组间漂移（换班/换料/换模/环境变化），长期质量不稳定。',
+   action:'新产品、新工艺、变更后的首件验证重点看 Ppk；当 Ppk < Cpk 且差距大时，排查批次间差异来源并建立批次间管控。'},
+  {cat:'能力指数',abbr:'Pp',name:'Process Performance Index（长期潜在性能指数）',cn:'长期潜在性能指数',
+   def:'用整体标准差 σ_overall 衡量的<b>长期潜在</b>能力（不修正中心偏移），反映过程在长期总波动下的理论水平。',
+   formula:'Pp = (USL − LSL) / (6σ<sub>overall</sub>)',
+   steps:['规格宽度 = USL − LSL','6σ_overall = 6 × 样本标准差','两者相除'],
+   impact:'Pp < Cp 说明长期波动大于短期波动，过程存在组间漂移；差距越大，过程越不稳定。',
+   action:'对比 Cp 与 Pp 的差距，差距大时排查换料、换模、换班、温湿度等批次间因素。'},
+  {cat:'能力指数',abbr:'Ppu / Ppl',name:'Process Performance Index（长期单侧）',cn:'长期单侧性能指数',
+   def:'长期维度下的单侧性能：Ppu 针对上限、Ppl 针对下限，分母用整体 σ。',
+   formula:'Ppu = (USL−μ)/(3σ<sub>overall</sub>)　·　Ppl = (μ−LSL)/(3σ<sub>overall</sub>)',
+   steps:['分别对应 Cpu / Cpl 的计算，只是把 σ_within 换成 σ_overall'],
+   impact:'单侧长期能力不足时，产品在长期生产中会稳定地批量超规。',
+   action:'长期批次监控用 Ppu/Ppl 更稳妥；发现偏低应追溯到源头工序而非仅靠抽检拦截。'},
+  {cat:'能力指数',abbr:'Cpm',name:'Taguchi Capability Index（田口能力指数）',cn:'含目标偏移的能力指数',
+   def:'同时惩罚<b>波动</b>与<b>偏离目标值 T</b>，鼓励过程中心对准设计目标而非仅仅落在规格内，符合田口"损失函数"质量观。',
+   formula:'Cpm = (USL − LSL) / ( 6 × √( σ<sub>overall</sub>² + (μ − T)² ) )',
+   steps:['计算整体方差 σ_overall²','计算中心偏移平方 (μ−T)²','相加后开平方根 = 等效总偏差','规格宽度 ÷ (6 × 该值)'],
+   impact:'对"偏离目标即损失功能"的关键特性（配合间隙、装配尺寸、电性能）特别重要；中心偏离目标会同时损失 Cpm 与客户实际使用性能。',
+   action:'非对称公差（如 φ20 +0.1/−0.05）务必填写真实目标 T=20.00，否则 Cpm 被高估；Cpm 低且 μ≠T 时，优先把中心调整到对准目标。',
+   tip:'目标值 T 未填时工具自动取规格中点，仅适用于对称公差。'},
+  // ---------- 规格与目标 ----------
+  {cat:'规格与目标',abbr:'LSL',name:'Lower Specification Limit',cn:'规格下限',
+   def:'图纸、客户或标准规定的<b>最小合格值</b>。<b>不是</b>这批数据的最小值！例如轴径 10±0.02 → LSL = 9.980。',
+   formula:'—（输入项，不是算出来的）',
+   steps:['查图纸 / 客户要求 / 行业标准，找到该特性的最小允许值','填入"最小值 LSL"输入框，并勾选启用'],
+   impact:'LSL 填错会直接导致 Cp/Cpk/Cpl 严重失真：填得比真实要求宽松（如填均值−3σ），能力被高估，出货后才发现批量超差；填得过于严格，又会误判过程不合格、浪费改善资源。',
+   action:'判级前务必核对图纸版本与客户最新要求；本工具留空自动预填"均值−3σ"仅为试算占位，正式判级前必须替换为真实规格限。'},
+  {cat:'规格与目标',abbr:'USL',name:'Upper Specification Limit',cn:'规格上限',
+   def:'图纸、客户或标准规定的<b>最大合格值</b>。<b>不是</b>这批数据的最大值！例如轴径 10±0.02 → USL = 10.020。',
+   formula:'—（输入项，不是算出来的）',
+   steps:['查图纸 / 客户要求 / 行业标准，找到最大允许值','填入"最大值 USL"输入框，并勾选启用'],
+   impact:'USL 影响所有能力指数与超规 PPM 计算；填错方向会导致上侧能力（Cpu/Ppu）完全失真。',
+   action:'与 LSL 同源核对；单侧规格（只有上限或只有下限）时，取消勾选另一侧即可切换为单侧分析。'},
+  {cat:'规格与目标',abbr:'T',name:'Target Value',cn:'目标值',
+   def:'图纸 / 设计的<b>标称值</b>。例如 φ20 +0.1/−0.05 的规格中点虽是 20.025，但设计目标 T = 20.00。留空时工具自动取 (LSL+USL)/2 仅用于 Cpm。',
+   formula:'—（输入项；中心偏移 = μ − T）',
+   steps:['从图纸 / 设计文件取标称值','填入"目标值 T"；非对称公差必须填，否则 Cpm 失真'],
+   impact:'T 决定 Cpm 与"中心偏移 μ−T"的解读；T 填在规格范围外时工具会给出硬警告。',
+   action:'涉及功能配合的关键尺寸务必填真实设计目标；对称公差可留空（等价于取规格中点）。'},
+  // ---------- 统计量 ----------
+  {cat:'统计量',abbr:'μ (mu)',name:'Mean',cn:'均值（过程中心）',
+   def:'所有测量值的算术平均，代表过程当前的中心位置。μ = Σxᵢ / n。',
+   formula:'μ = (x₁ + x₂ + … + xₙ) / n',
+   steps:['把所有测量值相加','除以样本量 n'],
+   impact:'μ 与规格中点 / 目标 T 的偏差 = 中心偏移。中心偏移是 Cpk 低于 Cp、Ppk 低于 Pp 的根本原因之一，直接决定超上差还是超下差。',
+   action:'当均值明显偏离规格中点时，优先调整过程设定值；均值越界时直方图中均值线会变红提示。'},
+  {cat:'统计量',abbr:'σ (sigma)',name:'Standard Deviation',cn:'标准差（波动）',
+   def:'衡量数据离散（波动）程度的指标。本工具区分两组 σ：<b>组内 σ</b>（短期波动）与<b>整体 σ</b>（长期波动），分别用于 Cpk/Ppk 两组指数。',
+   formula:'σ_overall = √( Σ(xᵢ−μ)² / (n−1) )　（样本标准差，ddof=1）',
+   steps:['逐个求 (xᵢ−μ)²','求和后除以 (n−1)','开平方根'],
+   impact:'σ 是能力指数的分母核心：σ 越大 → Cp/Cpk/Pp/Ppk 越小 → 超规 PPM 越大。波动是产品质量稳定性的最大敌人。',
+   action:'σ 偏大时排查设备精度、工装磨损、原材料批次差异、环境温湿度等波动源，用 FACA 找到特殊原因。'},
+  {cat:'统计量',abbr:'σ_within',name:'Within Sigma',cn:'组内标准差（短期波动）',
+   def:'反映过程<b>短期固有</b>波动：个体测量用移动极差法（MR̄/d2(2)），子组数据用极差法（R̄/d2(n)）。用于 Cp / Cpk 系列。',
+   formula:'个体：σ_within = MR̄ / d2(2)=1.128　·　子组：σ_within = R̄ / d2(n)',
+   steps:['个体测量：相邻两点差的绝对值求平均 → MR̄，再 ÷ 1.128','子组：每组 max−min 求平均 → R̄，再 ÷ d2(n)（查表，覆盖到 20）'],
+   impact:'σ_within 小说明过程短时间内的波动受控，是"过程本身稳不稳"的度量；它不包含换班、换料带来的长期漂移。',
+   action:'若 Cpk 合格但 Ppk 不合格（σ_within ≪ σ_overall），说明短期稳定但长期漂移，重点管控批次间一致性。'},
+  {cat:'统计量',abbr:'σ_overall',name:'Overall Sigma',cn:'整体标准差（长期波动）',
+   def:'样本标准差（ddof=1），包含所有短期与长期波动来源，反映过程<b>长期总体</b>波动。用于 Pp / Ppk / Cpm 系列。',
+   formula:'σ_overall = √( Σ(xᵢ−μ)² / (n−1) )',
+   steps:['直接对全部数据计算样本标准差'],
+   impact:'σ_overall ≥ σ_within 恒成立；两者比值 = 稳定性指标。σ_overall 越大，长期不良率越高。',
+   action:'长期质量评估、客户 PPAP 以 σ_overall 体系为准；当 σ_overall 明显大于 σ_within 时启动批次间差异排查。'},
+  {cat:'统计量',abbr:'n',name:'Sample Size',cn:'样本量',
+   def:'参与计算的测量值个数。n 越大，能力指数估计越可靠，95% 置信区间越窄。',
+   formula:'n = 解析出的有效数据个数',
+   steps:['粘贴数据后工具自动解析并显示"已解析 n 个数值"'],
+   impact:'n 过小（如 <30）时能力指数的置信区间很宽，单点估计不可靠，可能把勉强合格的过程误判为优秀（或反之）。',
+   action:'正式判级建议至少 30~100 个数据；本工具"反向生成"默认生成 100 个，可快速体验置信区间随 n 的变化。'},
+  {cat:'统计量',abbr:'R̄',name:'Average Range',cn:'平均极差',
+   def:'子组数据法中，各组 (最大值−最小值) 的平均值。配合 d2 常数估计组内 σ。',
+   formula:'R̄ = (R₁ + R₂ + … + Rₖ) / k，其中 Rᵢ = 子组max − 子组min',
+   steps:['把数据按子组大小 n 分组','每组算极差 Rᵢ','求平均 R̄','σ_within = R̄ / d2(n)'],
+   impact:'子组极差法比移动极差法更能反映真实的组内短期波动，子组划分不合理（混入不同批次）会高估组内 σ。',
+   action:'子组应代表"同一条件下的短期连续生产"（如同一班次、同一模腔），不要跨批次混组。'},
+  {cat:'统计量',abbr:'MR̄',name:'Average Moving Range',cn:'平均移动极差',
+   def:'个体测量（子组=0）时，相邻两个测量值之差的绝对值的平均。用于估计组内 σ（移动极差法）。',
+   formula:'MR̄ = Σ|xᵢ − xᵢ₋₁| / (n−1)，σ_within = MR̄ / 1.128',
+   steps:['依次计算相邻两点差值并取绝对值','求和后除以 (n−1)','除以 d2(2)=1.128 得到 σ_within'],
+   impact:'对数据顺序敏感：测量顺序即生产顺序，顺序打乱会低估真实短期波动。',
+   action:'粘贴数据请按生产/测量先后顺序排列，不要排序后再粘贴。'},
+  {cat:'统计量',abbr:'d2',name:'d2 Constant',cn:'极差法无偏常数',
+   def:'把极差 R 转换成标准差 σ 的查表系数，取值取决于子组大小 n（本工具已覆盖 n=2~20）。',
+   formula:'σ = R̄ / d2(n)；例如 d2(2)=1.128, d2(5)=2.326, d2(10)=3.078',
+   steps:['按子组大小查 d2 常数表','极差平均值除以对应 d2'],
+   impact:'d2 是移动极差法 / 子组极差法的桥梁系数，选错子组大小会导致组内 σ 系统性偏差。',
+   action:'子组大小按实际抽样方案填写（0=个体测量），不要为了凑数随意更改。'},
+  {cat:'统计量',abbr:'Q1 / Q3 / IQR',name:'Quartiles / Interquartile Range',cn:'四分位数 / 四分位距',
+   def:'Q1=第 25 百分位、Q3=第 75 百分位，箱线图箱体边界；IQR = Q3−Q1，衡量中间 50% 数据的分散程度。',
+   formula:'Q1 = 排序后第 25% 位置的值；Q3 = 第 75% 位置的值；IQR = Q3 − Q1',
+   steps:['数据升序排列','取 25% / 50% / 75% 分位位置的值'],
+   impact:'箱体越窄说明中间 50% 的数据越集中；箱体相对规格带的位置能直观看出中心是否偏移。',
+   action:'结合能力箱线图观察箱体与规格带（绿区）的相对位置，快速判断中心偏移方向。'},
+  // ---------- 质量指标 ----------
+  {cat:'质量指标',abbr:'PPM',name:'Parts Per Million',cn:'每百万件不合格数',
+   def:'每生产一百万个产品中预期/实际不合格的件数。1% = 10000 PPM。本工具给出理论（正态估计）与实测两组 PPM。',
+   formula:'理论 PPM = 1,000,000 × (P(低于LSL) + P(高于USL))；实测 PPM = 实际越界件数 / n × 1,000,000',
+   steps:['用正态分布积分算出超下/超上概率','× 1,000,000 即得理论 PPM','直接数出越界样本得实测 PPM'],
+   impact:'PPM 是客户最直观的质量语言：Cpk=1.33 约对应 66 PPM，Cpk=1.67 约对应 0.6 PPM，Cpk=1.0 约对应 2700 PPM。PPM 高意味着批量返工、退货和客户索赔。',
+   action:'把"实测 PPM"与"理论 PPM"对比：实测明显高于理论说明分布非正态或存在异常点，需查特殊原因，不能只依赖正态估计。'},
+  {cat:'质量指标',abbr:'95% CI',name:'95% Confidence Interval',cn:'95% 置信区间',
+   def:'能力指数真值所在的大致范围（双侧 95%）：如果反复抽样，约 95% 的区间会覆盖真值。样本量越小区间越宽。',
+   formula:'Cp/Pp 用卡方近似；Cpk/Ppk 等用正态近似（Bissell/Kotz）',
+   steps:['工具自动对每个指数计算 [下限, 上限]'],
+   impact:'只看点估计（如 Cpk=1.42）会高估可靠性：若 95%CI 是 [1.08, 1.76]，真实能力可能不到 1.33，判级结论可能翻转。',
+   action:'判级时同时看点估计与置信区间下界：下界 < 1.33 时建议增加样本量再下结论，或按更保守的等级管理。'},
+  {cat:'质量指标',abbr:'R²',name:'Coefficient of Determination',cn:'决定系数（正态性指标）',
+   def:'本工具用 Q-Q 图（正态概率图）的拟合优度 R² 近似判断数据是否正态。R²>0.95 视为近似正态，正态能力法才可靠。',
+   formula:'R² = (排序后数据与理论分位数 z 的相关系数)²',
+   steps:['数据排序 → 计算每个点的理论正态分位 z → 与排序数据求相关系数 → 平方'],
+   impact:'数据明显非正态时，Cpk/PPM 等正态法结果会失真（低估或高估超规率），可能误导判级。',
+   action:'R²≤0.95 时页面会黄条提示"数据可能非正态，建议谨慎解读"，此时应检查数据是否混批、有无离群点、是否需做变换（如 Box-Cox）或改用非参数方法。'},
+  {cat:'质量指标',abbr:'稳定性指标',name:'Stability = Overall σ ÷ Within σ',cn:'稳定性指标（漂移比）',
+   def:'整体标准差 ÷ 组内标准差，衡量长期波动相对短期波动的放大程度。>1.3 提示存在组间漂移 / 特殊原因。',
+   formula:'稳定性 = σ_overall / σ_within',
+   steps:['分别算整体 σ 与组内 σ','相除得到比值'],
+   impact:'比值越大说明"短期稳、长期飘"越严重：换班、换料、模具磨损、环境变化在长期中持续扰动过程，Ppk 被拖低。',
+   action:'比值 >1.3 时页面红色提示：重点做批次间差异分析（按班次/机台/批次分层做控制图），锁定漂移源后针对改善。'},
+  {cat:'质量指标',abbr:'A / B / C / D',name:'Capability Grading',cn:'能力等级判级',
+   def:'按 Cpk（单侧按 Cpu/Cpl）自动分级：≥1.67 → A 优秀；≥1.33 → B 合格；≥1.0 → C 边缘；<1.0 → D 不足。',
+   formula:'Cpk ≥ 1.67 → A；≥ 1.33 → B；≥ 1.0 → C；< 1.0 → D',
+   steps:['计算 Cpk → 对照区间得到等级'],
+   impact:'等级直接对应风险与处置力度：A/B 可正常出货，C 需要加强管控，D 超规风险高，必须停线/拦截改善。',
+   action:'A：维持；B：常规监控（SPC 控制图）；C：加密抽检 + 减小波动 + 短期加严放行标准；D：立即停线排查，改善验证合格后再恢复生产。'},
+  // ---------- 图与交互 ----------
+  {cat:'图与交互',abbr:'Quantile Plot',name:'Normal Quantile Plot（Q-Q 图）',cn:'正态概率图',
+   def:'把排序后的样本值（纵轴）对理论正态分位数 z（横轴）作图。点越接近直线，数据越接近正态；R² 即直线拟合优度。',
+   formula:'x 轴：zᵢ = Φ⁻¹((i−0.375)/(n+0.25))；y 轴：排序后的数据',
+   steps:['数据升序 → 算每个点的理论分位 → 画散点 + 拟合直线'],
+   impact:'直观检验正态性假设是否成立，决定 Cpk 系列结论是否可信。',
+   action:'看到明显的 S 形或两端弯曲偏离直线，说明数据偏态/厚尾，需排查混批或离群点。'},
+  {cat:'图与交互',abbr:'Capability Box Plot',name:'JMP Capability Box Plot',cn:'能力箱线图',
+   def:'JMP 特有的箱线图：箱体为 Q1~Q3、中间竖线为中位数，叠加规格带（绿区）与均值点，一眼看出中心位置与超规情况。',
+   formula:'箱体 = [Q1, Q3]，中位线 = Q2，须 = [min, max]',
+   steps:['计算四分位数 → 画箱体 → 叠加规格带 LSL~USL → 标注均值 μ'],
+   impact:'箱体完全落在绿区内且留有余量 = 过程合格；箱体顶到或越过规格线 = 超规风险高。',
+   action:'箱体偏绿区一侧 = 中心偏移，配合 Cpu/Cpl 定位是哪一侧不足，针对性调整中心。'},
+  {cat:'图与交互',abbr:'Process Summary',name:'Process Summary',cn:'过程汇总表',
+   def:'JMP 报告区首屏汇总：LSL / 目标 T / USL / 样本量 n / 均值 μ / 组内 σ / 总 σ / 稳定性指标，一屏看全关键参数。',
+   formula:'—（结果汇总表）',
+   steps:['工具自动汇总全部关键参数到一张表'],
+   impact:'用于快速核对输入是否与图纸一致，避免"规格限填错导致全盘结论错误"。',
+   action:'判级前先扫一眼汇总表：LSL/USL 是否等于图纸值、稳定性指标是否 <1.3，再读能力指数结论。'},
+  // ---------- 算法与软件 ----------
+  {cat:'算法与软件',abbr:'JMP',name:'SAS JMP Software',cn:'JMP 统计分析软件',
+   def:'SAS 公司的交互式统计分析软件，其「Process Capability」平台是行业标杆。本工具模仿其指标定义、报告布局与图型风格。',
+   formula:'—',
+   steps:['—'],
+   impact:'本工具与 JMP 的差异：置信区间为近似公式（卡方 / Bissell-Kotz），正态性用 Q-Q 图 R² 近似，正式客户审核仍建议以 JMP / Minitab 复核。',
+   action:'重要客户报告建议用 JMP/Minitab 交叉复核关键指数；日常快速看板用本工具即可。'},
+  {cat:'算法与软件',abbr:'Shapiro-Francia',name:'Shapiro-Francia Test',cn:'正态性检验（近似）',
+   def:'正态性检验的一种。本工具以其近似形式实现：直接使用 Q-Q 图的 R² 作为正态性依据（R²>0.95 视为正态）。',
+   formula:'W′ = R² = corr(排序数据, 理论分位)²',
+   steps:['数据排序 → 与理论正态分位求相关系数 → 平方'],
+   impact:'是"能否使用正态能力法"的判据，非正态时所有正态假设的 PPM/能力结论失真。',
+   action:'R²≤0.95 时谨慎解读结果，先排查数据来源；正式场合可用严格 Shapiro-Wilk 检验。'},
+  {cat:'算法与软件',abbr:'Box-Muller',name:'Box-Muller Transform',cn:'正态随机数生成法',
+   def:'用两个均匀随机数生成标准正态随机数的经典算法，用于本工具"填入示例"按钮生成演示数据。',
+   formula:'Z = √(−2·ln U₁) · cos(2πU₂)',
+   steps:['生成均匀随机数 U₁、U₂ → 代入公式 → 得到标准正态数 → 乘以 σ 加 μ'],
+   impact:'仅用于示例/造数，不影响真实数据计算。',
+   action:'用「反向生成」造数据时可参考：生成后实际 Cpk 与目标偏差 <5%（随机波动所致）。'},
+  {cat:'算法与软件',abbr:'Freedman-Diaconis',name:'Freedman-Diaconis Rule',cn:'直方图分箱规则',
+   def:'自适应直方图分箱宽度的经验法则，本工具用它自动决定直方图柱子数量（限制在 8~40 根）。',
+   formula:'bin宽 = 2·IQR / n^(1/3)，柱子数 = 数据范围 / bin宽',
+   steps:['计算 IQR → 套公式得 bin 宽 → 求柱子数并夹在 8~40'],
+   impact:'分箱更贴合数据真实分布，避免直方图形状误导判断。',
+   action:'直方图柱子太密/太疏时属于正常自适应结果，可结合正态曲线判断分布形态。'},
+  {cat:'算法与软件',abbr:'Wilson-Hilferty',name:'Wilson-Hilferty Approximation',cn:'卡方分位数近似',
+   def:'用正态分布近似卡方分布分位点的公式，本工具用它计算 Cp/Pp 的 95% 置信区间。',
+   formula:'χ²_p(df) ≈ df·(1 − 2/(9df) + z_p·√(2/(9df)))³',
+   steps:['取正态分位 z_p → 代入公式 → 得卡方分位 → 用于 CI 公式'],
+   impact:'影响 Cp/Pp 置信区间的精度，属于工程近似（真值差 <1%），可放心用于日常判断。',
+   action:'无需干预，工具自动完成。'},
+  {cat:'算法与软件',abbr:'Bissell / Kotz',name:'Bissell / Kotz Approximation',cn:'能力指数置信区间近似',
+   def:'Cpk/Cpl/Cpu/Ppk 等指数 95% 置信区间的标准近似公式（基于渐近标准误），本工具默认采用。',
+   formula:'se ≈ √(1/(9n) + K²/(2(n−1)))；CI = K ± z₀.₉₇₅·se',
+   steps:['按公式算标准误 se → 用正态分位 z₀.₉₇₅ 构建区间'],
+   impact:'样本量小时区间宽，能提醒用户"单点估计不可靠"；n<30 时建议扩样后再判级。',
+   action:'解读 CI 时以下界为准：下界低于判级阈值就不要宣告该等级。'},
+  {cat:'算法与软件',abbr:'Acklam',name:'Acklam Algorithm',cn:'逆正态 CDF 算法',
+   def:'精确计算标准正态分布逆累积函数的数值算法（分段有理逼近），本工具用于造数据与分位数计算。',
+   formula:'分段有理函数近似 Φ⁻¹(p)，见代码内系数表',
+   steps:['—'],
+   impact:'精度极高（相对误差约 1e-9），保证造出的数据与理论分位准确对应。',
+   action:'无需干预，工具自动完成。'},
+  {cat:'算法与软件',abbr:'Abramowitz & Stegun',name:'Abramowitz & Stegun 7.1.26',cn:'误差函数 erf 近似',
+   def:'误差函数 erf 的经典多项式近似（Abramowitz & Stegun 手册公式 7.1.26），本工具用它算正态分布累积概率（CDF）。',
+   formula:'erf(x) ≈ 1 − (a₁t + a₂t² + … )·e^(−x²)，t = 1/(1+0.3275911|x|)',
+   steps:['代入公式计算 erf → 归一化得到 Φ(x)'],
+   impact:'最大误差约 1.5e-7，工程上完全够用；它支撑了理论 PPM、期望不合格率等所有正态概率计算。',
+   action:'无需干预，工具自动完成。'},
+  {cat:'算法与软件',abbr:'CSV / PNG',name:'Export Formats',cn:'导出格式',
+   def:'导出功能：CSV（指标明细+不合格分析+原始数据，带 BOM 便于 Excel 打开）；PNG（完整报告，含三张图与全部表格，可直接贴 PPT）。',
+   formula:'—',
+   steps:['点「导出指标 CSV」或「导出完整报告 (PNG)」'],
+   impact:'便于把分析结果沉淀为可追溯的质量记录，供审核与改善跟踪使用。',
+   action:'判级结论、改善前后对比建议截图/导出存档，纳入质量管理记录。'}
+];
+
+// 分类（保持数据顺序去重）
+const GLOSS_CATS=['全部'].concat([...new Set(GLOSS.map(g=>g.cat))]);
+let glossActiveCat='全部', glossKW='';
+
+function glossCard(g,open){
+  const hasForm=g.formula&&g.formula!=='—';
+  const stepsHtml=g.steps&&g.steps.length&&g.steps[0]!=='—'
+    ? `<div class="g-sec"><b>📐 计算过程</b><ol class="g-steps">${g.steps.map(s=>`<li>${s}</li>`).join('')}</ol></div>`:'';
+  const impactHtml=g.impact?`<div class="g-sec"><b>🎯 对产品的影响</b><div class="g-impact">${g.impact}</div></div>`:'';
+  const actionHtml=g.action?`<div class="g-sec"><b>✅ 推荐执行的行为</b><div class="g-action">${g.action}</div></div>`:'';
+  const tipHtml=g.tip?`<div class="g-sec"><div class="g-tip">💡 ${g.tip}</div></div>`:'';
+  return `<div class="gcard ${open?'open':''}">
+    <div class="gcard-head">
+      <span class="g-abbr">${g.abbr}</span>
+      <span class="g-name">${g.name}${g.cn?'<span style="color:#6a737d;font-weight:400"> · '+g.cn+'</span>':''}</span>
+      <span class="g-cat">${g.cat}</span>
+      <span class="g-arrow">▶</span>
+    </div>
+    <div class="gcard-body">
+      <div class="g-sec"><b>📖 详细释义</b><div style="margin-top:3px">${g.def}</div></div>
+      ${hasForm?`<div class="g-sec"><b>🧮 公式</b><div class="g-formula">${g.formula}</div></div>`:''}
+      ${stepsHtml}${impactHtml}${actionHtml}${tipHtml}
+    </div>
+  </div>`;
+}
+
+function renderGloss(){
+  const kw=glossKW.toLowerCase();
+  const list=GLOSS.filter(g=>
+    (glossActiveCat==='全部'||g.cat===glossActiveCat) &&
+    (!kw|| [g.abbr,g.name,g.cn,g.def,g.impact,g.action,g.formula].join(' ').toLowerCase().includes(kw))
+  );
+  document.getElementById('glossCount').textContent='共 '+GLOSS.length+' 个条目 · 当前显示 '+list.length+' 个';
+  document.getElementById('glossList').innerHTML=list.length
+    ? list.map(g=>glossCard(g,glossActiveCat!=='全部'||!!kw)).join('')   // 过滤时自动展开，便于直接看到内容
+    : '<div class="gloss-empty">没有匹配的条目，换个关键词试试</div>';
+  // 绑定卡片展开/收起
+  document.querySelectorAll('.gcard-head').forEach(h=>{
+    h.onclick=()=>h.parentElement.classList.toggle('open');
+  });
+}
+
+function openGloss(){document.getElementById('glossOverlay').classList.add('open');renderGloss();}
+function closeGloss(){document.getElementById('glossOverlay').classList.remove('open');}
+document.getElementById('btnGloss').onclick=openGloss;
+document.getElementById('glossClose').onclick=closeGloss;
+document.getElementById('glossOverlay').addEventListener('click',e=>{if(e.target.id==='glossOverlay')closeGloss();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeGloss();});
+document.getElementById('glossSearch').addEventListener('input',e=>{glossKW=e.target.value;renderGloss();});
+// 分类 chips
+document.getElementById('glossCats').innerHTML=GLOSS_CATS.map(c=>
+  `<button class="${c===glossActiveCat?'on':''}" data-cat="${c}">${c}</button>`).join('');
+document.querySelectorAll('#glossCats button').forEach(b=>{
+  b.onclick=()=>{glossActiveCat=b.dataset.cat;
+    document.querySelectorAll('#glossCats button').forEach(x=>x.classList.toggle('on',x===b));
+    renderGloss();};
+});
 </script>
 </body>
 </html>
