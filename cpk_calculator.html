@@ -275,6 +275,7 @@
 
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
     <div class="note" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
+    <div class="note warn" style="margin-top:6px">📈 <b>控制限 UCL / LCL</b>（结果区 ⑦⑧）＝ 过程数据的<b>均值 ± 3σ</b>，由工具自动计算、随数据波动动态变化，用于判断<b>过程是否统计受控</b>（识别特殊原因异常）。它与规格限是<b>两套不同的线</b>：控制限看过程稳不稳，规格限看产品合不合格——两者无必然关系，请到结果区 ⑧ 查看四场景对比判定。</div>
     <label class="chk"><input type="checkbox" id="useLsl" checked> 启用最小值 LSL（规格下限）</label>
     <label class="chk"><input type="checkbox" id="useUsl" checked> 启用最大值 USL（规格上限）</label>
     <div class="row">
@@ -330,6 +331,14 @@
 
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
     <canvas id="cvQuant" width="460" height="430"></canvas>
+
+    <div class="chart-title">⑦ 控制图（I-MR / Xbar-R，过程稳定性判断）</div>
+    <canvas id="cvCtrl" width="720" height="330"></canvas>
+    <div id="ctrlMsg"></div>
+    <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限（图纸/客户给定）。控制限随过程波动动态变化，用于判断过程是否受控；规格限固定不变，用于判定产品是否合格——两套线需对比解读。</div>
+
+    <div class="chart-title">⑧ 控制限 vs 规格限（受控性 × 能力场景判定）</div>
+    <div id="ctrlCompare"></div>
 
     <details>
       <summary>查看全部指标明细</summary>
@@ -418,6 +427,53 @@ function corr(a,b){
 }
 
 const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
+
+/* ============ SPC 控制限（控制图） ============ */
+// 子组控制图常数表（n=2~20，覆盖 UI 允许范围）：A2=3/(d2·√n) 用于均值图，D3/D4 用于极差图
+const SPC_A2={2:1.880,3:1.023,4:0.729,5:0.577,6:0.483,7:0.419,8:0.373,9:0.337,10:0.308,
+              11:0.285,12:0.266,13:0.249,14:0.235,15:0.223,16:0.212,17:0.203,18:0.194,19:0.187,20:0.180};
+const SPC_D3={2:0,3:0,4:0,5:0,6:0,7:0.076,8:0.136,9:0.184,10:0.223,
+              11:0.256,12:0.284,13:0.308,14:0.329,15:0.348,16:0.364,17:0.379,18:0.392,19:0.404,20:0.414};
+const SPC_D4={2:3.267,3:2.575,4:2.282,5:2.115,6:2.004,7:1.924,8:1.864,9:1.816,10:1.777,
+              11:1.744,12:1.716,13:1.692,14:1.671,15:1.652,16:1.636,17:1.621,18:1.608,19:1.596,20:1.586};
+
+// 控制限计算：个体数据用 I-MR 法（UCL=x̄+2.66·MR̄，2.66=3/d2(2)），子组数据用 Xbar-R 法（UCL=x̄̄+A2·R̄）
+// 控制限随过程数据动态变化，是"过程稳不稳"的判据；规格限由图纸/客户固定，是"产品合不合格"的判据——两者是两套不同的线
+function spcAnalysis(x,sub){
+  if(sub&&sub>1){
+    const n=sub, tail=x.length%n, xx=tail?x.slice(0,x.length-tail):x.slice();
+    const gs=[]; for(let i=0;i<xx.length;i+=n){const g=xx.slice(i,i+n);gs.push({mean:mean(g),range:arrayMax(g)-arrayMin(g)});}
+    const xbar=mean(gs.map(g=>g.mean)), rbar=mean(gs.map(g=>g.range));
+    const a2=SPC_A2[n]||1.023, d3=SPC_D3[n]||0, d4=SPC_D4[n]||2.575;
+    return {type:'Xbar-R',sub:n,cl:xbar,ucl:xbar+a2*rbar,lcl:xbar-a2*rbar,
+      pts:gs.map(g=>g.mean),mpts:gs.map(g=>g.range),mcl:rbar,mucl:d4*rbar,mlcl:d3*rbar,groups:gs.length};
+  }
+  const mrs=[]; for(let i=1;i<x.length;i++)mrs.push(Math.abs(x[i]-x[i-1]));
+  const mrbar=mean(mrs), xbar=mean(x);
+  return {type:'I-MR',sub:1,cl:xbar,ucl:xbar+2.66*mrbar,lcl:xbar-2.66*mrbar,
+    pts:x.slice(),mpts:mrs,mcl:mrbar,mucl:3.267*mrbar,mlcl:0,groups:x.length};
+}
+
+// 受控性判定（常用判据）：①越界点（±3σ 之外）②连续 7 点同侧（均值漂移）③连续 7 点单调趋势
+function checkControl(pts,cl,ucl,lcl){
+  const out=[];
+  for(let i=0;i<pts.length;i++)if(pts[i]>ucl||pts[i]<lcl)out.push(i);
+  let same=0,sameIdx=-1,up=0,dn=0,trendIdx=-1;
+  for(let i=0;i<pts.length;i++){
+    same = pts[i]>cl?same+1:(pts[i]<cl?same-1:0);
+    if(same>=7&&sameIdx<0)sameIdx=i-6; else if(same<=-7&&sameIdx<0)sameIdx=i-6;
+    if(i>0){
+      if(pts[i]>pts[i-1]){up++;dn=0;if(up>=7&&trendIdx<0)trendIdx=i-6;}
+      else if(pts[i]<pts[i-1]){dn++;up=0;if(dn>=7&&trendIdx<0)trendIdx=i-6;}
+      else{up=0;dn=0;}
+    }
+  }
+  const reasons=[];
+  if(out.length)reasons.push(out.length+' 个点超出控制限（第 '+out.map(i=>i+1).join('、')+' 个）');
+  if(sameIdx>=0)reasons.push('第 '+(sameIdx+1)+'~'+(sameIdx+7)+' 点连续 7 点位于中心线同侧（均值漂移）');
+  if(trendIdx>=0)reasons.push('第 '+(trendIdx+1)+'~'+(trendIdx+7)+' 点连续 7 点持续上升/下降（趋势异常）');
+  return {out,sameIdx,trendIdx,stable:reasons.length===0,reasons};
+}
 
 // 正态分布双侧 95% 分位数 z_{0.975}（用于置信区间）
 const Z975=normInv(0.975);
@@ -580,9 +636,10 @@ function calc(auto){
   const useUsl=document.getElementById('useUsl').checked;
   let lsl=useLsl?(parseFloat(document.getElementById('lsl').value)):null;
   let usl=useUsl?(parseFloat(document.getElementById('usl').value)):null;
+  let lslAuto=false, uslAuto=false;   // 标记规格限是否由工具自动预填（占位值，非真实规格）
   // 输入框留空时自动用 均值±3σ，并回填到输入框让用户看到实际使用的值
-  if(useLsl&&isNaN(lsl)){lsl=m-3*sd;document.getElementById('lsl').value=lsl.toFixed(4);}
-  if(useUsl&&isNaN(usl)){usl=m+3*sd;document.getElementById('usl').value=usl.toFixed(4);}
+  if(useLsl&&isNaN(lsl)){lsl=m-3*sd;document.getElementById('lsl').value=lsl.toFixed(4);lslAuto=true;}
+  if(useUsl&&isNaN(usl)){usl=m+3*sd;document.getElementById('usl').value=usl.toFixed(4);uslAuto=true;}
   // 目标值 T：用户显式输入优先；留空时自动取 (最大+最小)/2 作中心值（用于 Cpm）
   const tInput=document.getElementById('target').value.trim();
   let target=tInput!==''?parseFloat(tInput):NaN;
@@ -624,6 +681,18 @@ function calc(auto){
 
   // ---- 稳定性指标（JMP：总 σ ÷ 组内 σ，>1 表示长期波动大于短期，存在组间漂移）----
   const stability=sd/sw;
+
+  // ---- SPC 控制限与受控性判定（控制图）----
+  // 控制限 = 过程数据自身的 ±3σ（个体用 I-MR 法、子组用 Xbar-R 法），随数据动态变化；
+  // 与规格限（图纸/客户固定）是两套不同的线：控制限判"过程稳不稳"，规格限判"产品合不合格"
+  const spc=spcAnalysis(nums,sub);
+  const ctrl=checkControl(spc.pts,spc.cl,spc.ucl,spc.lcl);   // 主图（I 图 / Xbar 图）受控性
+  const mCtrl=checkControl(spc.mpts,spc.mcl,spc.mucl,spc.mlcl); // 辅助图（MR 图 / R 图）越界
+  // 控制限是否完全落在规格限内（理想：UCL<USL 且 LCL>LSL）
+  const loOk = lsl==null || spc.lcl>lsl;
+  const hiOk = usl==null || spc.ucl<usl;
+  const ctrlInSpec = loOk && hiOk;
+  const stable = ctrl.stable && mCtrl.out.length===0;   // 总体受控 = 主图无异常模式 + 辅助图无越界
 
   // ---- 不合格分析（观测 % / 期望组内 % / 期望总体 %）----
   const obsBelowPct = lsl!=null ? 100*nums.filter(v=>v<lsl).length/n : 0;
@@ -695,6 +764,12 @@ function calc(auto){
     ['组内 σ',fmt(sw,4),'移动极差法（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
     ['稳定性指标',fmt(stability,4),'整体σ ÷ 组内σ；>1.3 提示组间漂移/特殊原因'],
+    ['控制上限 UCL',fmt(spc.ucl,4),spc.type+' 图：中心线 + 3σ（过程数据算出，随波动动态变化）'],
+    ['中心线 CL',fmt(spc.cl,4),spc.type+' 图中心线 = 过程均值'],
+    ['控制下限 LCL',fmt(spc.lcl,4),spc.type+' 图：中心线 − 3σ（过程数据算出，随波动动态变化）'],
+    ['MR̄ / R̄',fmt(spc.mcl,4),spc.sub>1?'子组平均极差 R̄（Xbar-R 图）':'平均移动极差 MR̄（I-MR 图）'],
+    ['受控性判定',ctrl.stable&&mCtrl.out.length===0?'统计受控':'统计失控',ctrl.reasons.concat(mCtrl.out.length?['MR/R 图 '+mCtrl.out.length+' 点超出控制限']:[]).join('；')||'主图无越界、无异常模式（±3σ 判据）'],
+    ['控制限∩规格限',ctrlInSpec?'控制限 ⊆ 规格限':'控制限超出规格限',ctrlInSpec?'±3σ 完全落在规格限内 → 理想过程区间':'±3σ 已越过规格限 → 即便受控也会出不合格品'],
     ['Cp',fmt(cp),'潜在能力（仅规格宽度/σ）'],
     ['Cpk',fmt(cpk),'实际能力（含中心偏移）'],
     ['Pp',fmt(pp),'整体潜在能力'],
@@ -722,8 +797,10 @@ function calc(auto){
           <td class="k">组内 Sigma</td><td class="v">${fmt(sw,4)}</td></tr>
       <tr><td class="k">总 Sigma</td><td class="v">${fmt(sd,4)}</td>
           <td class="k">稳定性指标</td><td class="v ${stability>1.3?'stability-high':''}">${fmt(stability,4)}${stability>1.3?' ⚠':''}</td></tr>
+      <tr><td class="k">控制上限 UCL</td><td class="v">${fmt(spc.ucl,4)}</td>
+          <td class="k">控制下限 LCL</td><td class="v">${fmt(spc.lcl,4)}</td></tr>
     </tbody></table>
-    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。</div>`;
+    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。<br>控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），用于判断过程是否统计受控；规格限 LSL/USL 由图纸/客户给定，两者是两套不同的线。</div>`;
 
   // ② 能力表（组内 & 总体），带 95% 置信区间
   document.querySelector('#withinCap thead').innerHTML='<tr><th>指数</th><th class="num">估计值</th><th class="num">95% 下限</th><th class="num">95% 上限</th></tr>';
@@ -748,7 +825,8 @@ function calc(auto){
       <td>${r[0]}</td><td class="num">${pct(r[1])}</td><td class="num">${pct(r[2])}</td><td class="num">${pct(r[3])}</td></tr>`).join('');
 
   // 保存结果供导出
-  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, withinIdx, withinCI, overallIdx, overallCI, defectRows};
+  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, withinIdx, withinCI, overallIdx, overallCI, defectRows,
+              spc, ctrl, mCtrl, ctrlInSpec, stable, lslAuto, uslAuto};
 
   setMsg('ok','✅ 计算完成。');
   saveState();
@@ -759,6 +837,8 @@ function calc(auto){
   drawHist(nums,lsl,usl,target,m,sd,sw,axisLabel);
   drawBox(nums,lsl,usl,target,m,axisLabel);
   drawQuant(sorted,z,axisLabel);
+  drawCtrl(spc,lsl,usl,m,axisLabel);
+  renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,lslAuto||uslAuto);
 }
 
 /* ============ 绘图 ============ */
@@ -1010,6 +1090,141 @@ function drawQuant(sorted,z,axisLabel){
   function cov_(p,q){const mp=mean(p),mq=mean(q);let s=0;for(let i=0;i<p.length;i++)s+=(p[i]-mp)*(q[i]-mq);return s/p.length;}
 }
 
+/* ============ 控制图（SPC：I-MR / Xbar-R，含控制限与规格限叠加） ============ */
+const CC={lim:'#c0392b',cl:'#2f6db5',mr:'#8a6d1f'};
+function drawCtrl(spc,lsl,usl,m,axisLabel){
+  const cv=document.getElementById('cvCtrl');
+  const ctx=prepCanvas(cv,720,330);
+  const W=720,H=330;
+  ctx.clearRect(0,0,W,H);
+  const padL=52,padR=118,padT=34,padB=40,plotW=W-padL-padR;
+  const topH=Math.round((H-padT-padB)*0.60), botH=(H-padT-padB)-topH;
+  const N=spc.pts.length, M=spc.mpts.length;
+  const x2px=i=>padL+(N>1?i/(N-1):0.5)*plotW;      // i：0 基序号
+  const yT0=padT, yB0=padT+topH+10;
+
+  // ---- 上段：I / Xbar 主图 ----
+  let lo=Math.min(spc.lcl,arrayMin(spc.pts)), hi=Math.max(spc.ucl,arrayMax(spc.pts));
+  const dspan=(hi-lo)||1;
+  // 规格限纳入坐标轴：与主范围差距不超过 5 倍跨度，否则截断并在边缘画箭头提示
+  let lslOff=null,uslOff=null;
+  if(lsl!=null){ if(lsl>=lo-dspan*5) lo=Math.min(lo,lsl); else lslOff=true; }
+  if(usl!=null){ if(usl<=hi+dspan*5) hi=Math.max(hi,usl); else uslOff=true; }
+  const yspan=(hi-lo)||1; lo-=yspan*0.06; hi+=yspan*0.06;
+  const y2px=v=>yT0+topH-(v-lo)/yspan*topH;
+  // 网格 + y 刻度
+  yticks(ctx,niceTicks(lo,hi,4),y2px,padL,plotW,fmtTick);
+  // 控制限 + 规格限水平线（右侧标签）
+  const hline=(v,color,dash,label)=>{
+    const py=y2px(v); ctx.save();
+    ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash(dash?[6,4]:[]);
+    ctx.beginPath(); ctx.moveTo(padL,py); ctx.lineTo(padL+plotW,py); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=color; ctx.font='bold 10px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+    ctx.fillText(label,padL+plotW+8,py); ctx.restore();
+  };
+  hline(spc.ucl,CC.lim,true,'UCL '+fmtTick(spc.ucl));
+  hline(spc.cl,CC.cl,false,'CL '+fmtTick(spc.cl));
+  hline(spc.lcl,CC.lim,true,'LCL '+fmtTick(spc.lcl));
+  if(usl!=null)hline(usl,'#d9822b',true,uslOff?'USL↑(超界)':'USL '+fmtTick(usl));
+  if(lsl!=null)hline(lsl,'#2e8b57',true,lslOff?'LSL↓(超界)':'LSL '+fmtTick(lsl));
+  // 数据折线 + 点（越界点红色放大）
+  ctx.strokeStyle='#2f6db5';ctx.lineWidth=1.2;ctx.beginPath();
+  spc.pts.forEach((v,i)=>{const px=x2px(i);i?ctx.lineTo(px,y2px(v)):ctx.moveTo(px,y2px(v));});ctx.stroke();
+  spc.pts.forEach((v,i)=>{
+    const oob=v>spc.ucl||v<spc.lcl;
+    ctx.fillStyle=oob?'#cf222e':'#2f6db5';
+    ctx.beginPath();ctx.arc(x2px(i),y2px(v),oob?4.2:2.6,0,7);ctx.fill();
+    if(oob){ctx.strokeStyle='#cf222e';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x2px(i),y2px(v),6.2,0,7);ctx.stroke();}
+  });
+  ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
+  ctx.fillText(spc.sub>1?'Xbar 图（子组均值）':'I 图（单值）',padL,yT0-10);
+
+  // ---- 下段：MR / R 辅助图 ----
+  const mMax=arrayMax(spc.mpts), m0=(Math.max(spc.mucl,mMax)*1.15)||1;
+  const my2px=v=>yB0+botH-v/m0*botH;
+  yticks(ctx,niceTicks(0,m0,3),my2px,padL,plotW,fmtTick);
+  const mhline=(v,color,dash,label)=>{
+    const py=my2px(v);ctx.save();
+    ctx.strokeStyle=color;ctx.lineWidth=1.5;ctx.setLineDash(dash?[6,4]:[]);
+    ctx.beginPath();ctx.moveTo(padL,py);ctx.lineTo(padL+plotW,py);ctx.stroke();ctx.setLineDash([]);
+    ctx.fillStyle=color;ctx.font='bold 10px sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+    ctx.fillText(label,padL+plotW+8,py);ctx.restore();
+  };
+  mhline(spc.mcl,CC.cl,false,'CL '+fmtTick(spc.mcl));
+  mhline(spc.mucl,CC.lim,true,'UCL '+fmtTick(spc.mucl));
+  if(spc.mlcl>0)mhline(spc.mlcl,CC.lim,true,'LCL '+fmtTick(spc.mlcl));
+  ctx.strokeStyle='#8a6d1f';ctx.lineWidth=1.2;ctx.beginPath();
+  spc.mpts.forEach((v,i)=>{const px=x2px(spc.sub>1?i:i+1);i?ctx.lineTo(px,my2px(v)):ctx.moveTo(px,my2px(v));});ctx.stroke();
+  spc.mpts.forEach((v,i)=>{
+    const px=x2px(spc.sub>1?i:i+1), oob=v>spc.mucl;
+    ctx.fillStyle=oob?'#cf222e':'#8a6d1f';
+    ctx.beginPath();ctx.arc(px,my2px(v),oob?4:2.4,0,7);ctx.fill();
+  });
+  ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
+  ctx.fillText(spc.sub>1?'R 图（子组极差）':'MR 图（移动极差）',padL,yB0-10);
+
+  // x 轴刻度（样本序号，画在最底部，两段图共用）+ 框线
+  const xTicks=niceTicks(1,N,6).map(t=>Math.round(t));
+  ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
+  xTicks.forEach(t=>ctx.fillText(t.toFixed(0),x2px(t-1),H-padB+6));
+  ctx.textAlign='start';ctx.textBaseline='alphabetic';
+  frame(ctx,W,H,padL,yT0,plotW,topH);
+  frame(ctx,W,H,padL,yB0,plotW,botH);
+  ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
+  ctx.fillText('样本序号（按生产/测量顺序）',padL+plotW/2,H-7);
+  ctx.textAlign='start';
+}
+
+function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,specAuto){
+  // ---- 受控性横幅 ----
+  const c=stable?{c:'#1a7f37',t:'统计受控'}:{c:'#cf222e',t:'统计失控'};
+  const allReasons=ctrl.reasons.concat(mCtrl.out.length?['MR/R 图 '+mCtrl.out.length+' 点超出控制限']:[]);
+  document.getElementById('ctrlMsg').innerHTML=
+    `<div class="verdict" style="--vc-bg:${c.c}1f;border-color:${c.c}55;color:${c.c}">
+       <span class="badge" style="background:${c.c}">${c.t}</span>
+       <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（MR/R）均无越界点、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>`;
+
+  // ---- 控制限 vs 规格限 对比 ----
+  const obsN=(lsl!=null?spc.pts.filter(v=>v<lsl).length:0)+(usl!=null?spc.pts.filter(v=>v>usl).length:0);
+  let sc;
+  if(stable&&ctrlInSpec)sc={c:'#1a7f37',t:'理想状态：受控且能力充足',
+    d:'控制限完全落在规格限内部（UCL&lt;USL 且 LCL&gt;LSL）：过程既统计稳定、又满足客户要求，理论合格率可达 99.7% 以上，维持现行监控即可。'};
+  else if(stable&&!ctrlInSpec)sc={c:'#bf8700',t:'过程受控，但能力不足',
+    d:'所有点都落在控制限内（过程统计稳定），但控制限已超出规格限——即便过程稳定也会持续产出不合格品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
+  else if(!stable&&ctrlInSpec)sc={c:'#bf8700',t:'当前合格，但过程失控',
+    d:'产品目前都落在规格限内，但过程已失控（存在特殊原因异常），存在后续批量不合格的风险。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再谈能力。'};
+  else sc={c:'#cf222e',t:'失控且能力不足：双重风险',
+    d:'过程既失控、控制限又超出规格限，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
+  const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读「控制限 ⊆ 规格限」结论。</div>':'';
+  const uslIn=usl!=null&&spc.ucl<usl, lslIn=lsl!=null&&spc.lcl>lsl;
+  document.getElementById('ctrlCompare').innerHTML=`
+    <div class="report-grid">
+      <div class="report-block">
+        <h4>控制限（由过程数据计算 · 随波动动态变化）</h4>
+        <table class="cap-table">
+          <tr><th>项目</th><th class="num">数值</th><th class="num">来源</th></tr>
+          <tr><td>控制上限 UCL</td><td class="num" style="color:#c0392b;font-weight:700">${fmt(spc.ucl,4)}</td><td class="num" style="color:#64748b">中心线 + 3σ</td></tr>
+          <tr><td>中心线 CL（=μ）</td><td class="num" style="font-weight:700">${fmt(spc.cl,4)}</td><td class="num" style="color:#64748b">过程均值</td></tr>
+          <tr><td>控制下限 LCL</td><td class="num" style="color:#c0392b;font-weight:700">${fmt(spc.lcl,4)}</td><td class="num" style="color:#64748b">中心线 − 3σ</td></tr>
+          <tr><td>控制图类型</td><td class="num">${spc.type}</td><td class="num" style="color:#64748b">${spc.sub>1?'子组 n='+spc.sub:'个体测量'}</td></tr>
+        </table>
+      </div>
+      <div class="report-block">
+        <h4>规格限（图纸 / 客户给定 · 固定不变）</h4>
+        <table class="cap-table">
+          <tr><th>项目</th><th class="num">数值</th><th class="num">判定</th></tr>
+          <tr><td>规格上限 USL</td><td class="num" style="color:#d9822b;font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:#64748b">${usl!=null?(uslIn?'UCL 在内 ✅':'UCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>目标值 T</td><td class="num">${target!=null?fmt(target,4):'—'}</td><td class="num" style="color:#64748b">用于 Cpm</td></tr>
+          <tr><td>规格下限 LSL</td><td class="num" style="color:#2e8b57;font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:#64748b">${lsl!=null?(lslIn?'LCL 在内 ✅':'LCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>观测越界</td><td class="num">${obsN} 个</td><td class="num" style="color:#64748b">实测超规格点数</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="verdict" style="margin-top:10px;--vc-bg:${sc.c}1f;border-color:${sc.c}55;color:${sc.c}">
+      <span class="badge" style="background:${sc.c}">${sc.t}</span>
+      <span>${sc.d}</span></div>${autoTip}`;
+}
+
 /* ============ 交互 ============ */
 
 /* ---- 本地记忆（localStorage）---- */
@@ -1184,6 +1399,13 @@ function exportCsv(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
   const lines=['指标,数值,说明'];
   lastResult.rows.forEach(([k,v,d])=>lines.push(k+','+v+','+(d||'')));
+  // SPC 控制限与受控性
+  const r=lastResult;
+  lines.push('控制上限 UCL,'+fmt(r.spc.ucl,4)+','+r.spc.type+' 控制图：中心线+3σ（数据算出，动态）');
+  lines.push('中心线 CL,'+fmt(r.spc.cl,4)+',=过程均值');
+  lines.push('控制下限 LCL,'+fmt(r.spc.lcl,4)+','+r.spc.type+' 控制图：中心线−3σ（数据算出，动态）');
+  lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / MR-R图 '+r.mCtrl.out.length);
+  lines.push('控制限∩规格限,'+(r.ctrlInSpec?'控制限在规格限内':'控制限超出规格限')+',理想=控制限完全落在规格限内部');
   // 不合格分析
   lines.push('对应部分,观测%,期望组内%,期望总体%');
   lastResult.defectRows.forEach(r=>lines.push(r[0]+','+r[1].toFixed(4)+','+r[2].toFixed(4)+','+r[3].toFixed(4)));
@@ -1194,16 +1416,16 @@ function exportCsv(){
 }
 function exportPng(){
   if(!lastResult){alert('请先粘贴数据计算后再导出。');return;}
-  const src=['cvHist','cvBox','cvQuant'].map(id=>document.getElementById(id));
+  const src=['cvHist','cvBox','cvQuant','cvCtrl'].map(id=>document.getElementById(id));
   const pad=24, gap=28, W=760;   // 报告统一宽 760
   // 目标宽取「720」与「源图逻辑宽」的较小值：源图已被窄容器缩小时不放大，避免导出模糊
   const dpr=window.devicePixelRatio||1;
   const dims=src.map(c=>{const dw=Math.min(720,Math.round(c.width/dpr));return {dw, dh:Math.round(c.height*(dw/c.width))};});
-  // 报告区（过程汇总 + 两张能力表 + 不合格分析）高度估算：文字行按 16px + 间距
+  // 报告区（过程汇总 + 控制限对比 + 两张能力表 + 不合格分析）高度估算：文字行按 16px + 间距
   const r=lastResult;
   // 文本报告区行数估算（用于预留高度）
-  const sumRowsCount=4, capRowsCount=Object.keys(r.withinIdx).length, ocapRowsCount=Object.keys(r.overallIdx).length, defRowsCount=r.defectRows.length;
-  const textLines=2+sumRowsCount+2+capRowsCount+2+ocapRowsCount+2+defRowsCount;
+  const sumRowsCount=4, ctrlRowsCount=4, capRowsCount=Object.keys(r.withinIdx).length, ocapRowsCount=Object.keys(r.overallIdx).length, defRowsCount=r.defectRows.length;
+  const textLines=2+sumRowsCount+2+ctrlRowsCount+2+capRowsCount+2+ocapRowsCount+2+defRowsCount;
   const reportH=Math.max(120,textLines*17+30);
   let H=pad*2+58+reportH+gap; dims.forEach(d=>H+=d.dh+gap);
   const big=document.createElement('canvas');big.width=W;big.height=H;
@@ -1244,6 +1466,14 @@ function exportPng(){
     ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)]
   ];
   drawTableBlock('■ 过程汇总', sumRows, sumColX);
+  // 控制限 vs 规格限（数据算出的动态界限 vs 客户给定的固定界限）
+  const clRows=[
+    ['控制上限 UCL',fmt(r.spc.ucl,4),'规格上限 USL',r.usl!=null?fmt(r.usl,4):'—'],
+    ['中心线 CL',fmt(r.spc.cl,4),'目标值 T',fmt(r.target,4)],
+    ['控制下限 LCL',fmt(r.spc.lcl,4),'规格下限 LSL',r.lsl!=null?fmt(r.lsl,4):'—'],
+    ['控制图类型',r.spc.type,'受控性',r.stable?'统计受控':'统计失控']
+  ];
+  drawTableBlock('■ 控制限（数据算出·动态） vs 规格限（客户给定·固定）', clRows, sumColX);
   // 两张能力表并排
   const half=(W-2*pad-20)/2;
   const capHeadX=[pad,pad+55,pad+130,pad+half-2];
@@ -1453,6 +1683,31 @@ const GLOSS=[
    steps:['计算 Cpk → 对照区间得到等级'],
    impact:'等级直接对应风险与处置力度：A/B 可正常出货，C 需要加强管控，D 超规风险高，必须停线/拦截改善。',
    action:'A：维持；B：常规监控（SPC 控制图）；C：加密抽检 + 减小波动 + 短期加严放行标准；D：立即停线排查，改善验证合格后再恢复生产。'},
+  // ---------- 控制图 ----------
+  {cat:'控制图',abbr:'UCL / LCL',name:'Upper / Lower Control Limit',cn:'上 / 下控制限',
+   def:'由<b>过程数据</b>计算出的控制界限，通常取中心线 ± 3σ：UCL = CL + 3σ，LCL = CL − 3σ。<b>不是</b>产品合格线！它判断"过程稳不稳"，随数据波动动态变化，与固定不变的规格限（判"产品合不合格"）是两套不同的线。',
+   formula:'个体（I 图）：UCL = x̄ + 2.66·MR̄，LCL = x̄ − 2.66·MR̄<br>子组（Xbar 图）：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄',
+   steps:['计算中心线 CL（个体=数据均值 x̄；子组=组均值之均值 x̄̄）','估计短期波动 σ（个体用 MR̄/d2(2)，子组用 R̄/d2(n)）','CL ± 3σ 得 UCL / LCL'],
+   impact:'点超出控制限 = 过程出现<b>特殊原因</b>异常（失控）；点全在控制限内 = 过程<b>统计受控</b>。注意：受控 ≠ 合格——过程受控但控制限超出规格限时，仍会稳定地产出不合格品。',
+   action:'控制图越界先找特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），用 5W2H / FACA 锁定根因后再调机；不要一越界就盲目调机。'},
+  {cat:'控制图',abbr:'CL',name:'Center Line',cn:'中心线',
+   def:'控制图的基准线 = 过程均值（个体数据为 x̄，子组数据为 x̄̄）。UCL / LCL 以它为中心上下各 3σ。',
+   formula:'CL = x̄（个体）　·　CL = x̄̄ = Σ(组均值)/k（子组）',
+   steps:['个体：直接取全部数据均值；子组：先算各组均值再取平均'],
+   impact:'CL 与规格中点 / 目标 T 的偏差反映中心偏移；连续 7 点全部位于 CL 同一侧 = 均值漂移信号。',
+   action:'CL 明显偏离规格中点时调整过程设定值；出现漂移模式时先排查特殊原因，再考虑调中心。'},
+  {cat:'控制图',abbr:'Control Chart',name:'Control Chart',cn:'控制图（SPC）',
+   def:'按<b>生产 / 测量顺序</b>绘制的过程监控图，含中心线 CL 与上下控制限 UCL / LCL，用于区分普通原因（过程固有波动）与特殊原因（可纠正的异常）。本工具提供：个体数据 → <b>I-MR 图</b>（单值 + 移动极差）；子组数据 → <b>Xbar-R 图</b>（组均值 + 组极差）。',
+   formula:'I-MR：I 图看单值、MR 图看相邻点移动极差；Xbar-R：Xbar 图看组均值、R 图看组极差',
+   steps:['数据按生产顺序排列（不要排序！）','按子组设置选择 I-MR 或 Xbar-R','对比各点与控制限，识别越界点 / 连续 7 点同侧 / 连续 7 点趋势'],
+   impact:'控制图是"过程稳不稳"的裁判：失控时即使产品暂时合格也存在批量隐患；受控时即使不合格也能稳定预测不良率。是 5S / 产线审核中最常被要求的过程证据。',
+   action:'日常产线建议用控制图持续监控；失控时立即排查特殊原因，消除后确认点回归控制限内，再做能力（Cpk）判定。'},
+  {cat:'控制图',abbr:'A2 / D3 / D4',name:'Control Chart Constants',cn:'控制图常数（子组法）',
+   def:'Xbar-R 控制图计算控制限所用的查表常数：<b>A2</b> 用于均值图（= 3/(d2·√n)），<b>D3 / D4</b> 用于极差图（R 图的上下控制限系数，n≤6 时 D3=0 即 R 图无下限）。',
+   formula:'Xbar 图：UCL = x̄̄ + A2·R̄，LCL = x̄̄ − A2·R̄<br>R 图：UCL = D4·R̄，LCL = D3·R̄',
+   steps:['按子组大小 n 查 A2 / D3 / D4 表（本工具覆盖 n=2~20）','分别代入 Xbar 图与 R 图公式'],
+   impact:'子组大小 n 不同，控制限宽度不同：n 越大，Xbar 图控制限越靠近中心线（组均值波动更小）；子组划分不合理会直接导致控制限失真。',
+   action:'子组大小按实际抽样方案填写（0 = 个体测量），子组应代表"同一条件下短期连续生产"，不要跨批次混组。'},
   // ---------- 图与交互 ----------
   {cat:'图与交互',abbr:'Quantile Plot',name:'Normal Quantile Plot（Q-Q 图）',cn:'正态概率图',
    def:'把排序后的样本值（纵轴）对理论正态分位数 z（横轴）作图。点越接近直线，数据越接近正态；R² 即直线拟合优度。',
