@@ -159,10 +159,10 @@
   .head-btn:hover{background:rgba(255,255,255,.28);transform:translateY(-1px);
             box-shadow:0 4px 14px rgba(0,0,0,.26)}
   .head-btn:active{transform:translateY(0)}
-  #glossOverlay{position:fixed;inset:0;background:rgba(16,32,64,.52);z-index:1000;
+  #glossOverlay,#clogOverlay{position:fixed;inset:0;background:rgba(16,32,64,.52);z-index:1000;
                 display:none;align-items:flex-start;justify-content:center;padding:28px 16px;
                 overflow-y:auto;backdrop-filter:blur(4px)}
-  #glossOverlay.open{display:flex;animation:fadeIn .18s ease}
+  #glossOverlay.open,#clogOverlay.open{display:flex;animation:fadeIn .18s ease}
   @keyframes fadeIn{from{opacity:0}to{opacity:1}}
   .gloss-box{background:var(--card);border-radius:16px;max-width:900px;width:100%;
              box-shadow:var(--shadow-lg);overflow:hidden;animation:slideUp .22s ease}
