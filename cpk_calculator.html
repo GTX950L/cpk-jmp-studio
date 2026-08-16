@@ -9,12 +9,12 @@
   :root{
     --c-data:#2f6db5;      /* 数据/直方图 */
     --c-fit:#e4572e;       /* 正态拟合曲线 */
-    --c-lsl:#2e8b57;       /* 下限 LSL */
-    --c-usl:#d9822b;       /* 上限 USL */
+    --c-lsl:#d97706;       /* 下限 LSL（与 USL 同色系，规格限对称） */
+    --c-usl:#d97706;       /* 上限 USL */
     --c-target:#6e4fb0;    /* 目标值 */
     --c-grid:#e9edf1;      /* 网格线 */
     --c-axis:#8a949e;      /* 坐标轴/刻度 */
-    --good:#1a7f37; --ok:#0969da; --mar:#bf8700; --bad:#cf222e;
+    --good:#1a7f37; --ok:#0969da; --mar:#9a6700; --bad:#cf222e;
     --bg:#eef2f7; --card:#ffffff; --border:#e2e8f0; --text:#1f2937; --muted:#64748b;
     --brand:#2f6db5; --brand-dark:#1e4d8c;
     --shadow-sm:0 1px 3px rgba(16,32,64,.06);
@@ -120,7 +120,7 @@
   code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12px;color:#1e4d8c}
   .parseinfo{font-size:12px;color:var(--muted);margin:6px 0 0;min-height:16px;line-height:1.5}
   .parseinfo.ok{color:#1a7f37;font-weight:600}
-  .parseinfo.warn{color:#bf8700;font-weight:600}
+  .parseinfo.warn{color:#9a6700;font-weight:600}
   #dropHint{position:fixed;left:0;top:0;right:0;bottom:0;z-index:999;display:none;
     align-items:center;justify-content:center;background:rgba(16,32,64,.5);
     color:#fff;font-size:21px;font-weight:700;letter-spacing:.5px;
@@ -254,7 +254,7 @@
   <div class="head-row">
     <div>
       <h1>📊 Cpk 过程能力计算器</h1>
-      <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python / 安装 / 联网 · 数据不出本机</p>
+      <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button id="btnGloss" class="head-btn">📖 术语百科</button>
@@ -269,14 +269,14 @@
   <!-- 左侧：输入 -->
   <div class="panel">
     <h2><span class="step">1</span> 数据（粘贴即算，自动跳过表头/单位）</h2>
-    <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，也可把 .txt .csv 文件直接拖进来）"></textarea>
+    <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，支持拖入 .txt .csv）"></textarea>
     <div id="parseInfo" class="parseinfo"></div>
     <div style="margin-top:10px">
       <button id="btnCalc">计算 Cpk</button>
       <button id="btnSample" class="sec">填入示例</button>
       <button id="btnClear" class="sec">清空</button>
     </div>
-    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定</div>
+    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定（多组演示同一判定的不同 σ 水平，便于横向对比）</div>
 
     <details id="genBox" style="margin-top:10px">
       <summary>🔧 反向生成测试数据（按目标 Cpk 造数据）</summary>
@@ -296,13 +296,13 @@
     </details>
 
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
-    <div class="note" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
-    <div class="note warn" style="margin-top:6px">📈 <b>控制限 UCL / LCL</b>（结果区 ⑦⑧）＝ 过程数据的<b>均值 ± 3σ</b>，由工具自动计算、随数据波动动态变化，用于判断<b>过程是否统计受控</b>（识别特殊原因异常）。它与规格限是<b>两套不同的线</b>：控制限看过程稳不稳，规格限看产品合不合格——两者无必然关系，请到结果区 ⑧ 查看四场景对比判定。</div>
-    <label class="chk"><input type="checkbox" id="useLsl" checked> 启用最小值 LSL（规格下限）</label>
-    <label class="chk"><input type="checkbox" id="useUsl" checked> 启用最大值 USL（规格上限）</label>
+    <div class="note warn" style="margin-top:0">⚠ <b>规格限 LSL / USL</b> = 图纸、客户或标准规定的<b>合格范围</b>（如轴径 10±0.02 → LSL 9.980 / USL 10.020），<b>不是</b>这批数据的最大 / 最小值。<br>留空会自动预填「均值 ± 3σ」——那只是<b>试算占位值</b>，正式判级请务必按实际规格限填写。</div>
+    <div class="note" style="margin-top:6px">📈 <b>控制限 UCL / LCL</b>（结果区 ⑦⑧）＝ 过程数据的<b>均值 ± 3σ</b>，由工具自动计算、随数据波动动态变化，用于判断<b>过程是否统计受控</b>（识别特殊原因异常）。它与规格限是<b>两套不同的线</b>（控制限判受控、规格限判合格），四场景对比判定见结果区 ⑧。</div>
+    <label class="chk"><input type="checkbox" id="useLsl" checked> 启用规格下限 LSL</label>
+    <label class="chk"><input type="checkbox" id="useUsl" checked> 启用规格上限 USL</label>
     <div class="row">
-      <label>最小值 LSL<input type="number" id="lsl" step="any"></label>
-      <label>最大值 USL<input type="number" id="usl" step="any"></label>
+      <label>规格下限 LSL<input type="number" id="lsl" step="any"></label>
+      <label>规格上限 USL<input type="number" id="usl" step="any"></label>
     </div>
     <div class="row">
       <label>目标值 T（可选）<input type="number" id="target" step="any" placeholder="设计目标值；留空=取规格中点"></label>
@@ -312,7 +312,7 @@
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="25"></label>
       <span class="subhint">每行一个单点数据 → 填 0（用移动极差法算组内 σ）；若每批同时测了 n 个、记录成一组 → 填 n（n≤10 用子组极差法 Xbar-R，n&gt;10 自动切换标准差法 Xbar-S）。</span>
     </div>
-    <p class="hint">· 粘贴数据即自动计算；LSL / USL 留空时自动预填「均值 ± 3σ」（仅占位，判级前请填真实规格限）。<br>· 目标值 T 可选填（图纸/设计标称值）；留空时自动取「(LSL+USL)/2」作中心值（用于 Cpm）。非对称公差建议填真实 T。<br>· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
+    <p class="hint">· 取消勾选某一侧规格，即切换为单侧能力分析。</p>
   </div>
 
   <!-- 右侧：结果 -->
@@ -324,9 +324,9 @@
     <div id="normNote"></div>
     <div id="targetNote"></div>
 
-    <div class="chart-title">① 直方图 + 正态曲线（实线=总体 / 虚线=组内）+ 规格限</div>
+    <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
     <canvas id="cvHist" width="720" height="400"></canvas>
-    <div class="legend">▮ 测量数据　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 ‰，即千分之一）：柱高 = 该区间内单位测量值的概率密度，<b>不是</b>频数或百分比。所有柱面积之和 = 1000‰（=1，总概率）；正态曲线下方面积同样 = 1000‰，因此曲线与柱高可直接对比。曲线越高说明该处的数据越集中。</div>
+    <div class="legend"><span style="color:#2f6db5">▮ 测量数据</span>　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#d97706">LSL</span> / <span style="color:#d97706">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 ‰）：柱高与正态曲线可直接对比，柱顶贴合曲线说明数据近似正态；详解见「术语百科 · 概率密度」。</div>
 
     <!-- ===== JMP 式报告区（截图即用） ===== -->
     <div class="chart-title">② 过程汇总（Process Summary）</div>
@@ -339,7 +339,7 @@
         <table class="cap-table" id="withinCap"><thead></thead><tbody></tbody></table>
       </div>
       <div class="report-block">
-        <h4>总 Sigma 能力（长期性能）</h4>
+        <h4>总 Sigma 能力（长期能力）</h4>
         <table class="cap-table" id="overallCap"><thead></thead><tbody></tbody></table>
       </div>
     </div>
@@ -363,7 +363,7 @@
     <canvas id="cvCtrlAux" width="720" height="190"></canvas>
     <div class="chart-subtitle" style="margin:4px 0 2px;color:#64748b;font-size:12px">▸ 辅助图：MR / R / S</div>
     <div id="ctrlMsg"></div>
-    <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#2e8b57">LSL</span> / <span style="color:#d9822b">USL</span> 规格限（图纸/客户给定）。控制限随过程波动动态变化，用于判断过程是否受控；规格限固定不变，用于判定产品是否合格——两套线需对比解读。</div>
+    <div class="legend">● 数据点（越界变红）　─ <span style="color:#2f6db5">CL 中心线</span>　┄ <span style="color:#c0392b">UCL / LCL 控制限（±3σ，由数据算出）</span>　┄ <span style="color:#d97706">LSL</span> / <span style="color:#d97706">USL</span> 规格限（图纸/客户给定）</div>
 
     <div class="chart-title">⑧ 控制限 vs 规格限（受控性 × 能力等级判定）</div>
     <div id="ctrlCompare"></div>
@@ -384,7 +384,7 @@
 <div id="glossOverlay">
   <div class="gloss-box" role="dialog" aria-label="术语百科">
     <div class="gloss-head">
-      <h2>📖 术语百科 —— 全项目专业术语速查（英文简称 + 中文词汇）</h2>
+      <h2>📖 术语百科（58 条 · 中英速查）</h2>
       <input id="glossSearch" type="search" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
       <button class="gloss-close" id="glossClose">✕ 关闭</button>
     </div>
@@ -614,7 +614,7 @@ function niceCeil(lo,hi,n){
 }
 
 // 能力等级配色（直接十六进制，与 CSS 变量同值，避免运行时解析）
-const CAPCOLORS={good:'#1a7f37',ok:'#0969da',mar:'#bf8700',bad:'#cf222e',na:'#8a949e'};
+const CAPCOLORS={good:'#1a7f37',ok:'#0969da',mar:'#9a6700',bad:'#cf222e',na:'#8a949e'};
 function capTone(v){
   if(v==null||!isFinite(v)) return {c:CAPCOLORS.na,t:''};
   if(v>=1.67) return {c:CAPCOLORS.good,t:'优秀'};
@@ -804,7 +804,7 @@ function calc(auto){
   const primary=isFinite(cpk)?cpk:(usl!=null?cpu:cpl);
   const vt=capTone(primary);
   const vText = primary==null? '' :
-     (primary>=1.67?'过程能力优秀（A 级）：过程稳定且余量大，可放心生产。'
+     (primary>=1.67?'过程能力优秀（A 级）：能力余量大（波动与中心偏移控制良好），可放心生产。'
      :primary>=1.33?'过程能力合格（B 级）：满足一般工业要求，可维持监控。'
      :primary>=1.0 ?'过程能力边缘（C 级）：存在风险，需加强管控/减小波动。'
      :'过程能力不足（D 级）：超规风险高，须立即改善。');
@@ -880,7 +880,7 @@ function calc(auto){
       <tr><td class="k">控制上限 UCL</td><td class="v">${fmt(spc.ucl,4)}</td>
           <td class="k">控制下限 LCL</td><td class="v">${fmt(spc.lcl,4)}</td></tr>
     </tbody></table>
-    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。<br>控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），用于判断过程是否统计受控；规格限 LSL/USL 由图纸/客户给定，两者是两套不同的线。</div>`;
+    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。<br>控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），与规格限是两套不同的线（控制限判受控、规格限判合格）。</div>`;
 
   // ② 能力表（组内 & 总体），带 95% 置信区间
   document.querySelector('#withinCap thead').innerHTML='<tr><th>指数</th><th class="num">估计值</th><th class="num">95% 下限</th><th class="num">95% 上限</th></tr>';
@@ -899,7 +899,7 @@ function calc(auto){
   // ③ 不合格分析
   const pct=v=>v.toFixed(4);
   document.querySelector('#defectTable thead').innerHTML=
-    '<tr><th>对应部分</th><th class="num">观测 %</th><th class="num">期望组内 %</th><th class="num">期望总体 %</th></tr>';
+    '<tr><th>类别</th><th class="num">观测 %</th><th class="num">期望组内 %</th><th class="num">期望总体 %</th></tr>';
   document.querySelector('#defectTable tbody').innerHTML=
     defectRows.map((r,i)=>`<tr class="${i===2?'defect-row-total':''}">
       <td>${r[0]}</td><td class="num">${pct(r[1])}</td><td class="num">${pct(r[2])}</td><td class="num">${pct(r[3])}</td></tr>`).join('');
@@ -1206,8 +1206,8 @@ function drawCtrlMain(spc,lsl,usl,axisLabel){
   hline(spc.cl,CC.cl,false,'CL '+fmtTick(spc.cl));
   hline(spc.lcl,CC.lim,true,'LCL '+fmtTick(spc.lcl));
   // 规格限：在坐标范围内画实际位置；超出图区（>5 倍跨度）时画在边缘并标注数值
-  if(usl!=null) uslOff ? hline(hi,'#d9822b',true,'USL ↑ '+fmtTick(usl)) : hline(usl,'#d9822b',true,'USL '+fmtTick(usl));
-  if(lsl!=null) lslOff ? hline(lo,'#2e8b57',true,'LSL ↓ '+fmtTick(lsl)) : hline(lsl,'#2e8b57',true,'LSL '+fmtTick(lsl));
+  if(usl!=null) uslOff ? hline(hi,'#d97706',true,'USL ↑ '+fmtTick(usl)) : hline(usl,'#d97706',true,'USL '+fmtTick(usl));
+  if(lsl!=null) lslOff ? hline(lo,'#d97706',true,'LSL ↓ '+fmtTick(lsl)) : hline(lsl,'#d97706',true,'LSL '+fmtTick(lsl));
   // 数据折线 + 点（越界点红色放大）
   ctx.strokeStyle='#2f6db5';ctx.lineWidth=1.2;ctx.beginPath();
   spc.pts.forEach((v,i)=>{const px=x2px(i);i?ctx.lineTo(px,y2px(v)):ctx.moveTo(px,y2px(v));});ctx.stroke();
@@ -1297,18 +1297,19 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
   // 子组模式下控制限 = 组均值 ±3σ/√n，仅反映组均值稳定性——控制限在规格内不代表个体合格，故能力维度以 Cpk 为准
   const capOk=isFinite(primary)&&primary>=1.33;
   let sc;
-  if(stable&&capOk)sc={c:'#1a7f37',t:'理想状态：受控且能力充足',
+  if(stable&&capOk)sc={c:'#1a7f37',t:'理想：受控且能力达标',
     d:'过程统计稳定，且能力指数 Cpk≥1.33 满足要求（理论不合格率约 ≤66 PPM）。维持现行监控即可。'};
-  else if(stable&&!capOk)sc={c:'#bf8700',t:'过程受控，但能力不足',
+  else if(stable&&!capOk)sc={c:'#9a6700',t:'受控但能力不足',
     d:'所有点都在控制限内（过程统计稳定），但 Cpk&lt;1.33——即便过程稳定也会持续产出超差品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
-  else if(!stable&&capOk)sc={c:'#bf8700',t:'能力达标，但过程失控',
+  else if(!stable&&capOk)sc={c:'#9a6700',t:'能力达标但失控',
     d:'Cpk 暂时达标，但过程已失控（存在特殊原因异常），随时可能演变为批量不合格。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再评估能力。'};
-  else sc={c:'#cf222e',t:'失控且能力不足：双重风险',
+  else sc={c:'#cf222e',t:'失控且能力不足',
     d:'过程既失控、Cpk 又不达标，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
   const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读能力与规格限结论。</div>':'';
   const uslIn=usl!=null&&spc.ucl<usl, lslIn=lsl!=null&&spc.lcl>lsl;
   const ctrlNote=spc.sub>1?(spc.type==='Xbar-S'?'控制限 = 组均值 ± A3·S̄（Xbar-S 子组模式，n>10），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。':'控制限 = 组均值 ± A2·R̄（Xbar-R 子组模式），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。'):'控制限 = 单值 ± 3σ（个体模式），直接反映个体波动。';
   document.getElementById('ctrlCompare').innerHTML=`
+    <div class="legend" style="text-align:left;margin-bottom:4px">场景判定口径：受控性（控制图 ⑦）× 能力（Cpk≥1.33）；下表为控制限与规格限的几何关系。</div>
     <div class="report-grid">
       <div class="report-block">
         <h4>控制限（由过程数据计算 · 随波动动态变化）</h4>
@@ -1324,9 +1325,9 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
         <h4>规格限（图纸 / 客户给定 · 固定不变）</h4>
         <table class="cap-table">
           <tr><th>项目</th><th class="num">数值</th><th class="num">判定</th></tr>
-          <tr><td>规格上限 USL</td><td class="num" style="color:#d9822b;font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:#64748b">${usl!=null?(uslIn?'UCL 在内 ✅':'UCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>规格上限 USL</td><td class="num" style="color:#d97706;font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:#64748b">${usl!=null?(uslIn?'UCL 在内 ✅':'UCL 越界 ⚠'):'未启用'}</td></tr>
           <tr><td>目标值 T</td><td class="num">${target!=null?fmt(target,4):'—'}</td><td class="num" style="color:#64748b">用于 Cpm</td></tr>
-          <tr><td>规格下限 LSL</td><td class="num" style="color:#2e8b57;font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:#64748b">${lsl!=null?(lslIn?'LCL 在内 ✅':'LCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>规格下限 LSL</td><td class="num" style="color:#d97706;font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:#64748b">${lsl!=null?(lslIn?'LCL 在内 ✅':'LCL 越界 ⚠'):'未启用'}</td></tr>
           <tr><td>观测越界</td><td class="num">${obsN} 个</td><td class="num" style="color:#64748b">原始个体数据超规格数</td></tr>
         </table>
       </div>
@@ -1377,7 +1378,7 @@ document.getElementById('btnCalc').onclick=()=>calc(false);
 const SAMPLE_SETS=[
   // 每组示例的目标档位（targetStable / targetCap）用于造数时定向控制，保证稳定演示四场景判定：
   // 理想=受控+Cpk≥1.33；受控但能力不足；能力达标但失控；失控且能力不足
-  {name:'① 能力不足（D 级）', desc:'波动极大（σ=0.035，Cpk≈0.5），过程失控，必须立即改善', mu:10.000, sigma:0.035, targetStable:false, targetCap:false},
+  {name:'① 失控且能力不足（D 级）', desc:'波动极大（σ=0.035，Cpk≈0.5），过程失控，必须立即改善', mu:10.000, sigma:0.035, targetStable:false, targetCap:false},
   {name:'② 均值偏移（D 级）', desc:'波动正常但中心严重偏上（μ=10.032），Cp 高 Cpk 低（工艺陷阱），大部分超上差', mu:10.032, sigma:0.012, targetStable:true, targetCap:false},
   {name:'③ 能力边缘（C 级）', desc:'σ=0.016，Cpk≈1.0，过程受控但能力不足，存在超规风险，需加强管控', mu:10.000, sigma:0.016, targetStable:true, targetCap:false},
   {name:'④ 能力合格（B 级）', desc:'σ=0.011，Cpk≈1.5，受控且能力达标，满足一般工业要求，可维持监控', mu:10.000, sigma:0.011, targetStable:true, targetCap:true},
@@ -1550,7 +1551,7 @@ function exportCsv(){
   lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / 辅助图('+(r.spc.type==='Xbar-S'?'S':'MR/R')+') '+r.mCtrl.out.length);
   lines.push('控制限∩规格限,'+(r.ctrlInSpec?'控制限在规格限内':'控制限超出规格限')+',理想=控制限完全落在规格限内部');
   // 不合格分析
-  lines.push('对应部分,观测%,期望组内%,期望总体%');
+  lines.push('类别,观测%,期望组内%,期望总体%');
   lastResult.defectRows.forEach(r=>lines.push(r[0]+','+r[1].toFixed(4)+','+r[2].toFixed(4)+','+r[3].toFixed(4)));
   lines.push('');lines.push('原始数据');
   lastResult.nums.forEach(v=>lines.push(String(v)));
@@ -1725,13 +1726,13 @@ const GLOSS=[
   {cat:'规格与目标',abbr:'LSL',name:'Lower Specification Limit',cn:'规格下限',
    def:'图纸、客户或标准规定的<b>最小合格值</b>。<b>不是</b>这批数据的最小值！例如轴径 10±0.02 → LSL = 9.980。',
    formula:'—（输入项，不是算出来的）',
-   steps:['查图纸 / 客户要求 / 行业标准，找到该特性的最小允许值','填入"最小值 LSL"输入框，并勾选启用'],
+   steps:['查图纸 / 客户要求 / 行业标准，找到该特性的最小允许值','填入"规格下限 LSL"输入框，并勾选启用'],
    impact:'LSL 填错会直接导致 Cp/Cpk/Cpl 严重失真：填得比真实要求宽松（如填均值−3σ），能力被高估，出货后才发现批量超差；填得过于严格，又会误判过程不合格、浪费改善资源。',
    action:'判级前务必核对图纸版本与客户最新要求；本工具留空自动预填"均值−3σ"仅为试算占位，正式判级前必须替换为真实规格限。'},
   {cat:'规格与目标',abbr:'USL',name:'Upper Specification Limit',cn:'规格上限',
    def:'图纸、客户或标准规定的<b>最大合格值</b>。<b>不是</b>这批数据的最大值！例如轴径 10±0.02 → USL = 10.020。',
    formula:'—（输入项，不是算出来的）',
-   steps:['查图纸 / 客户要求 / 行业标准，找到最大允许值','填入"最大值 USL"输入框，并勾选启用'],
+   steps:['查图纸 / 客户要求 / 行业标准，找到最大允许值','填入"规格上限 USL"输入框，并勾选启用'],
    impact:'USL 影响所有能力指数与超规 PPM 计算；填错方向会导致上侧能力（Cpu/Ppu）完全失真。',
    action:'与 LSL 同源核对；单侧规格（只有上限或只有下限）时，取消勾选另一侧即可切换为单侧分析。'},
   {cat:'规格与目标',abbr:'T',name:'Target Value',cn:'目标值',
