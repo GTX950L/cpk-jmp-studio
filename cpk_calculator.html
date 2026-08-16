@@ -2065,7 +2065,7 @@ function renderGloss(){
   );
   document.getElementById('glossCount').textContent='共 '+GLOSS.length+' 个条目 · 当前显示 '+list.length+' 个';
   document.getElementById('glossList').innerHTML=list.length
-    ? list.map(g=>glossCard(g,glossActiveCat!=='全部'||!!kw)).join('')   // 过滤时自动展开，便于直接看到内容
+    ? list.map(g=>glossCard(g,false)).join('')   // 所有条目默认收起，点击卡片头部展开
     : '<div class="gloss-empty">没有匹配的条目，换个关键词试试</div>';
   // 绑定卡片展开/收起
   document.querySelectorAll('.gcard-head').forEach(h=>{
