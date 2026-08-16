@@ -404,7 +404,7 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.6.0</b> · 最近更新 2026-08-15</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.6.1</b> · 最近更新 2026-08-16</p>
       <div id="clogList"></div>
     </div>
   </div>
@@ -2062,6 +2062,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.6.1',date:'2026-08-16',tag:'fix',tagTxt:'修复与优化',
+   items:['文字审查修复：术语统一（总 Sigma 能力长期性能→长期能力）、四场景判定命名统一、README 判定口径统一为「受控性 × Cpk≥1.33」','颜色语义修正：LSL/USL 规格线统一橙色系（原一绿一橙不对称）、规格限警告改黄/控制限说明改蓝、能力边缘档对比度提升（#bf8700→#9a6700）','术语百科整理：新增「规格限」「控制限」统称词条；同族词条合并（58→53 条：规格限=LSL+USL、控制限=UCL+LCL、Cpu/Cpl、MR̄/移动极差、d2/c4、失控信号=越界点+异常模式）；所有条目默认收起','繁复精简：控制限 vs 规格限说明 5→2 处、目标值 T 说明去重、直方图图例长文精简、placeholder 精简','输入提示优化：label 最小值/最大值→规格下限/规格上限、示例①补「失控」、7 组示例说明补多组同判定说明'],
+   sub:'本轮为 2026-08-16 全量文字审查与术语体系整理收尾，界面文案与文档全面对齐。'},
   {ver:'v2.6.0',date:'2026-08-15',tag:'new',tagTxt:'优化',
    items:['补全图表坐标说明：直方图 Y 轴=概率密度（单位 ‰）解释、箱线图绿区=规格带图例、正态概率图坐标与判据图例','术语百科新增「直方图」「概率密度」词条（58 条）','中文专业词汇（12 条）按内容融入能力指数/统计量/控制图等各专业分类，取消独立分类'],
    sub:'本版为 2026-08-15 全量重构收尾：SPC 能力完整化 + 文档可视化补全。'},
