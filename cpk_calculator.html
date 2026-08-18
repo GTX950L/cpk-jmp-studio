@@ -115,6 +115,9 @@
           display:flex;align-items:center;gap:6px}
   details summary:hover{color:var(--brand)}
   .legend{font-size:11.5px;color:var(--muted);margin-top:4px;text-align:center}
+  .gloss-jump{background:none;border:none;padding:0;font-size:inherit;color:var(--brand);
+              text-decoration:underline;cursor:pointer;font-family:inherit}
+  .gloss-jump:hover{color:var(--brand-dark)}
   footer{text-align:center;color:var(--muted);font-size:11.5px;padding:20px;
          border-top:1px solid var(--border);background:rgba(255,255,255,.55);margin-top:8px}
   code{background:#eef2f7;padding:1px 5px;border-radius:4px;font-size:12px;color:#1e4d8c}
@@ -273,9 +276,10 @@
     <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，支持拖入 .txt .csv）"></textarea>
     <div id="parseInfo" class="parseinfo"></div>
     <div style="margin-top:10px">
-      <button id="btnCalc">计算 Cpk</button>
+      <button id="btnCalc">🔄 重新计算</button>
       <button id="btnSample" class="sec">填入示例</button>
       <button id="btnClear" class="sec">清空</button>
+      <span class="subhint" style="margin-left:10px">粘贴 / 改动后自动计算，一般无需手动点击</span>
     </div>
     <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定（多组演示同一判定的不同 σ 水平，便于横向对比）</div>
 
@@ -307,7 +311,7 @@
     </div>
     <div class="row">
       <label>目标值 T（可选）<input type="number" id="target" step="any" placeholder="设计目标值；留空=取规格中点"></label>
-      <span class="subhint">图纸/客户要求的标称值（如 φ20 +0.1/-0.05 的目标是 20.00，不是规格中点 20.025）。留空时自动取 (LSL+USL)/2，仅用于 Cpm。</span>
+      <span class="subhint">图纸/客户要求的标称值（如 φ20 +0.1/-0.05 → T=20.00，非中点 20.025），仅用于 Cpm。</span>
     </div>
     <div class="row">
       <label>子组大小（0=个体测量）<input type="number" id="sub" value="0" min="0" max="25"></label>
@@ -327,7 +331,7 @@
 
     <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
     <canvas id="cvHist" width="720" height="400"></canvas>
-    <div class="legend"><span style="color:#2f6db5">▮ 测量数据</span>　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#d97706">LSL</span> / <span style="color:#d97706">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 ‰）：柱高与正态曲线可直接对比，柱顶贴合曲线说明数据近似正态；详解见「术语百科 · 概率密度」。</div>
+    <div class="legend"><span style="color:#2f6db5">▮ 测量数据</span>　─ <span style="color:#e4572e">总体拟合(σ总)</span>　┄ <span style="color:#9a6dff">组内拟合(σ组内)</span>　┊ <span style="color:#d97706">LSL</span> / <span style="color:#d97706">USL</span> 规格限　<span style="color:#6e4fb0">▴ 目标值</span>　<span style="color:#e4572e">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 ‰）：柱高与正态曲线可直接对比，柱顶贴合曲线说明数据近似正态；<button class="gloss-jump" onclick="openGlossAt('概率密度')">📖 详解见术语百科 · 概率密度</button></div>
 
     <!-- ===== JMP 式报告区（截图即用） ===== -->
     <div class="chart-title">② 过程汇总（Process Summary）</div>
@@ -815,7 +819,7 @@ function calc(auto){
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
-  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（目标）'+(targetFromInput?'':'*'),cpm]];
+  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（目标）'+(targetFromInput?'':(both?'*':'')),cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
     return `<div class="metric" style="border-left-color:${tone.c}">
@@ -826,7 +830,7 @@ function calc(auto){
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
    <div class="metric" style="border-left-color:#c9d1d9"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
-  + (targetFromInput?'':`<div class="legend" style="text-align:left;margin:2px 0 0">* 目标值 T 未填写，Cpm 暂按规格中点计算；如需精确请在上方填真实目标值 T。</div>`);
+  ;
 
   // ---- 正态性提示 ----
   document.getElementById('normNote').innerHTML=
@@ -2046,6 +2050,13 @@ function renderGloss(){
 
 function openGloss(){document.getElementById('glossOverlay').classList.add('open');renderGloss();}
 function closeGloss(){document.getElementById('glossOverlay').classList.remove('open');}
+function openGlossAt(kw){
+  glossActiveCat='全部';
+  document.querySelectorAll('#glossCats button').forEach(x=>x.classList.toggle('on',x.dataset.cat==='全部'));
+  glossKW=kw||'';
+  document.getElementById('glossSearch').value=glossKW;
+  openGloss();
+}
 document.getElementById('btnGloss').onclick=openGloss;
 document.getElementById('glossClose').onclick=closeGloss;
 document.getElementById('glossOverlay').addEventListener('click',e=>{if(e.target.id==='glossOverlay')closeGloss();});
