@@ -354,7 +354,7 @@
     <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望总体% = 用整体 σ 的正态估计。</div>
 
     <div class="chart-title">⑤ 能力箱线图（观测值相对规格限的位置）</div>
-    <canvas id="cvBox" width="720" height="170"></canvas>
+    <canvas id="cvBox" width="720" height="195"></canvas>
     <div class="legend">▦ 箱 = Q1~Q3（中间 50% 数据）　─ 中位数　● <span style="color:#e4572e">μ 均值</span>　┄ 须 = 最小~最大　<span style="background:rgba(46,139,87,.12);border:1px dashed rgba(46,139,87,.5)">&nbsp;绿区&nbsp;</span> = 规格带 LSL~USL。箱体全部落在绿区内且有余量 = 过程合格；箱体顶到/越过规格线 = 超规风险高。</div>
 
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
@@ -1036,7 +1036,7 @@ function drawHist(x,lsl,usl,target,m,sd,sw,axisLabel){
   const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?'#cf222e':C.fit();
   const muPx=x2px(m),tPx=target!=null?x2px(target):null;
   const nearT=(tPx!=null&&Math.abs(muPx-tPx)<=20);
-  if(target!=null)vline(ctx,tPx,padT,plotH,C.target(),nearT?'T/μ':'T',C.target());
+  if(target!=null)vline(ctx,tPx,padT,plotH,C.target(),nearT?'T = μ':'T',C.target());
   vline(ctx,muPx,padT,plotH,muC,nearT?'':'μ',muC);
 
   // 网格与刻度
@@ -1059,8 +1059,8 @@ function roundRectTop(ctx,x,y,w,h,r){
 
 function drawBox(x,lsl,usl,target,m,axisLabel){
   const cv=document.getElementById('cvBox');
-  const ctx=prepCanvas(cv,720,170);
-  const W=720,H=170;
+  const ctx=prepCanvas(cv,720,195);
+  const W=720,H=195;
   ctx.clearRect(0,0,W,H);
   const padL=52,padR=18,padT=34,padB=40,plotW=W-padL-padR,plotH=H-padT-padB;
   const xs=x.slice().sort((a,b)=>a-b);
@@ -1168,7 +1168,10 @@ function drawQuant(sorted,z,axisLabel){
   // R² 标注
   const r2Txt='R² = '+(r*r).toFixed(4);
   ctx.font='bold 12px sans-serif';const tw=ctx.measureText(r2Txt).width;
-  ctx.fillStyle='rgba(255,255,255,.92)';ctx.fillRect(padL+8,padT+8,tw+14,22);
+  ctx.fillStyle='rgba(255,255,255,.92)';ctx.save();
+  ctx.shadowColor='rgba(16,32,64,.16)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
+  ctx.fillRect(padL+8,padT+8,tw+14,22);
+  ctx.restore();
   ctx.strokeStyle=C.fit();ctx.lineWidth=1;ctx.strokeRect(padL+8,padT+8,tw+14,22);
   ctx.fillStyle=C.fit();ctx.fillText(r2Txt,padL+15,padT+23);
   ctx.textAlign='start';
@@ -1184,7 +1187,7 @@ function drawCtrlMain(spc,lsl,usl,axisLabel){
   const ctx=prepCanvas(cv,720,240);
   const W=720,H=240;
   ctx.clearRect(0,0,W,H);
-  const padL=52,padR=118,padT=30,padB=34,plotW=W-padL-padR;
+  const padL=52,padR=118,padT=42,padB=34,plotW=W-padL-padR;
   const plotH=H-padT-padB;
   const N=spc.pts.length;
   const x2px=i=>padL+(N>1?i/(N-1):0.5)*plotW;      // i：0 基序号
@@ -1223,7 +1226,7 @@ function drawCtrlMain(spc,lsl,usl,axisLabel){
     if(oob){ctx.strokeStyle='#cf222e';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(x2px(i),y2px(v),6.2,0,7);ctx.stroke();}
   });
   ctx.fillStyle='#24344d';ctx.font='bold 11px sans-serif';ctx.textAlign='left';
-  ctx.fillText(spc.sub>1?'Xbar 图（子组均值）':'I 图（单值）',padL,padT-10);
+  ctx.fillText(spc.sub>1?'Xbar 图（子组均值）':'I 图（单值）',padL,padT-14);
 
   // x 轴刻度（样本序号）+ 框线
   const xTicks=[...new Set(niceTicks(1,N,6).map(t=>Math.round(t)).filter(t=>t>=1&&t<=N))];
@@ -1277,7 +1280,10 @@ function drawCtrlAux(spc){
   frame(ctx,W,H,padL,padT,plotW,plotH);
   ctx.fillStyle='#24344d';ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('样本序号（按生产/测量顺序）',padL+plotW/2,H-7);
-  ctx.textAlign='start';
+  // Y 轴标题（旋转）
+  ctx.save();ctx.translate(13,padT+plotH/2);ctx.rotate(-Math.PI/2);
+  ctx.fillText(spc.type==='Xbar-S'?'子组标准差 S':(spc.sub>1?'子组极差 R':'移动极差 MR'),0,0);
+  ctx.restore();ctx.textAlign='start';
 }
 
 // 兼容入口：主图 + 辅助图各画各的画布
