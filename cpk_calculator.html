@@ -630,6 +630,8 @@ function capTone(v){
 
 // 保存最近一次计算结果，供导出使用
 let lastResult=null;
+// 子组自动推断的"用户否决"标记：用户手动改过子组输入框后置 true，不再自动推断覆盖
+let userOverrideSub=false;
 
 // 全角数字/符号转半角（中文输入法粘贴常见）：１０.０１ → 10.01、－3.2 → -3.2
 const toHalfWidth=s=>s.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
@@ -661,16 +663,18 @@ function extractHeaderText(line){
   return txt.length>24 ? txt.slice(0,24)+'…' : txt;
 }
 
-// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText}
+// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText, uniformSub}
+// uniformSub：子组自动推断——若纳入数据的行数 ≥2 且每行数字个数一致且 ≥2（子组粘贴格式，如每行 5 个），返回该子组大小，否则 0
 function parseNums(raw){
   const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
-  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:''};
+  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0};
   const rows=lines.map(rowNumbers);
   const counts=rows.map(r=>r.length);
   // 表头判定：多数数据行含相同个数的数字；首行数字数少于众数 → 视为表头
   const freq={}; counts.forEach(c=>freq[c]=(freq[c]||0)+1);
   let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
   const vals=[]; let header=0,skipped=0,headerText='';
+  const dataCounts=[];   // 被纳入数据的行各自含几个数字
   // 首行表头增强判定：若首行存在"以文字开头的 token"（如 No.、直径、编号），
   // 即使数字个数与众数相同（如单列数据 "No. 1 直径"）也视为表头跳过
   const textLead=t=>{if(!t)return false;const c=t[0];return !(c>='0'&&c<='9')&&c!=='.'&&c!=='-'&&c!=='+';};
@@ -679,8 +683,15 @@ function parseNums(raw){
     if(i===0 && c!==mode && c<mode && mode>0){ header++; headerText=extractHeaderText(lines[i]); return; }
     if(i===0 && c===mode && lines[i].split(/[\s,;，、]+/).some(textLead)){ header++; headerText=extractHeaderText(lines[i]); return; }
     vals.push(...rows[i]);
+    dataCounts.push(c);
   });
-  return {vals, skipped, header, headerText};
+  // 子组自动推断：数据行数 ≥2 且每行数字数一致且 ≥2 → 视为子组粘贴格式
+  let uniformSub=0;
+  if(dataCounts.length>=2){
+    const first=dataCounts[0];
+    if(first>=2&&dataCounts.every(c=>c===first)) uniformSub=first;
+  }
+  return {vals, skipped, header, headerText, uniformSub};
 }
 
 // 解析反馈条：显示解析出多少个数值、跳过/忽略了多少
@@ -736,7 +747,20 @@ function calc(auto){
 
   const n=nums.length;
   const m=mean(nums), sd=sampleStd(nums);
-  const sub=parseInt(document.getElementById('sub').value)||0;
+  let sub=parseInt(document.getElementById('sub').value)||0;
+  // 子组自动推断：数据为"每行 n 个数值"的子组粘贴格式、且用户未手动指定子组时，自动按每行个数分组
+  const autoSub=!userOverrideSub&&sub===0&&info.uniformSub>1&&info.uniformSub<=25;
+  if(autoSub){
+    sub=info.uniformSub;
+    document.getElementById('sub').value=String(sub);   // 回填输入框让用户看到实际使用的值
+    const pi=document.getElementById('parseInfo');
+    pi.textContent+=' · 检测到每行 '+sub+' 个数值，已自动按子组 '+sub+' 分析（改回 0=个体测量）';
+    pi.className='parseinfo warn';
+  }else if(!userOverrideSub&&sub===0&&info.uniformSub>25){
+    const pi=document.getElementById('parseInfo');
+    pi.textContent+=' · 检测到每行 '+info.uniformSub+' 个数值，超过子组上限 25，已按个体测量处理';
+    pi.className='parseinfo warn';
+  }
 
   // 边界检查：数据无波动 / 子组大小超过数据量 / 超出系数表范围
   if(sd===0){setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
@@ -900,6 +924,8 @@ function calc(auto){
     ['Pp',fmt(pp),'整体潜在能力'],
     ['Ppk',fmt(ppk),'整体实际能力'],
     ['Cpm',fmt(cpm),'含目标偏移的过程能力'],
+    ['西格玛水平 Zst（短期）',fmt(3*primary),'= 3×Cpk；无中心偏移的短期 sigma 水平（六西格玛惯例约再 +1.5 为含漂移的长期水平）'],
+    ['西格玛水平 Zlt（长期）',fmt(3*ppk),'= 3×Ppk；含长期漂移的实际 sigma 水平'],
     ['理论超规 PPM(组内)',fmt(ppmWithin,1),'基于组内σ的正态估计'],
     ['理论超规 PPM(整体)',fmt(ppmOverall,1),'基于整体σ的正态估计'],
     ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`]];
@@ -924,8 +950,10 @@ function calc(auto){
           <td class="k">稳定性指标</td><td class="v ${stability>1.3?'stability-high':''}">${fmt(stability,4)}${stability>1.3?' ⚠':''}</td></tr>
       <tr><td class="k">控制上限 UCL</td><td class="v">${fmt(spc.ucl,4)}</td>
           <td class="k">控制下限 LCL</td><td class="v">${fmt(spc.lcl,4)}</td></tr>
+      <tr><td class="k">西格玛水平 Zst</td><td class="v">${fmt(3*primary)}</td>
+          <td class="k">西格玛水平 Zlt</td><td class="v">${fmt(3*ppk)}</td></tr>
     </tbody></table>
-    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。<br>控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），与规格限是两套不同的线（控制限判受控、规格限判合格）。</div>`;
+    <div class="legend" style="text-align:left;margin-top:2px">稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。<br>西格玛水平：Zst = 3×Cpk（短期）、Zlt = 3×Ppk（长期）；六西格玛惯例含 1.5σ 漂移的长期水平约 = Zst + 1.5。<br>控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），与规格限是两套不同的线（控制限判受控、规格限判合格）。</div>`;
 
   // ② 能力表（组内 & 总体），带 95% 置信区间
   document.querySelector('#withinCap thead').innerHTML='<tr><th>指数</th><th class="num">估计值</th><th class="num">95% 下限</th><th class="num">95% 上限</th></tr>';
@@ -950,7 +978,7 @@ function calc(auto){
       <td>${r[0]}</td><td class="num">${pct(r[1])}</td><td class="num">${pct(r[2])}</td><td class="num">${pct(r[3])}</td></tr>`).join('');
 
   // 保存结果供导出
-  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, withinIdx, withinCI, overallIdx, overallCI, defectRows,
+  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, primary, withinIdx, withinCI, overallIdx, overallCI, defectRows,
               spc, ctrl, mCtrl, ctrlInSpec, stable, lslAuto, uslAuto};
 
   setMsg('ok','✅ 计算完成。');
@@ -1544,6 +1572,7 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('genLsl').value='';
   document.getElementById('genUsl').value='';
   document.getElementById('genMu').value='';
+  userOverrideSub=false;                             // 清空后恢复子组自动推断
   clearResults(false);                               // 结果区全部清空（含明细表、能力表、控制图、画布）
   try{localStorage.removeItem(LS_KEY);}catch(e){}
 };
@@ -1554,6 +1583,8 @@ function scheduleCalc(ms){clearTimeout(calcTimer);calcTimer=setTimeout(()=>calc(
 document.getElementById('data').addEventListener('input',()=>scheduleCalc(350));
 // 规格限 / 子组大小改动实时重算（README 承诺的行为）
 ['lsl','usl','target','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>scheduleCalc(350)));
+// 用户手动改过子组大小 → 记否决标记，自动推断不再覆盖（示例/生成器/恢复状态是程序赋值，不触发）
+document.getElementById('sub').addEventListener('input',()=>{userOverrideSub=true;});
 ['useLsl','useUsl'].forEach(id=>document.getElementById(id).addEventListener('change',()=>scheduleCalc(80)));
 
 // 拖拽导入 .txt/.csv/.tsv/.dat
@@ -1616,7 +1647,7 @@ function exportPng(){
   // 报告区（过程汇总 + 控制限对比 + 两张能力表 + 不合格分析）高度估算：文字行按 16px + 间距
   const r=lastResult;
   // 文本报告区行数估算（用于预留高度）
-  const sumRowsCount=4, ctrlRowsCount=4, capRowsCount=Object.keys(r.withinIdx).length, ocapRowsCount=Object.keys(r.overallIdx).length, defRowsCount=r.defectRows.length;
+  const sumRowsCount=5, ctrlRowsCount=4, capRowsCount=Object.keys(r.withinIdx).length, ocapRowsCount=Object.keys(r.overallIdx).length, defRowsCount=r.defectRows.length;
   const textLines=2+sumRowsCount+2+ctrlRowsCount+2+capRowsCount+2+ocapRowsCount+2+defRowsCount;
   const reportH=Math.max(120,textLines*17+30);
   let H=pad*2+58+reportH+gap; dims.forEach(d=>H+=d.dh+gap);
@@ -1655,7 +1686,8 @@ function exportPng(){
     ['规格下限 LSL',r.lsl!=null?fmt(r.lsl,4):'—','目标值 T',fmt(r.target,4)],
     ['规格上限 USL',r.usl!=null?fmt(r.usl,4):'—','样本量 n',r.nums.length],
     ['样本均值 μ',fmt(r.m,4),'组内 Sigma',fmt(r.sw,4)],
-    ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)]
+    ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)],
+    ['西格玛水平 Zst',fmt(3*r.primary),'西格玛水平 Zlt',fmt(3*r.overallIdx.Ppk)]
   ];
   drawTableBlock('■ 过程汇总', sumRows, sumColX);
   // 控制限 vs 规格限（数据算出的动态界限 vs 客户给定的固定界限）
@@ -1905,6 +1937,12 @@ const GLOSS=[
    steps:['分别算整体 σ 与组内 σ','相除得到比值'],
    impact:'比值越大说明"短期稳、长期飘"越严重：换班、换料、模具磨损、环境变化在长期中持续扰动过程，Ppk 被拖低。',
    action:'比值 >1.3 时页面红色提示：重点做批次间差异分析（按班次/机台/批次分层做控制图），锁定漂移源后针对改善。'},
+  {cat:'质量指标',abbr:'Zst / Zlt',name:'Sigma Level（短期 / 长期）',cn:'西格玛水平（σ 水平）',
+   def:'把过程能力折算成"标准正态下能容纳几个 σ"的口径，制造汇报常用（如"这个工序 4.5σ"）。<b>Zst</b>（短期）= 3×Cpk，反映无漂移时的波动容纳度；<b>Zlt</b>（长期）= 3×Ppk，反映含批次漂移的实际水平。六西格玛惯例把长期均值漂移 1.5σ 也计入，故长期水平约 = Zst + 1.5。',
+   formula:'Zst = 3 × Cpk；Zlt = 3 × Ppk；长期惯例 ≈ Zst + 1.5',
+   steps:['取 Cpk（或单侧 Cpu/Cpl）乘 3 得 Zst','取 Ppk 乘 3 得 Zlt','如需六西格玛口径，Zst 再加 1.5'],
+   impact:'Zst / Zlt 与 Cpk / Ppk 一一对应，只是换算口径；西格玛水平越高说明波动越少、越能容纳规格。Zlt 明显低于 Zst 说明长期漂移吃掉能力。',
+   action:'汇报时若对方习惯"几σ"口径，用本换算直接给 Zst / Zlt；改善方向仍以减小 σ、对准中心为准（与 Cpk 一致）。'},
   {cat:'质量指标',abbr:'A / B / C / D',name:'Capability Grading',cn:'能力等级判级',
    def:'按 Cpk（单侧按 Cpu/Cpl）自动分级：≥1.67 → A 优秀；≥1.33 → B 合格；≥1.0 → C 边缘；<1.0 → D 不足。',
    formula:'Cpk ≥ 1.67 → A；≥ 1.33 → B；≥ 1.0 → C；< 1.0 → D',
@@ -2117,6 +2155,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.6.3',date:'2026-08-19',tag:'feat',tagTxt:'新功能',
+   items:['子组大小自动推断：粘贴"每行 n 个数值"的子组格式数据时自动按每行个数分组（如每行 5 个数 → 自动填子组 5），提示条可见；手动改过子组后不再自动覆盖','新增西格玛水平：Zst = 3×Cpk（短期）、Zlt = 3×Ppk（长期），展示于过程汇总表、指标明细表、CSV 导出与 PNG 报告','术语百科新增「Zst / Zlt（西格玛水平）」词条'],
+   sub:'2026-08-19 现场效率增强：子组格式自动识别 + 西格玛水平换算。'},
   {ver:'v2.6.2',date:'2026-08-19',tag:'fix',tagTxt:'修复与优化',
    items:['输入校验加固：规格限 LSL≥USL 填反时明确提示；规格限 / 目标值 T 输入非数字时明确报错（不再静默覆盖为均值±3σ 或静默忽略）','导出修复：CSV 置信区间内的英文逗号改为中文顿号，避免 Excel 打开列错位','反向生成器：目标 Cpk 上限校验（>10 提示 σ 过小、数据会失去有效精度）','数据解析优化：全角数字/符号自动转半角（１０.０１ → 10.01、－3.2 → -3.2）；千位分隔合并仅限整数边界（避免 10.01,234 被误合并）；单列表头含数字（如 No. 1 直径）可正确识别并跳过','结果区清理补全：「清空」按钮与数据不足时均清空明细表、能力表、控制图与全部画布，不再残留旧结果'],
    sub:'2026-08-19 代码审查（核心计算经 Node 数值验证通过）后的健壮性修复。'},
