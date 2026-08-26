@@ -1,8 +1,8 @@
-# Cpk 过程能力计算器
+# Cpk-JMP Studio
 
-> 🟢 **直接使用**：在线打开 👉 **[cpk_calculator.html（点击运行）](https://gtx950l.github.io/cpk/cpk_calculator.html)**，或[下载本地文件](https://github.com/GTX950L/cpk/blob/main/cpk_calculator.html)双击用浏览器打开 —— **无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
+> 🟢 **直接使用**：在线打开 👉 **[cpk_calculator.html（点击运行）](https://gtx950l.github.io/cpk-jmp-studio/cpk_calculator.html)**，或[下载本地文件](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)双击用浏览器打开 —— **无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
 >
-> 🔗 项目仓库：[github.com/GTX950L/cpk](https://github.com/GTX950L/cpk)
+> 🔗 项目仓库：[github.com/GTX950L/cpk-jmp-studio](https://github.com/GTX950L/cpk-jmp-studio)
 
 一个模仿 **JMP**「Process Capability（过程能力分析）」体验的轻量工具：给出测量数据与规格限 → 一键得到 Cp / Cpk / Pp / Ppk / Cpm 等能力指数，并自动绘制直方图、能力箱线图、正态概率图。
 
@@ -72,7 +72,7 @@
 ## 📁 项目结构
 
 ```
-cpk/
+cpk-jmp-studio/
 ├── cpk_calculator.html      # 唯一入口：离线单文件工具（计算 + 绘图全在内部）
 ├── examples/
 │   └── sample_data.csv      # 示例数据：轴径测量（6 批次 × 20 个）
