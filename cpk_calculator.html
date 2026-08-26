@@ -328,6 +328,7 @@
     <div id="metrics" class="metrics"></div>
     <div id="normNote"></div>
     <div id="targetNote"></div>
+    <div id="diagNote"></div>
 
     <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
     <canvas id="cvHist" width="720" height="445"></canvas>
@@ -378,9 +379,14 @@
       <table id="detail"><thead><tr><th>指标</th><th>数值</th><th>说明</th></tr></thead><tbody></tbody></table>
     </details>
 
+    <div class="chart-title" id="batchTitle" style="display:none">⑨ 多批对比（按空行分隔不同批次）</div>
+    <div id="batchCmp"></div>
+
     <div style="margin-top:16px">
       <button id="btnCsv" class="sec">⬇ 导出指标 CSV</button>
       <button id="btnPng" class="sec">⬇ 导出完整报告 (PNG)</button>
+      <button id="btnMd" class="sec">📋 复制 Markdown</button>
+      <button id="btnBatch" class="sec">📊 多批对比</button>
     </div>
   </div>
 </div>
@@ -409,7 +415,7 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.6.1</b> · 最近更新 2026-08-16</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.7.0</b> · 最近更新 2026-08-27</p>
       <div id="clogList"></div>
     </div>
   </div>
@@ -663,14 +669,27 @@ function extractHeaderText(line){
   return txt.length>24 ? txt.slice(0,24)+'…' : txt;
 }
 
-// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText, uniformSub}
+// 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText, uniformSub, strippedLead}
 // uniformSub：子组自动推断——若纳入数据的行数 ≥2 且每行数字个数一致且 ≥2（子组粘贴格式，如每行 5 个），返回该子组大小，否则 0
+// strippedLead：是否已剔除"前导序号列"（如 SN 001/002… 或 1/2/3… 序号），防止序号被误当测量值、并防止被误判为子组 n=2
 function parseNums(raw){
   const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
-  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0};
+  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0,strippedLead:false};
   const rows=lines.map(rowNumbers);
   const counts=rows.map(r=>r.length);
-  // 表头判定：多数数据行含相同个数的数字；首行数字数少于众数 → 视为表头
+  // —— 前导序号列识别（P2 防护）——
+  // 若所有数据行都 ≥2 个数值，且首列构成 1..N（或 0..N-1）连续整数，判定为「SN/序号 + 测量值」格式，
+  // 剔除首列后再解析：既避免把序号当测量值计入，也避免被自动子组推断误判为"每行 2 个"。
+  let strippedLead=false;
+  if(rows.length>=2 && rows.every(r=>r.length>=2)){
+    let seqOk=true;
+    for(let i=0;i<rows.length;i++){ if(rows[i][0]!==i+1 && rows[i][0]!==i){seqOk=false;break;} }
+    if(seqOk){
+      strippedLead=true;
+      for(let i=0;i<rows.length;i++){ rows[i]=rows[i].slice(1); counts[i]=counts[i]-1; }
+    }
+  }
+  // 表头判定：多数数据行含相同个数的数字（须在剔除序号列之后重算众数）；首行数字数少于众数 → 视为表头
   const freq={}; counts.forEach(c=>freq[c]=(freq[c]||0)+1);
   let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
   const vals=[]; let header=0,skipped=0,headerText='';
@@ -691,7 +710,7 @@ function parseNums(raw){
     const first=dataCounts[0];
     if(first>=2&&dataCounts.every(c=>c===first)) uniformSub=first;
   }
-  return {vals, skipped, header, headerText, uniformSub};
+  return {vals, skipped, header, headerText, uniformSub, strippedLead};
 }
 
 // 解析反馈条：显示解析出多少个数值、跳过/忽略了多少
@@ -714,6 +733,54 @@ function setMsg(mode,text){
   msg.textContent=text;
 }
 
+/* ============ 诊断与辅助（P0~P2 防呆 + 自动化） ============ */
+
+// 估计数据"记录分度"（测量分辨率）：从粗到细尝试常用刻度，若全部数据都能表示为该刻度的整数倍，
+// 说明数据是以该刻度记录/四舍五入的，取最粗的那个作为分辨率（例如 10.01/10.02/10.03 → 0.01）。
+function estResolution(arr){
+  const cands=[1,0.5,0.2,0.1,0.05,0.02,0.01,0.005,0.002,0.001,5e-4,2e-4,1e-4,5e-5,2e-5,1e-5,1e-6];
+  for(const r of cands){
+    let ok=true;
+    for(let i=0;i<arr.length;i++){ if(Math.abs(arr[i]/r-Math.round(arr[i]/r))>1e-9){ok=false;break;} }
+    if(ok) return r;
+  }
+  return 1e-6;
+}
+function fmtRes(v){return v>=0.001?v.toFixed(4):v.toExponential(2);}
+
+// 从表头文字中提取规格限：识别 LSL/USL（含中文 下限/上限/下差/上差）后紧跟的数值。
+// 仅当表头明确出现规格限关键词 + 数字时才返回，避免误判普通表头。
+function extractSpecFromText(t){
+  let lsl=null,usl=null;
+  const lm=t.match(/(?:lsl|规格下限|下限|下差|下界)\s*[=:：]?\s*(-?\d+(?:\.\d+)?)/i);
+  const um=t.match(/(?:usl|规格上限|上限|上差|上界)\s*[=:：]?\s*(-?\d+(?:\.\d+)?)/i);
+  if(lm) lsl=parseFloat(lm[1]);
+  if(um) usl=parseFloat(um[1]);
+  return {lsl,usl};
+}
+
+// 非正态能力（ISO 22514 / Pearson-Clements 分位数法）：
+// 用数据实际分布的分位数（而非正态假设）计算 Z 基准：
+//   Z.LSL = Φ⁻¹(实测 ≤LSL 比例)，Z.USL = Φ⁻¹(1 − 实测 >USL 比例)
+//   Ppk* = min(Z.LSL, Z.USL)/3，Cp* = (Z.USL − Z.LSL)/6
+function nonnormalCap(sorted,lsl,usl){
+  const n=sorted.length;
+  const pL = lsl!=null ? sorted.filter(v=>v<=lsl).length/n : 0;
+  const pU = usl!=null ? sorted.filter(v=>v>usl).length/n : 0;
+  const clip=p=>Math.min(Math.max(p,1e-6),1-1e-6);   // 避免 normInv(0/1) 得 ±∞
+  const ZL = normInv(clip(pL)), ZU = normInv(clip(1-pU));
+  return {ppk:Math.min(ZL,ZU)/3, cp:(ZU-ZL)/6, pL, pU};
+}
+
+// 渲染诊断提示条（P0 分辨率/高Cpk/小样本、P1 矛盾/离群、P2 尾差丢弃、非正态自动切换等）
+function renderDiag(warns){
+  const el=document.getElementById('diagNote');
+  if(!warns.length){el.innerHTML='';return;}
+  el.innerHTML=warns.map(w=>
+    `<div class="note ${w.level==='warn'?'warn':''}" style="margin:6px 0">${w.icon||'ℹ'} <b>${w.title||'诊断'}</b>：${w.text}</div>`
+  ).join('');
+}
+
 /* ============ 主计算 ============ */
 // 清空结果区（含明细表、能力表、控制图与所有画布），供 calc 数据不足与「清空」按钮共用
 function clearResults(silent){
@@ -728,6 +795,9 @@ function clearResults(silent){
   document.querySelector('#detail tbody').innerHTML='';
   document.getElementById('ctrlMsg').innerHTML='';
   document.getElementById('ctrlCompare').innerHTML='';
+  document.getElementById('diagNote').innerHTML='';
+  document.getElementById('batchCmp').innerHTML='';
+  document.getElementById('batchTitle').style.display='none';
   ['cvHist','cvBox','cvQuant','cvCtrlMain','cvCtrlAux'].forEach(id=>{
     const cv=document.getElementById(id);const c=cv.getContext('2d');
     c.clearRect(0,0,cv.width,cv.height);
@@ -747,7 +817,20 @@ function calc(auto){
 
   const n=nums.length;
   const m=mean(nums), sd=sampleStd(nums);
-  let sub=parseInt(document.getElementById('sub').value)||0;
+  // 子组大小解析：支持空/0（个体测量）；非整数不再静默截断（P1），改为四舍五入并显式提示
+  let sub=0, subNonInt=false;
+  const subRaw=document.getElementById('sub').value.trim();
+  if(subRaw!==''){
+    const sv=parseFloat(subRaw);
+    if(isFinite(sv)&&sv>=0){ sub=Math.round(sv); if(Math.abs(sv-sub)>1e-9) subNonInt=true; }
+    else { sub=0; subNonInt=true; }
+  }
+  // 已剔除前导序号列（SN 1/2/3… + 测量值）时，在解析反馈条中说明
+  if(info.strippedLead){
+    const pi=document.getElementById('parseInfo');
+    pi.textContent+=' · 已自动忽略首列序号(SN)';
+    pi.className='parseinfo warn';
+  }
   // 子组自动推断：数据为"每行 n 个数值"的子组粘贴格式、且用户未手动指定子组时，自动按每行个数分组
   const autoSub=!userOverrideSub&&sub===0&&info.uniformSub>1&&info.uniformSub<=25;
   if(autoSub){
@@ -776,14 +859,19 @@ function calc(auto){
   let lsl=useLsl?(lslRaw.trim()!==''?parseFloat(lslRaw):NaN):null;
   let usl=useUsl?(uslRaw.trim()!==''?parseFloat(uslRaw):NaN):null;
   let lslAuto=false, uslAuto=false;   // 标记规格限是否由工具自动预填（占位值，非真实规格）
-  // 输入框留空时自动用 均值±3σ，并回填到输入框让用户看到实际使用的值；输入了非数字内容则明确报错，不静默覆盖
+  // 表头规格限识别（自动化）：表头若含「LSL/USL/下限/上限 + 数字」，自动预填到输入框（优于均值±3σ 占位）
+  const specFromHeader=info.headerText?extractSpecFromText(info.headerText):null;
+  let lslFromHeader=false, uslFromHeader=false;
+  // 输入框留空时：优先取表头规格限；其次自动用 均值±3σ 并回填让用户看到；输入了非数字内容则明确报错，不静默覆盖
   if(useLsl&&isNaN(lsl)){
     if(lslRaw.trim()!==''){setMsg('warn','⚠ 规格下限 LSL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
-    lsl=m-3*sd;document.getElementById('lsl').value=lsl.toFixed(4);lslAuto=true;
+    if(specFromHeader&&specFromHeader.lsl!=null){ lsl=specFromHeader.lsl; lslFromHeader=true; }
+    else{ lsl=m-3*sd; document.getElementById('lsl').value=lsl.toFixed(4); lslAuto=true; }
   }
   if(useUsl&&isNaN(usl)){
     if(uslRaw.trim()!==''){setMsg('warn','⚠ 规格上限 USL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
-    usl=m+3*sd;document.getElementById('usl').value=usl.toFixed(4);uslAuto=true;
+    if(specFromHeader&&specFromHeader.usl!=null){ usl=specFromHeader.usl; uslFromHeader=true; }
+    else{ usl=m+3*sd; document.getElementById('usl').value=usl.toFixed(4); uslAuto=true; }
   }
   // 目标值 T：用户显式输入优先；留空时自动取 (最大+最小)/2 作中心值（用于 Cpm）
   const tInput=document.getElementById('target').value.trim();
@@ -869,8 +957,68 @@ function calc(auto){
   const r2=corr(sorted,z)**2;
   const normOk=r2>0.95;
 
-  // ---- 能力判级横幅（优先看 Cpk，单侧则看对应的单侧值）----
+  // 能力判级主指数（单侧用 Cpu/Cpl）——提前声明，供下方诊断块与判级横幅共用
   const primary=isFinite(cpk)?cpk:(usl!=null?cpu:cpl);
+
+  // ---- 诊断提示（P0 分辨率/高Cpk/小样本，P1 矛盾/离群，P2 尾差丢弃，非正态自动切换）----
+  const resolution=estResolution(nums);          // 测量分辨率（记录分度）估计
+  const ndc=1.41*sw/resolution;                  // 区分度指数 ndc（AIAG MSA 要求 ≥5）
+  const resText=fmtRes(resolution);
+  let nnCap=null;                                // 非正态能力（Pearson-Clements）
+  const warns=[];
+  // P0-① 测量分辨率 / ndc≥5
+  if(ndc<5){
+    warns.push({level:'warn',icon:'🔬',title:'测量分辨率可能过粗（ndc<5）',
+      text:`估算数据记录分度 ≈ ${resText}，区分度指数 ndc = 1.41×σ组内/分度 ≈ ${ndc.toFixed(2)}，低于 AIAG MSA 要求的 ≥5。分辨率不足会把 Cpk 高估、掩盖真实波动，请确认量具精度或用更高分辨率的数据。`});
+  }
+  // P0-② 高 Cpk 合理性复核
+  if(isFinite(primary)&&primary>=2.0){
+    warns.push({level:'warn',icon:'🧐',title:'Cpk≥2.0 请复核合理性',
+      text:`Cpk=${fmt(primary)} 极高，复核三点：①测量分辨率是否过粗（ndc=${ndc.toFixed(2)}${ndc<5?'<5 会虚高':' 尚可'}）；②样本量 n=${n} 是否过小；③数据是否被四舍五入/失真/混批。高 Cpk 不一定代表过程真实优秀。`});
+  }
+  // P0-③ 小样本判级降级警告
+  if(n<20&&isFinite(primary)){
+    warns.push({level:'warn',icon:'📉',title:'小样本量判级谨慎',
+      text:`样本量 n=${n} < 20：95% 置信区间较宽（见明细表），当前「${capTone(primary).t}」判级置信度有限。建议扩充至 ≥30 再下正式结论。`});
+  }
+  // P1 矛盾检测：Cpk 判合格但实测已有超规样品
+  if(isFinite(primary)&&primary>=1.33&&obs>0){
+    warns.push({level:'warn',icon:'⚠️',title:'判级与实测矛盾',
+      text:`能力指数判为合格（Cpk=${fmt(cpk)} ≥1.33），但实测已有 ${obs} 个样品超规格（实测 PPM ${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}）。过程当前已在产出不合格品，请以实测为准，排查数据是否混批/分布假设/规格限填写。`});
+  }
+  // P1 离群值提示（Tukey IQR 1.5 倍规则）
+  const q1=sorted[Math.floor(n*0.25)], q3=sorted[Math.floor(n*0.75)], iqr=q3-q1;
+  const loF=q1-1.5*iqr, hiF=q3+1.5*iqr;
+  const outliers=nums.filter(v=>v<loF||v>hiF);
+  if(outliers.length){
+    warns.push({level:'info',icon:'🎯',title:'检出疑似离群点',
+      text:`${outliers.length} 个点超出 Q1−1.5·IQR ~ Q3+1.5·IQR 范围 [${fmt(loF,4)}, ${fmt(hiF,4)}]。请核实是否为测量/抄写错误：确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。`});
+  }
+  // P2 尾差静默丢弃提示
+  if(sub>1&&nums.length%sub!==0){
+    const tail=nums.length%sub;
+    warns.push({level:'warn',icon:'✂️',title:'子组尾差已被丢弃',
+      text:`子组大小 n=${sub}，数据量 ${nums.length} 不能整除，末尾 ${tail} 个数据未参与分组（实际用 ${nums.length-tail} 个）。请补充数据至可整除，或调整子组大小。`});
+  }
+  // P1 子组非整数提示
+  if(subNonInt){
+    warns.push({level:'warn',icon:'🔢',title:'子组大小应为整数',
+      text:`子组大小输入含小数，已按 ${sub} 处理（四舍五入）。子组大小必须是正整数（0=个体测量），请直接输入整数。`});
+  }
+  // 表头规格限识别提示
+  if(lslFromHeader||uslFromHeader){
+    warns.push({level:'info',icon:'📋',title:'已从表头识别规格限',
+      text:`表头检测到规格限并自动预填：LSL=${fmt(lsl,4)} / USL=${fmt(usl,4)}。请与图纸/客户要求核对，如需修改可直接在左侧输入框更改。`});
+  }
+  // 自动化：非正态自动切换 ISO22514 / Pearson-Clements
+  if(!normOk){
+    nnCap=nonnormalCap(sorted,lsl,usl);
+    warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514 估算能力',
+      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（Pearson-Clements 分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
+  }
+  renderDiag(warns);
+
+  // ---- 能力判级横幅（优先看 Cpk，单侧则看对应的单侧值）----
   const vt=capTone(primary);
   const vText = primary==null? '' :
      (primary>=1.67?'过程能力优秀（A 级）：能力余量大（波动与中心偏移控制良好），可放心生产。'
@@ -928,7 +1076,12 @@ function calc(auto){
     ['西格玛水平 Zlt（长期）',fmt(3*ppk),'= 3×Ppk；含长期漂移的实际 sigma 水平'],
     ['理论超规 PPM(组内)',fmt(ppmWithin,1),'基于组内σ的正态估计'],
     ['理论超规 PPM(整体)',fmt(ppmOverall,1),'基于整体σ的正态估计'],
-    ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`]];
+    ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`],
+    ['测量分辨率(估)',resText,'数据记录的最小分度，用于区分度 ndc'],
+    ['区分度 ndc',fmt(ndc,2),'1.41·σ组内/分辨率；<5 提示量具分辨率不足（AIAG MSA）']];
+  if(nnCap) rows.push(
+    ['Ppk*（非正态）',fmt(nnCap.ppk),'ISO22514 / Pearson-Clements 分位法：基于数据实际分布'],
+    ['Cp*（非正态）',fmt(nnCap.cp),'非正态潜在能力（分位法）']);
   // 追加各指数的 95% 置信区间（区间内用中文顿号分隔，避免导出 CSV 时被英文逗号拆列）
   const ciRow=(k,v,ci,suffix)=>{const vOk=isFinite(v);
     return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}，${fmt(ci[1])}]`:'—','近似置信区间（样本量 n='+n+'）'];};
@@ -1746,6 +1899,90 @@ function exportPng(){
 document.getElementById('btnCsv').onclick=exportCsv;
 document.getElementById('btnPng').onclick=exportPng;
 
+/* ============ 自动化：复制 Markdown / 快捷键 / 多批对比 ============ */
+function buildMarkdown(){
+  if(!lastResult) return null;
+  const r=lastResult;
+  const L=k=>{const x=r.rows.find(z=>z[0]===k);return x?x[1]:'—';};
+  return [
+    '# Cpk 过程能力分析报告','',
+    '- 样本量 n = '+r.nums.length,
+    '- 均值 μ = '+fmt(r.m,4)+'　目标 T = '+fmt(r.target,4),
+    '- 组内 σ = '+fmt(r.sw,4)+'　总 σ = '+fmt(r.sd,4),
+    '- 规格限 LSL = '+(r.lsl!=null?fmt(r.lsl,4):'—')+'　USL = '+(r.usl!=null?fmt(r.usl,4):'—'),
+    '- 能力指数：Cp='+L('Cp')+'　Cpk='+L('Cpk')+'　Pp='+L('Pp')+'　Ppk='+L('Ppk')+'　Cpm='+L('Cpm'),
+    '- 西格玛水平：Zst='+fmt(3*r.primary)+'　Zlt='+fmt(3*r.overallIdx.Ppk),
+    '- 受控性：'+(r.stable?'统计受控':'统计失控')+'　控制限∩规格限：'+(r.ctrlInSpec?'完全在内':'超出规格'),
+    '- 实测超规 PPM = '+L('实测超规 PPM')
+  ].join('\n');
+}
+function fallbackCopy(text){
+  const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');setMsg('ok','✅ 结果已复制为 Markdown。');}
+  catch(e){setMsg('warn','⚠ 复制失败，请手动选择结果文本复制。');}
+  document.body.removeChild(ta);
+}
+function copyMarkdown(){
+  const md=buildMarkdown();
+  if(!md){setMsg('warn','⚠ 请先粘贴数据计算后再复制。');return;}
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(md).then(()=>setMsg('ok','✅ 结果已复制为 Markdown，可直接粘贴到报告 / IM。'),()=>fallbackCopy(md));
+  } else fallbackCopy(md);
+}
+document.getElementById('btnMd').onclick=copyMarkdown;
+
+// 快捷键：Ctrl+Enter（或 Cmd+Enter）= 立即重新计算；Esc 已用于关闭弹窗
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();calc(false);}
+});
+
+// 多批对比：数据区用空行分隔不同批次，逐批计算后横向对比
+function batchCompare(){
+  const raw=document.getElementById('data').value;
+  const chunks=raw.split(/\n\s*\n/).map(s=>s.trim()).filter(s=>s.length);
+  const el=document.getElementById('batchCmp');
+  const ttl=document.getElementById('batchTitle');
+  if(chunks.length<2){
+    ttl.style.display='none';
+    el.innerHTML='<div class="note warn">⚠ 需要 ≥2 批数据才能对比：请在数据区用【空行】分隔不同批次（每批可含自己的表头/单位），再点「多批对比」。</div>';
+    return;
+  }
+  const useLsl=document.getElementById('useLsl').checked;
+  const useUsl=document.getElementById('useUsl').checked;
+  const lslRaw=document.getElementById('lsl').value, uslRaw=document.getElementById('usl').value;
+  const lsl=useLsl?(lslRaw.trim()!==''?parseFloat(lslRaw):null):null;
+  const usl=useUsl?(uslRaw.trim()!==''?parseFloat(uslRaw):null):null;
+  const subRaw=document.getElementById('sub').value.trim();
+  const sub=(subRaw==='')?0:(Math.round(parseFloat(subRaw))||0);
+  const rows=[];
+  chunks.forEach((ch,i)=>{
+    const info=parseNums(ch), v=info.vals;
+    if(v.length<2){rows.push({name:'批次'+(i+1),err:'数据不足 2 个'});return;}
+    const m=mean(v), sd=sampleStd(v), sw=withinSigma(v,sub);
+    const cpu=usl!=null?(usl-m)/(3*sw):Infinity;
+    const cpl=lsl!=null?(m-lsl)/(3*sw):Infinity;
+    const cpk=Math.min(cpu,cpl);
+    const ppu=usl!=null?(usl-m)/(3*sd):Infinity;
+    const ppl=lsl!=null?(m-lsl)/(3*sd):Infinity;
+    const ppk=Math.min(ppu,ppl);
+    let obs=0; if(usl!=null)obs+=v.filter(x=>x>usl).length; if(lsl!=null)obs+=v.filter(x=>x<lsl).length;
+    const tone=capTone(cpk);
+    rows.push({name:'批次'+(i+1),err:null,cells:[
+      v.length,fmt(m,4),fmt(sw,4),fmt(sd,4),fmt(cpk),fmt(ppk),
+      (1e6*obs/v.length).toLocaleString('en-US',{maximumFractionDigits:0}),tone.t,tone.c]});
+  });
+  ttl.style.display='flex';
+  el.innerHTML=
+    '<div class="legend" style="text-align:left;margin-bottom:6px">对比口径：共用当前规格限与子组设置，每批独立计算；正式判级请逐批查看明细。</div>'+
+    '<table class="cap-table"><thead><tr><th>批次</th><th class="num">n</th><th class="num">均值 μ</th><th class="num">σ组内</th><th class="num">σ总</th><th class="num">Cpk</th><th class="num">Ppk</th><th class="num">实测PPM</th><th>判定</th></tr></thead><tbody>'+
+    rows.map(r=>r.err
+      ? `<tr><td><b>${r.name}</b></td><td colspan="8" style="color:#cf222e">${r.err}</td></tr>`
+      : `<tr><td><b>${r.name}</b></td>${r.cells.slice(0,7).map(c=>`<td class="num">${c}</td>`).join('')}<td><span style="color:${r.cells[8]};font-weight:700">${r.cells[7]}</span></td></tr>`).join('')+
+    '</tbody></table>';
+}
+document.getElementById('btnBatch').onclick=batchCompare;
+
 /* ============ 术语百科 ============ */
 // 收录本项目（页面 + README）中出现的全部英文简称 / 术语。
 // 每条含：释义 / 公式 / 计算步骤 / 对产品的影响 / 推荐执行的行为。
@@ -2155,6 +2392,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.7.0',date:'2026-08-27',tag:'feat',tagTxt:'新功能',
+   items:['测量分辨率与区分度检测（P0）：估算数据记录分度，ndc = 1.41×σ组内/分度 <5 时黄条警告「分辨率不足会虚高 Cpk」（AIAG MSA 口径）','高 Cpk（≥2.0）合理性复核提示（P0）：一键复核分辨率/样本量/数据失真三点','小样本判级降级警告（P0）：n<20 时提示置信区间宽、判级仅供参考','判级与实测矛盾检测（P1）：Cpk≥1.33 但实测已有超规样品时红条警示，以实测为准','离群点提示（P1）：Tukey IQR 1.5 倍规则检出疑似离群点并提示核实','子组非整数不再静默截断（P1）：输入 3.5 等小数时四舍五入并显式提示','自动子组误判防护（P2）：「SN 序号 + 测量值」两列格式自动剔除序号列，避免序号被当测量值、避免误判为子组 n=2','子组尾差不再静默丢弃（P2）：数据量不能整除子组大小时黄条提示末尾已丢弃数据个数','非正态自动切换（自动化）：R²≤0.95 时自动按 ISO 22514 / Pearson-Clements 分位法估算 Ppk*/Cp* 并提示','表头规格限识别（自动化）：表头含「LSL/USL/下限/上限 + 数字」时自动预填规格限','一键复制 Markdown（自动化）：结果摘要一键复制，方便贴报告/IM','快捷键（自动化）：Ctrl+Enter（Cmd+Enter）立即重新计算','多批对比（自动化）：数据区用空行分隔多批，一键横向对比 n/μ/Cpk/Ppk/PPM/判级'],
+   sub:'2026-08-27 防呆/自动化审查（P0→P3）全部落实：边界场景显式化 + 生产力增强。'},
   {ver:'v2.6.3',date:'2026-08-19',tag:'feat',tagTxt:'新功能',
    items:['子组大小自动推断：粘贴"每行 n 个数值"的子组格式数据时自动按每行个数分组（如每行 5 个数 → 自动填子组 5），提示条可见；手动改过子组后不再自动覆盖','新增西格玛水平：Zst = 3×Cpk（短期）、Zlt = 3×Ppk（长期），展示于过程汇总表、指标明细表、CSV 导出与 PNG 报告','术语百科新增「Zst / Zlt（西格玛水平）」词条'],
    sub:'2026-08-19 现场效率增强：子组格式自动识别 + 西格玛水平换算。'},
