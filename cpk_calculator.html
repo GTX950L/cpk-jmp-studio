@@ -416,7 +416,7 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.8.2</b> · 最近更新 2026-08-27</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.8.3</b> · 最近更新 2026-08-29</p>
       <div id="clogList"></div>
     </div>
   </div>
@@ -432,6 +432,11 @@ function sampleStd(a){const m=mean(a);return Math.sqrt(a.reduce((s,v)=>s+(v-m)**
 // 数组 min/max：用循环而非 Math.min(...arr)，避免大数据展开参数导致栈溢出
 function arrayMin(a){let m=Infinity;for(let i=0;i<a.length;i++)if(a[i]<m)m=a[i];return m;}
 function arrayMax(a){let m=-Infinity;for(let i=0;i<a.length;i++)if(a[i]>m)m=a[i];return m;}
+// 线性插值分位数（R-7 型，与 JMP/Minitab 一致）：h=(n−1)·p，Q=arr[⌊h⌋]+(h−⌊h⌋)·(arr[⌈h⌉]−arr[⌊h⌋])
+function quantile(a,p){
+  const n=a.length, h=(n-1)*p, lo=Math.floor(h), hi=Math.ceil(h);
+  return a[lo]+(h-lo)*(a[hi]-a[lo]);
+}
 
 // 误差函数近似（Abramowitz & Stegun 7.1.26）
 function erf(x){
@@ -763,17 +768,19 @@ function extractSpecFromText(t){
   return {lsl,usl};
 }
 
-// 非正态能力（ISO 22514 / Pearson-Clements 分位数法）：
-// 用数据实际分布的分位数（而非正态假设）计算 Z 基准：
+// 非正态能力（ISO 22514-2 经验分位数法，非参数）：
+// 用数据实际分布（而非正态假设）的实测超限比例换算 Z 基准：
 //   Z.LSL = Φ⁻¹(实测 ≤LSL 比例)，Z.USL = Φ⁻¹(1 − 实测 >USL 比例)
-//   Ppk* = min(Z.LSL, Z.USL)/3，Cp* = (Z.USL − Z.LSL)/6
+//   Ppk* = min(Z.USL, −Z.LSL)/3，Cp* = (Z.USL − Z.LSL)/6
+// 注：Z.LSL 通常为负（数据大多位于 LSL 之上），取负号才是「距下限的等效 σ 距离」。
+// 经验法无超限样本时 Ppk* 存在理论上限（n=100 时约 1.58，随样本量增大而增大），属正常现象。
 function nonnormalCap(sorted,lsl,usl){
   const n=sorted.length;
   const pL = lsl!=null ? sorted.filter(v=>v<=lsl).length/n : 0;
   const pU = usl!=null ? sorted.filter(v=>v>usl).length/n : 0;
   const clip=p=>Math.min(Math.max(p,1e-6),1-1e-6);   // 避免 normInv(0/1) 得 ±∞
   const ZL = normInv(clip(pL)), ZU = normInv(clip(1-pU));
-  return {ppk:Math.min(ZL,ZU)/3, cp:(ZU-ZL)/6, pL, pU};
+  return {ppk:Math.min(ZU,-ZL)/3, cp:(ZU-ZL)/6, pL, pU};
 }
 
 // 渲染诊断提示条（P0 分辨率/高Cpk/小样本、P1 矛盾/离群、P2 尾差丢弃、非正态自动切换等）
@@ -952,7 +959,11 @@ function calc(auto){
   const withinIdx={Cpk:cpk,Cpl:cpl,Cpu:cpu,Cp:cp,Cpm:cpm};
   const overallIdx={Ppk:ppk,Ppl:ppl,Ppu:ppu,Pp:pp,Cpm:cpm};
   const withinCI={},overallCI={};
-  for(const k in withinIdx)withinCI[k]=ciFor(k,withinIdx[k],n);
+  // 组内指数（Cp/Cpk/…）基于组内 σ（子组估计），有效样本量 = 子组数 k，而非总观测数 n；
+  // 子组模式若用 n 会让 CI 偏窄（高估精度），故组内指数改用 effN（个体模式 effN=n）。
+  // 整体指数（Pp/Ppk/…）基于样本标准差（ddof=1），自由度 n−1，维持用总样本量 n。
+  const effN=sub>1?Math.floor(nums.length/sub):nums.length;
+  for(const k in withinIdx)withinCI[k]=ciFor(k,withinIdx[k],effN);
   for(const k in overallIdx)overallCI[k]=ciFor(k,overallIdx[k],n);
 
   // 正态性（Shapiro-Francia 近似 = Q-Q 图 R²）
@@ -968,7 +979,7 @@ function calc(auto){
   const resolution=estResolution(nums);          // 测量分辨率（记录分度）估计
   const ndc=1.41*sw/resolution;                  // 区分度指数 ndc（AIAG MSA 要求 ≥5）
   const resText=fmtRes(resolution);
-  let nnCap=null;                                // 非正态能力（Pearson-Clements）
+  let nnCap=null;                                // 非正态能力（ISO 22514-2 经验分位法）
   const warns=[];
   // P0-① 测量分辨率 / ndc≥5
   if(ndc<5){
@@ -1017,8 +1028,8 @@ function calc(auto){
     warns.push({level:'warn',icon:'⚠️',title:'判级与实测矛盾',
       text:`能力指数判为合格（Cpk=${fmt(cpk)} ≥1.33），但实测已有 ${obs} 个样品超规格（实测 PPM ${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}）。过程当前已在产出不合格品，请以实测为准，排查数据是否混批/分布假设/规格限填写。`});
   }
-  // P1 离群值提示（Tukey IQR 1.5 倍规则）
-  const q1=sorted[Math.floor(n*0.25)], q3=sorted[Math.floor(n*0.75)], iqr=q3-q1;
+  // P1 离群值提示（Tukey IQR 1.5 倍规则，分位数用线性插值）
+  const q1=quantile(sorted,0.25), q3=quantile(sorted,0.75), iqr=q3-q1;
   const loF=q1-1.5*iqr, hiF=q3+1.5*iqr;
   const outliers=nums.filter(v=>v<loF||v>hiF);
   if(outliers.length){
@@ -1047,11 +1058,11 @@ function calc(auto){
     warns.push({level:'info',icon:'📋',title:'已从表头识别规格限',
       text:`表头检测到规格限并自动预填：LSL=${fmt(lsl,4)} / USL=${fmt(usl,4)}。请与图纸/客户要求核对，如需修改可直接在左侧输入框更改。`});
   }
-  // 自动化：非正态自动切换 ISO22514 / Pearson-Clements
+  // 自动化：非正态自动切换 ISO 22514-2 经验分位法
   if(!normOk){
     nnCap=nonnormalCap(sorted,lsl,usl);
-    warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514 估算能力',
-      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（Pearson-Clements 分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
+    warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514-2 经验法估算能力',
+      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无超限样本，经验法 Ppk* 存在理论上限（n=${n} 时约 1.58），数值偏低属正常，不代表能力真的只有这么多。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
   }
   // P1 复查② 已填规格限但未勾选启用（防忘勾选导致单侧误判）
   const lslBox=document.getElementById('lsl').value.trim();
@@ -1125,11 +1136,12 @@ function calc(auto){
     ['测量分辨率(估)',resText,'数据记录的最小分度，用于区分度 ndc'],
     ['区分度 ndc',fmt(ndc,2),'1.41·σ组内/分辨率；<5 提示量具分辨率不足（AIAG MSA）']];
   if(nnCap) rows.push(
-    ['Ppk*（非正态）',fmt(nnCap.ppk),'ISO22514 / Pearson-Clements 分位法：基于数据实际分布'],
-    ['Cp*（非正态）',fmt(nnCap.cp),'非正态潜在能力（分位法）']);
+    ['Ppk*（非正态）',fmt(nnCap.ppk),'ISO 22514-2 经验分位法：基于数据实际分布（无超限样本时存在理论上限）'],
+    ['Cp*（非正态）',fmt(nnCap.cp),'非正态潜在能力（经验分位法）']);
   // 追加各指数的 95% 置信区间（区间内用中文顿号分隔，避免导出 CSV 时被英文逗号拆列）
   const ciRow=(k,v,ci,suffix)=>{const vOk=isFinite(v);
-    return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}，${fmt(ci[1])}]`:'—','近似置信区间（样本量 n='+n+'）'];};
+    return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}，${fmt(ci[1])}]`:'—',
+      (suffix==='(组内)'&&sub>1?'近似置信区间（子组数 k='+effN+'，组内 σ 由子组估计）':'近似置信区间（样本量 n='+n+'）')];};
   for(const k in withinIdx)rows.push(ciRow(k,withinIdx[k],withinCI[k],'(组内)'));
   for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(总)'));
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:#64748b">${d}</td></tr>`).join('');
@@ -1260,7 +1272,7 @@ function drawHist(x,lsl,usl,target,m,sd,sw,axisLabel){
   // bin 数：Freedman-Diaconis 自适应（柱更细、贴合数据分布），限制在 8~40；
   // bin 宽基于「数据范围」而非扩展后的绘图范围——规格线在远处时柱子不会跟着被拉粗
   const sx=x.slice().sort((a,b)=>a-b);
-  const iqr=sx[Math.floor(sx.length*0.75)]-sx[Math.floor(sx.length*0.25)];
+  const iqr=quantile(sx,0.75)-quantile(sx,0.25);
   let k=iqr>0?Math.ceil(dspan/(2*iqr/Math.cbrt(sx.length))):Math.ceil(Math.sqrt(sx.length));
   k=Math.min(40,Math.max(8,k));
   const binW=dspan/k;
@@ -1351,8 +1363,8 @@ function drawBox(x,lsl,usl,target,m,axisLabel){
   ctx.beginPath();ctx.moveTo(x2px(lo),yMid);ctx.lineTo(x2px(hi),yMid);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x2px(lo),yMid-half*0.5);ctx.lineTo(x2px(lo),yMid+half*0.5);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x2px(hi),yMid-half*0.5);ctx.lineTo(x2px(hi),yMid+half*0.5);ctx.stroke();
-  // 箱（Q1~Q3，渐变填充）
-  const q1=xs[Math.floor(xs.length*0.25)],q3=xs[Math.floor(xs.length*0.75)],q2=xs[Math.floor(xs.length*0.5)];
+  // 箱（Q1~Q3，线性插值分位，渐变填充）
+  const q1=quantile(xs,0.25),q3=quantile(xs,0.75),q2=quantile(xs,0.5);
   const bx0=x2px(q1),bx1=x2px(q3);
   const bg=ctx.createLinearGradient(0,yMid-half,0,yMid+half);
   bg.addColorStop(0,'rgba(61,131,201,.34)');
@@ -2093,6 +2105,7 @@ function batchCompare(){
     const info=parseNums(ch.text), v=info.vals;
     if(v.length<2){rows.push({name:ch.name,err:'数据不足 2 个'});return;}
     const m=mean(v), sd=sampleStd(v), sw=withinSigma(v,sub);
+    if(!isFinite(sw)||sw<=0){rows.push({name:ch.name,err:sub>1?'数据量不足一个完整子组（n='+sub+'），无法计算组内 σ，请调小子组或改为 0（个体）':'数据无波动，无法计算组内 σ'});return;}
     const cpu=usl!=null?(usl-m)/(3*sw):Infinity;
     const cpl=lsl!=null?(m-lsl)/(3*sw):Infinity;
     const cpk=Math.min(cpu,cpl);
@@ -2469,13 +2482,13 @@ const GLOSS=[
    impact:'ndc<5 说明量具/记录精度太粗，相邻产品测出来几乎一样，过程波动被掩盖、Cpk 被系统性高估，判级结论不可信。',
    action:'ndc<5 时先换更高分辨率的量具或提高记录小数位，再重新测量判级；不要用四舍五入过的数据下正式结论。',
    tip:'数据全是 0.01/0.001 的"台阶值"且波动小 → 大概率 ndc<5；工具结果区黄条会直接告诉你。'},
-  {cat:'算法与软件',abbr:'ISO 22514 / Pearson-Clements',name:'Nonnormal Capability（Percentile Method）',cn:'非正态能力（分位数法）',
-   def:'数据非正态（本工具 R²≤0.95）时，正态法 Cpk/Ppk 会失真。ISO 22514 / Pearson-Clements 用<b>数据实际分布的分位数</b>计算 Z 基准：Z.LSL = Φ⁻¹(实测≤LSL 比例)、Z.USL = Φ⁻¹(1−实测>USL 比例)，Ppk* = min(Z)/3。',
-   formula:'Ppk* = min( Φ⁻¹(p_LSL), Φ⁻¹(1−p_USL) ) / 3；Cp* = (Z.USL − Z.LSL) / 6',
-   steps:['数据排序，统计 ≤LSL 与 >USL 的实测比例','换算成标准正态分位 Z','取较小 Z 除以 3 得 Ppk*'],
+  {cat:'算法与软件',abbr:'ISO 22514-2 经验分位法（Pearson-Clements）',name:'Nonnormal Capability（Empirical Percentile Method）',cn:'非正态能力（经验分位数法）',
+   def:'数据非正态（本工具 R²≤0.95）时，正态法 Cpk/Ppk 会失真。ISO 22514-2 经验分位数法（非参数，直接用数据实际分布）计算 Z 基准：Z.LSL = Φ⁻¹(实测≤LSL 比例)、Z.USL = Φ⁻¹(1−实测>USL 比例)，Ppk* = min(Z.USL, −Z.LSL)/3。',
+   formula:'Ppk* = min( Φ⁻¹(1−p_USL), −Φ⁻¹(p_LSL) ) / 3；Cp* = (Z.USL − Z.LSL) / 6',
+   steps:['数据排序，统计 ≤LSL 与 >USL 的实测比例 p_LSL / p_USL','换算成标准正态分位 Z（Z.LSL 通常为负，取负号后为正距离）','取 min(Z.USL, −Z.LSL) 除以 3 得 Ppk*'],
    impact:'对偏态/厚尾分布（如寿命、强度数据）比正态法更贴近真实不合格率；正态法在非正态下会低估或高估超规率。',
-   action:'页面 R²≤0.95 时会自动给出 Ppk*/Cp*，正式场合可再做 Box-Cox 变换或核对是否混批；对外报告注明用的是分位数法。',
-   tip:'非正态 ≠ 不能用能力分析：看 R²≤0.95 时自动出现的「Ppk*（非正态）」即可，别再拿正态法结果硬判。'},
+   action:'页面 R²≤0.95 时会自动给出 Ppk*/Cp*，正式场合可再做 Box-Cox 变换或核对是否混批；对外报告注明用的是经验分位数法。',
+   tip:'经验法直接用实测超限比例换算：样本完全无超限时 Ppk* 有理论上限（n=100 时约 1.58），偏低属正常，勿与正态法 Ppk 直接对比。'},
   {cat:'图与交互',abbr:'多批对比',name:'Batch Comparison',cn:'多批对比（批间横向比较）',
    def:'把多批（多天/多机台/多供应商）数据横向对比 Cpk/Ppk/PPM 的功能：数据区用<b>空行</b>分隔不同批次，或用<b>批次标签列</b>（如 批次A,10.01）逐行粘贴，一键生成对比表。',
    formula:'每批独立计算 n / μ / σ组内 / σ总 / Cpk / Ppk / 实测PPM，共用当前规格限与子组设置',
@@ -2554,6 +2567,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.8.3',date:'2026-08-29',tag:'fix',tagTxt:'修复与优化',
+   items:['核心计算修复（P0）：非正态能力指数 Ppk* 符号错误——Z.LSL 需取负号（min(Z.USL, −Z.LSL)/3）。此前无超限样本时输出约 −1.58（应为 +1.58），2% 超限时输出 −1.58（应为 +0.69），直接误导判定。已 Node 实测验证','置信区间自由度修正（P1）：子组模式下组内指数（Cp/Cpk/Cpl/Cpu）的 95%CI 改用子组数 k 而非总观测数 n（10 组×5 个时原 CI 偏窄约 2.2 倍，高估精度）；整体指数（Pp/Ppk/…）维持 n','方法命名修正（P2）：非正态能力统一改为「ISO 22514-2 经验分位数法」（原误称 Pearson-Clements，实现实为经验分位法）；提示文案 / 明细表 / 术语百科 / README 同步','Ppk* 理论上限说明（P2）：样本完全无超限时经验法 Ppk* 有上限（n=100 时约 1.58），提示文案与术语百科补充说明，避免与正态法 Ppk 误对比','多批对比防呆（P2）：某批数据量不足一个完整子组时显示明确错误行，不再输出 NaN','分位数改线性插值（P3）：箱线图 Q1/Q3/中位数、离群点检测、直方图 FD 分箱统一用 R-7 线性插值分位（与 JMP/Minitab 一致，原为 floor 截断近似）','README 对齐（P3）：方法说明表补「西格玛水平 Zst=3×Cpk / Zlt=3×Ppk」两行，与页面输出一致'],
+   sub:'2026-08-29 全量代码审查（P0→P3）修复：核心数值逻辑经 Node 实测验证。'},
   {ver:'v2.8.2',date:'2026-08-27',tag:'fix',tagTxt:'修复与优化',
    items:['科学表述纠错：Zst（=3×Cpk）释义「无中心偏移/无漂移」改为「已含中心偏移」（明细表 + 术语百科词条同步）','数字一致性：README 术语百科 53→57 条；术语百科「CSV/PNG」词条「三张图」→「五张图」（直方图/箱线图/正态概率图/控制图主、辅助图）','README 清理：删除控制限 vs 规格限「几何四场景」旧口径残留（与结果区 ⑧「受控性×Cpk≥1.33」口径统一）；去 🆕/新增/v2.7.0+ 过时措辞','品牌统一：页面标题与 h1 统一为「Cpk-JMP Studio」','交互补全：Cpm 指标卡星号 * 加图例说明；辅助图越界点补具体点号；表头规格限识别后回填输入框','措辞与颜色：初始提示「在左侧」→「在上方」（窄屏适配）；直方图组内拟合曲线改绿色 #1a7f37（与目标线紫系区分）；箱线图图例须线符号改实线；失控信号措辞「第 X~Y 点（连续 9 点）位于中心线同侧」；示例注释 6→7 组'],
    sub:'2026-08-27 全量文字与科学性审查（P0→P3）修复收尾：核心计算无改动，全部为表述 / 数字 / 一致性修正。'},
