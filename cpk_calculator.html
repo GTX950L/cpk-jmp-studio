@@ -250,6 +250,15 @@
   .clog-ver-body li{font-size:13px;line-height:1.6;color:#1f2937}
   .clog-ver-body li::marker{color:#2f6db5}
   .clog-ver-body .sub{font-size:12px;color:#64748b;margin-top:5px;line-height:1.5}
+  /* ---- 打印样式：打印/存 PDF 时隐藏交互元素，仅保留结果 ---- */
+  @media print{
+    .head-row>div:last-child,button,.chk,textarea,details,#dropHint,#glossOverlay,#clogOverlay{display:none!important}
+    body{background:#fff}
+    header{box-shadow:none}
+    .panel,.report-block{box-shadow:none}
+    canvas{box-shadow:none;page-break-inside:avoid}
+    .chart-title,.legend{page-break-inside:avoid}
+  }
 </style>
 </head>
 <body>
@@ -416,13 +425,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.8.3</b> · 最近更新 2026-08-29</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.9.0</b> · 最近更新 2026-08-31</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐</footer>
+<footer>离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <script>
 /* ============ 统计辅助函数 ============ */
@@ -573,13 +582,64 @@ function checkControl(pts,cl,ucl,lcl){
 // 正态分布双侧 95% 分位数 z_{0.975}（用于置信区间）
 const Z975=normInv(0.975);
 
-// 卡方分布 p 分位点（Wilson–Hilferty 近似），用于 Cp/Pp 的置信区间
-// 公式：χ²_p(df) ≈ df·(1 − 2/(9df) + z_p·√(2/(9df)))³
+// ---- 卡方分布 p 分位点（精确实现，用于 Cp/Pp 的置信区间）----
+// Wilson–Hilferty 近似在低自由度下尾有约 4% 偏差（如 df=5、p=0.025 时），
+// 会低估 Cp 置信区间下界、高估精度，故改为「正则化不完全伽马函数 + Newton 迭代」精确求解。
+// 实现：F(x)=P(df/2, x/2) − p = 0，P 为下尾正则化不完全伽马；dF/dx = f(x)/2（卡方密度）。
+
+// ln Γ(z)（Lanczos 近似，g=7，精度 ~1e-14）
+function lgamma(z){
+  if(z<0.5) return Math.log(Math.PI/Math.sin(Math.PI*z))-lgamma(1-z);
+  const c=[0.99999999999980993,676.5203681218851,-1259.1392167224028,771.32342877765313,
+           -176.61502916214059,12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,
+           1.5056327351493116e-7];
+  let x=c[0];
+  for(let i=1;i<9;i++) x+=c[i]/(z-1+i);   // c1/(z) + c2/(z+1) + … + c8/(z+7)
+  const t=z+6.5;
+  return 0.5*Math.log(2*Math.PI)+(z-0.5)*Math.log(t)-t+Math.log(x);
+}
+// 下尾正则化不完全伽马 P(a,x)=γ(a,x)/Γ(a)，a>0, x≥0（级数 + 连分数，数值稳定）
+function regGammaP(a,x){
+  if(x<=0) return 0;
+  if(x<a+1){
+    // 级数展开：γ(a,x)=x^a·e^-x·Σ x^n/(a(a+1)…(a+n))
+    let sum=1/a, term=1/a;
+    for(let n=1;n<400;n++){
+      term*=x/(a+n); sum+=term;
+      if(term<sum*1e-16) break;
+    }
+    return sum*Math.exp(-x+a*Math.log(x)-lgamma(a));
+  }
+  // 连分数（Lentz 算法，c 初值取 1/FPMIN=1e300，勿取 1e-300 否则 an/c 爆炸）
+  let b=x+1-a, c=1e300, d=1/b, h=d;
+  for(let i=1;i<500;i++){
+    const an=-i*(i-a);
+    b+=2;
+    d=an*d+b; if(Math.abs(d)<1e-300)d=1e-300;
+    c=b+an/c; if(Math.abs(c)<1e-300)c=1e-300;
+    d=1/d; const del=d*c; h*=del;
+    if(Math.abs(del-1)<1e-15) break;
+  }
+  return 1-Math.exp(-x+a*Math.log(x)-lgamma(a))*h;
+}
+// 卡方逆 CDF：Wilson–Hilferty 作初值，Newton 迭代精化（相对误差 <1e-10）
 function chi2Inv(p,df){
   if(!(df>0))return NaN;
+  if(p<=0)return 0; if(p>=1)return Infinity;
   const z=normInv(p);
   const v=1-2/(9*df)+z*Math.sqrt(2/(9*df));
-  return df*v*v*v;
+  let x=df*v*v*v;
+  if(!(x>0)) x=0.01;                     // 极下尾保护
+  const a=df/2;
+  for(let i=0;i<40;i++){
+    const F=regGammaP(a,x/2)-p;
+    const dens=Math.exp((a-1)*Math.log(x/2)-x/2-lgamma(a));  // 卡方密度 f(x)
+    const dx=F/(dens/2);                 // dF/dx=f(x)/2
+    x-=dx;
+    if(!(x>0)) x=1e-9;
+    if(Math.abs(dx)<x*1e-11) break;
+  }
+  return x;
 }
 
 // Cp/Pp 类指数的 95% 置信区间：CI = C·√(χ²_{p}(n−1)/(n−1))
@@ -703,12 +763,16 @@ function parseNums(raw){
   const dataCounts=[];   // 被纳入数据的行各自含几个数字
   const mismatch=[];     // 数字个数与众数不一致的数据行号（1 基）
   // 首行表头增强判定：若首行存在"以文字开头的 token"（如 No.、直径、编号），
-  // 即使数字个数与众数相同（如单列数据 "No. 1 直径"）也视为表头跳过
+  // 即使数字个数与众数相同（如单列数据 "No. 1 直径"）也视为表头跳过。
+  // 例外一：已剔除前导 SN 序号列（strippedLead）——此时首行余下部分全是数字，不应再按文字判表头；
+  // 例外二：所有行都以文字开头（allTextLead）——这是"行标签 + 数值"数据（如 批次A 10.01），
+  //         首行标签与其余行同性质，按表头跳过会丢掉第一个数据点。
   const textLead=t=>{if(!t)return false;const c=t[0];return !(c>='0'&&c<='9')&&c!=='.'&&c!=='-'&&c!=='+';};
+  const allTextLead=lines.every(l=>l.split(/[\s,;，、]+/).some(textLead));
   counts.forEach((c,i)=>{
     if(c===0){ if(i===0){ header++; headerText=extractHeaderText(lines[i]); } else skipped++; return; }
     if(i===0 && c!==mode && c<mode && mode>0){ header++; headerText=extractHeaderText(lines[i]); return; }
-    if(i===0 && c===mode && lines[i].split(/[\s,;，、]+/).some(textLead)){ header++; headerText=extractHeaderText(lines[i]); return; }
+    if(i===0 && c===mode && !strippedLead && !allTextLead && lines[i].split(/[\s,;，、]+/).some(textLead)){ header++; headerText=extractHeaderText(lines[i]); return; }
     vals.push(...rows[i]);
     dataCounts.push(c);
     if(c!==mode) mismatch.push(i+1);   // 列错位/缺列检测
@@ -1692,7 +1756,8 @@ function shareLink(){
   if(document.getElementById('sub').value.trim()!=='')p.set('sub',document.getElementById('sub').value.trim());
   p.set('useLsl',document.getElementById('useLsl').checked?'1':'0');
   p.set('useUsl',document.getElementById('useUsl').checked?'1':'0');
-  const url=location.origin+location.pathname+'#'+p.toString();
+  // file:// 下 location.origin 为 "null" 会生成无效链接，故用当前 URL 去 hash 后拼接
+  const url=location.href.split('#')[0]+'#'+p.toString();
   if(navigator.clipboard&&navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(()=>setMsg('ok','✅ 分享链接已复制：打开链接即自动填入数据并计算。'),()=>fallbackCopy(url));
   }else fallbackCopy(url);
@@ -2567,6 +2632,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.9.0',date:'2026-08-31',tag:'fix',tagTxt:'修复与优化',
+   items:['置信区间精确化（P1）：卡方分位点由 Wilson–Hilferty 近似升级为「正则化不完全伽马函数 + Newton 迭代」精确求解，消除低自由度下尾约 4% 的偏差（df=5、p=0.025 时 0.798→0.831），小样本 Cp/Pp 的 95%CI 更可靠','数据解析修复（P2）：① SN 序号列剔除后首行不再被误判为表头（修复「SN 001 + 测量值」格式丢失首行数据）；② 所有行均带文字标签的数据（如 批次A 10.01）首行不再被当表头丢弃','分享链接兼容（P3）：file:// 本地打开时改用「当前 URL 去 hash」拼接（原 location.origin 为 null 会生成无效链接）','新增 GitHub Pages 入口页 index.html：仓库根 URL（gtx950l.github.io/cpk-jmp-studio/）不再 404，自动跳转到计算工具','视觉与体验：页脚增加 GitHub 仓库链接；新增打印样式（打印 / 存 PDF 时隐藏输入区、按钮与弹窗，仅保留结果）'],
+   sub:'2026-08-31 全面检查与美化：核心计算经 Node 数值验证（56 项断言全部通过），修复 CI 精度与数据解析边界问题。'},
   {ver:'v2.8.3',date:'2026-08-29',tag:'fix',tagTxt:'修复与优化',
    items:['核心计算修复（P0）：非正态能力指数 Ppk* 符号错误——Z.LSL 需取负号（min(Z.USL, −Z.LSL)/3）。此前无超限样本时输出约 −1.58（应为 +1.58），2% 超限时输出 −1.58（应为 +0.69），直接误导判定。已 Node 实测验证','置信区间自由度修正（P1）：子组模式下组内指数（Cp/Cpk/Cpl/Cpu）的 95%CI 改用子组数 k 而非总观测数 n（10 组×5 个时原 CI 偏窄约 2.2 倍，高估精度）；整体指数（Pp/Ppk/…）维持 n','方法命名修正（P2）：非正态能力统一改为「ISO 22514-2 经验分位数法」（原误称 Pearson-Clements，实现实为经验分位法）；提示文案 / 明细表 / 术语百科 / README 同步','Ppk* 理论上限说明（P2）：样本完全无超限时经验法 Ppk* 有上限（n=100 时约 1.58），提示文案与术语百科补充说明，避免与正态法 Ppk 误对比','多批对比防呆（P2）：某批数据量不足一个完整子组时显示明确错误行，不再输出 NaN','分位数改线性插值（P3）：箱线图 Q1/Q3/中位数、离群点检测、直方图 FD 分箱统一用 R-7 线性插值分位（与 JMP/Minitab 一致，原为 floor 截断近似）','README 对齐（P3）：方法说明表补「西格玛水平 Zst=3×Cpk / Zlt=3×Ppk」两行，与页面输出一致'],
    sub:'2026-08-29 全量代码审查（P0→P3）修复：核心数值逻辑经 Node 实测验证。'},

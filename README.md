@@ -1,6 +1,6 @@
 # Cpk-JMP Studio
 
-> 🟢 **直接使用**：在线打开 👉 **[cpk_calculator.html（点击运行）](https://gtx950l.github.io/cpk-jmp-studio/cpk_calculator.html)**，或[下载本地文件](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)双击用浏览器打开 —— **无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
+> 🟢 **直接使用**：在线打开 👉 **[cpk_calculator.html（点击运行）](https://gtx950l.github.io/cpk-jmp-studio/cpk_calculator.html)**（仓库主页 [gtx950l.github.io/cpk-jmp-studio](https://gtx950l.github.io/cpk-jmp-studio/) 会自动跳转到工具），或[下载本地文件](https://github.com/GTX950L/cpk-jmp-studio/blob/main/cpk_calculator.html)双击用浏览器打开 —— **无需安装、无需联网、数据不出本机**，粘贴数据就能算 Cpk 并出图。
 >
 > 🔗 项目仓库：[github.com/GTX950L/cpk-jmp-studio](https://github.com/GTX950L/cpk-jmp-studio)
 
@@ -48,7 +48,7 @@
   - 每条包含：**详细释义 → 公式 → 计算过程 → 对产品的影响 → 推荐执行的行为**
   - 支持关键词搜索与分类筛选，方便生产 / 质量 / 工程同事快速对齐概念
 - **📋 更新记录（内置）**
-  - header「更新记录」按钮，点开即看版本历史（v1.0.0 首发 → v2.8.3 最新，共 16 个版本）
+  - header「更新记录」按钮，点开即看版本历史（v1.0.0 首发 → v2.9.0 最新，共 17 个版本）
   - 每条含版本号 / 日期 / 类型标签（首发 / 里程碑 / 新功能 / 视觉升级 / 优化）/ 变更明细 / 版本说明
   - 按开发全程 git 提交历史与工作记录整理，随时回溯每个版本改了什么
 - **🛡️ 防呆与自动化（自 v2.7.0 起逐步加入）**
@@ -76,6 +76,7 @@
 
 ```
 cpk-jmp-studio/
+├── index.html               # GitHub Pages 入口页（根 URL 访问时自动跳转到工具）
 ├── cpk_calculator.html      # 唯一入口：离线单文件工具（计算 + 绘图全在内部）
 ├── examples/
 │   └── sample_data.csv      # 示例数据：轴径测量（6 批次 × 20 个）
