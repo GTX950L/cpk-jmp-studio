@@ -162,6 +162,17 @@
   .head-btn:hover{background:rgba(255,255,255,.28);transform:translateY(-1px);
             box-shadow:0 4px 14px rgba(0,0,0,.26)}
   .head-btn:active{transform:translateY(0)}
+  /* 版本徽标 + 工具下拉 (fixed 定位, 避开 header overflow:hidden 裁切) */
+  .ver{margin-left:9px;background:#ffd97a;color:#16273d;font-size:11.5px;font-weight:800;padding:2px 9px;
+       border-radius:20px;vertical-align:3px;letter-spacing:0}
+  .drop{position:relative}
+  .drop-menu{position:fixed;min-width:248px;background:#fff;border:1px solid #e2e8f0;
+       border-radius:12px;box-shadow:0 10px 32px rgba(16,32,64,.16);padding:6px;display:none;z-index:1000}
+  .drop.open .drop-menu{display:block;animation:fadeIn .12s ease}
+  .drop-menu a{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
+       color:#24344d;text-decoration:none;transition:background .12s}
+  .drop-menu a:hover{background:#f0f6fd}
+  .drop-menu a .d{font-size:11px;color:#64748b;font-weight:400;margin-left:auto;white-space:nowrap}
   #glossOverlay,#clogOverlay{position:fixed;inset:0;background:rgba(16,32,64,.52);z-index:1000;
                 display:none;align-items:flex-start;justify-content:center;padding:28px 16px;
                 overflow-y:auto;backdrop-filter:blur(4px)}
@@ -265,13 +276,21 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器</h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.9.1</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
       <button id="btnGloss" class="head-btn">📖 术语百科</button>
       <button id="btnChangelog" class="head-btn">📋 更新记录</button>
-      <a class="head-btn" href="https://gtx950l.github.io/equipment-failure-commonality/" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;text-align:center">🔗 设备共性分析</a>
+      <div class="drop" id="toolsDrop">
+        <button class="head-btn" id="toolsBtn" type="button" title="跳转到同作者的其他工具">🔗 工具 ▾</button>
+        <div class="drop-menu" id="toolsMenu">
+          <a href="https://gtx950l.github.io/shift-scheduler/" target="_blank" rel="noopener" title="技术员排班助手：两班倒月度排班">🗓️ shift-scheduler<span class="d">排班助手</span></a>
+          <a href="https://gtx950l.github.io/equipment-failure-commonality/" target="_blank" rel="noopener" title="制造业设备问题共性分析：桑基图">📊 equipment-failure-commonality<span class="d">故障共性</span></a>
+          <a href="https://gtx950l.github.io/wps-img-fixer/wps_img_fixer.html" target="_blank" rel="noopener" title="WPS 单元格内嵌图片修复">🖼️ wps-img-fixer<span class="d">图片修复</span></a>
+          <a href="https://github.com/GTX950L?tab=repositories" target="_blank" rel="noopener" title="全部开源项目列表">🏠 GitHub 主页<span class="d">全部项目</span></a>
+        </div>
+      </div>
     </div>
   </div>
 </header>
@@ -425,7 +444,7 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.9.0</b> · 最近更新 2026-08-31</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.9.1</b> · 最近更新 2026-09-01</p>
       <div id="clogList"></div>
     </div>
   </div>
@@ -2632,6 +2651,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.9.1',date:'2026-09-01',tag:'fix',tagTxt:'一致性修复',
+   items:['跨项目导航升级：header「🔗 设备共性分析」单按钮 →「🔗 工具 ▾」下拉（shift-scheduler 排班助手 / wps-img-fixer 图片修复 / GitHub 主页），四个项目全链闭环互跳','新增金色版本徽标 v2.9.1（h1 旁，对齐 shift/wps 风格）','下拉菜单 fixed 定位，避开 header overflow:hidden 裁切（此前单按钮直链不受影响）'],
+   sub:'2026-09-01 四项目风格统一与联动检查修复：cpk / equipment / shift-scheduler / wps-img-fixer 导航与徽标统一。'},
   {ver:'v2.9.0',date:'2026-08-31',tag:'fix',tagTxt:'修复与优化',
    items:['置信区间精确化（P1）：卡方分位点由 Wilson–Hilferty 近似升级为「正则化不完全伽马函数 + Newton 迭代」精确求解，消除低自由度下尾约 4% 的偏差（df=5、p=0.025 时 0.798→0.831），小样本 Cp/Pp 的 95%CI 更可靠','数据解析修复（P2）：① SN 序号列剔除后首行不再被误判为表头（修复「SN 001 + 测量值」格式丢失首行数据）；② 所有行均带文字标签的数据（如 批次A 10.01）首行不再被当表头丢弃','分享链接兼容（P3）：file:// 本地打开时改用「当前 URL 去 hash」拼接（原 location.origin 为 null 会生成无效链接）','新增 GitHub Pages 入口页 index.html：仓库根 URL（gtx950l.github.io/cpk-jmp-studio/）不再 404，自动跳转到计算工具','视觉与体验：页脚增加 GitHub 仓库链接；新增打印样式（打印 / 存 PDF 时隐藏输入区、按钮与弹窗，仅保留结果）'],
    sub:'2026-08-31 全面检查与美化：核心计算经 Node 数值验证（56 项断言全部通过），修复 CI 精度与数据解析边界问题。'},
@@ -2704,6 +2726,20 @@ document.getElementById('btnChangelog').onclick=openChangelog;
 document.getElementById('clogClose').onclick=closeChangelog;
 document.getElementById('clogOverlay').addEventListener('click',e=>{if(e.target.id==='clogOverlay')closeChangelog();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeGloss();closeChangelog();}});
+/* 🔗 工具下拉：跨项目导航 (fixed 定位, 避开 header overflow:hidden 裁切) */
+document.getElementById('toolsBtn').addEventListener('click',e=>{
+  e.stopPropagation();
+  const drop=document.getElementById('toolsDrop'), menu=document.getElementById('toolsMenu');
+  const willOpen=!drop.classList.contains('open');
+  drop.classList.toggle('open');
+  if(willOpen){
+    const r=document.getElementById('toolsBtn').getBoundingClientRect();
+    menu.style.top=(r.bottom+9)+'px';
+    menu.style.right=(window.innerWidth-r.right)+'px';
+  }
+});
+document.addEventListener('click',()=>document.getElementById('toolsDrop').classList.remove('open'));
+window.addEventListener('resize',()=>document.getElementById('toolsDrop').classList.remove('open'));
 </script>
 </body>
 </html>
