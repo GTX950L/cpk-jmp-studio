@@ -193,9 +193,12 @@
   .ver{margin-left:9px;background:#ffd97a;color:#16273d;font-size:11.5px;font-weight:800;padding:2px 9px;
        border-radius:20px;vertical-align:3px;letter-spacing:0}
   .drop{position:relative}
+  /* 展开时提升 .drop 层级，避免被 header>* z-index:1 的层叠上下文限制、被内容区高 z-index 元素盖住 */
+  .drop.open{position:relative;z-index:80}
   .drop-menu{position:fixed;min-width:248px;background:var(--dd-bg);border:1px solid var(--border);
        border-radius:12px;box-shadow:var(--shadow-lg);padding:6px;display:none;z-index:1000}
   .drop.open .drop-menu{display:block;animation:fadeIn .12s ease}
+  .drop-menu.is-open{display:block;animation:fadeIn .12s ease}
   .drop-menu a{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;font-size:13px;font-weight:600;
        color:var(--dd-fg);text-decoration:none;transition:background .12s}
   .drop-menu a:hover{background:var(--dd-hover);color:var(--dd-hov-fg)}
@@ -334,7 +337,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.10.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.10.1</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -503,13 +506,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.10.0</b> · 最近更新 2026-09-01</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.10.1</b> · 最近更新 2026-09-01</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.10.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.10.1 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -2729,6 +2732,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.10.1',date:'2026-09-01',tag:'fix',tagTxt:'联动修复',
+   items:['修复「🔗 工具 ▾」下拉菜单被下方高 z-index 元素遮挡：fixed 定位虽避开 header overflow:hidden 裁切，但仍受 header>*{z-index:1} 形成的祖先层叠上下文限制(整体 z:1)。改为打开时把 #toolsMenu 移至 document.body 顶层跳出祖先 SC，z-index:1000 直接生效；同步补视口边界保护(菜单高度超出底部时向上弹出，避免滚动/窄屏截断)','下拉打开时同步加 .drop-menu.is-open 类(不依赖祖先 .drop，移至 body 后仍能正常触发显示)','四个联动项目统一修复（shift-scheduler / equipment-failure-commonality / wps-img-fixer 同步应用同一方案），消除未来回归隐患'],
+   sub:'2026-09-01 四项目联动修复：fixed 定位未解决 ancestor stacking context 限制，统一改为打开时移 menu 至 body 顶层 + 独立 .is-open 触发类。'},
   {ver:'v2.10.0',date:'2026-09-01',tag:'feat',tagTxt:'风格升级',
    items:['深色模式（P2-1）：header 新增「🌙 深色」切换按钮，支持手动切换 / 记忆偏好 / 跟随系统；全站配色收敛为 CSS 设计令牌（:root 变量），canvas 自绘五图（直方图/箱线图/概率图/控制图主辅图）自动随主题换色，无需重开页面','图表交互增强（P2-3）：直方图 / 控制图主图 / 控制图辅助图新增 hover 读值 tooltip（显示区间、频数、点位数值与控制限）；切换数据/主题时图表 150ms 渐变淡入重绘','响应式与可访问性（P2-2/P3-1）：新增 900px 断点（面板堆叠、header 按钮换行、输入区单列）；:focus-visible 键盘焦点环扩展到输入框/下拉/链接','统一 Toast 提示（P2-4）：新增底部浮层 toast() 组件，导出 / 复制等操作即时反馈','配色细节：能力判定色、控制限色、受控/失控横幅改为语义变量（深色模式自动变亮），导出报告大图跟随当前主题'],
    sub:'2026-09-01 四项目风格升级（深色模式 + 图表交互 + 响应式），与 shift-scheduler / equipment-failure-commonality / wps-img-fixer 保持同一设计语言。'},
@@ -2807,20 +2813,28 @@ document.getElementById('btnChangelog').onclick=openChangelog;
 document.getElementById('clogClose').onclick=closeChangelog;
 document.getElementById('clogOverlay').addEventListener('click',e=>{if(e.target.id==='clogOverlay')closeChangelog();});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeGloss();closeChangelog();}});
-/* 🔗 工具下拉：跨项目导航 (fixed 定位, 避开 header overflow:hidden 裁切) */
+/* 🔗 工具下拉：跨项目导航 (打开时将 menu 移到 body 跳出 header stacking context 限制) */
 document.getElementById('toolsBtn').addEventListener('click',e=>{
   e.stopPropagation();
   const drop=document.getElementById('toolsDrop'), menu=document.getElementById('toolsMenu');
   const willOpen=!drop.classList.contains('open');
   drop.classList.toggle('open');
   if(willOpen){
+    /* 移到 body 顶层，避开 .head-row(被 header>*{z-index:1} 限制)导致的菜单被下方 sticky 条遮挡 */
+    if(menu.parentElement!==document.body) document.body.appendChild(menu);
+    menu.classList.add('is-open');
     const r=document.getElementById('toolsBtn').getBoundingClientRect();
-    menu.style.top=(r.bottom+9)+'px';
+    const mh=menu.offsetHeight; // 菜单已显示，可测量高度
+    let top=r.bottom+9;
+    // 视口底部空间不足时向上弹出，避免菜单被截断/超出屏幕
+    if(top+mh>window.innerHeight-8) top=Math.max(8, r.top-mh-9);
+    menu.style.top=top+'px';
     menu.style.right=(window.innerWidth-r.right)+'px';
   }
 });
-document.addEventListener('click',()=>document.getElementById('toolsDrop').classList.remove('open'));
-window.addEventListener('resize',()=>document.getElementById('toolsDrop').classList.remove('open'));
+function closeToolsMenu(){document.getElementById('toolsDrop').classList.remove('open');document.getElementById('toolsMenu').classList.remove('is-open');}
+document.addEventListener('click',closeToolsMenu);
+window.addEventListener('resize',closeToolsMenu);
 
 /* ============ Toast 轻提示（P2-4） ============ */
 let _toastTimer=null;
