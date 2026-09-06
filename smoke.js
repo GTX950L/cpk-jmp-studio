@@ -20,11 +20,11 @@ const { chromium } = require('playwright');
   console.log('2. 示例计算完成:', (await page.textContent('#parseInfo')).trim());
   await page.screenshot({ path: 'shot_main_light.png', fullPage: false });
 
-  // 版本号
+  // 版本号（动态断言：.ver 徽标须为 vX.Y.Z 且与 footer / 更新记录同步，不硬编码具体版本号，避免版本发布后回归假失败）
   const ver = await page.evaluate(() => document.querySelector('.ver').textContent);
   const footer = await page.textContent('footer');
-  console.log('3. 版本徽标:', ver, '| footer 含 v2.10.0:', footer.includes('v2.10.0'));
-  if (!ver.includes('v2.10.0') || !footer.includes('v2.10.0')) throw new Error('版本号不同步');
+  console.log('3. 版本徽标:', ver, '| footer 一致:', footer.includes(ver));
+  if (!/^v\d+\.\d+\.\d+$/.test(ver) || !footer.includes(ver)) throw new Error('版本号不同步：徽标 ' + ver + ' 与 footer 不一致');
 
   // 指标卡/结果区
   const metricVisible = await page.evaluate(() => !!document.querySelector('.metric .v'));
@@ -51,7 +51,7 @@ const { chromium } = require('playwright');
   await page.click('#btnChangelog');
   await page.waitForTimeout(400);
   const clog = await page.textContent('#clogList');
-  console.log('7. 更新记录:', clog.includes('v2.10.0') ? '含 v2.10.0' : 'FAIL 无 v2.10.0');
+  console.log('7. 更新记录:', clog.includes(ver) ? '含当前版本 ' + ver : 'FAIL 无 ' + ver);
   await page.screenshot({ path: 'shot_clog_light.png' });
   await page.click('#clogClose');
 
