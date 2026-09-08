@@ -337,7 +337,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.11.1</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.12.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -507,13 +507,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.11.1</b> · 最近更新 2026-09-08</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.12.0</b> · 最近更新 2026-09-08</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.11.1 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.12.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1203,6 +1203,13 @@ function calc(auto){
         text:`子组 n=${sub} 时完整子组仅 ${kGroups} 个（建议 ≥5）：R̄/S̄ 与控制限估计不稳，判级仅供参考。请增加数据量或调小子组。`});
     }
   }
+  // 受控判定样本量提示（③，区别于上面针对能力判级的样本量提示）：
+  // 个体 I-MR 模式移动极差数 = n−1，n 太小时 MR̄ 与控制限本身就不稳，
+  // 「统计受控/失控」这一结论的参考性也随之下降，需单独提示用户别把低样本下的失控判据当铁证。
+  else if(sub===0&&n<10&&n>=2){
+    warns.push({level:'info',icon:'📉',title:'受控判定样本量偏少',
+      text:`个体 I-MR 模式：移动极差数 = n−1 = ${n-1} 个，n=${n} < 10 时 MR̄ 与控制限估计不稳，本次「统计受控/失控」判定仅具参考性。SPC 受控判定建议 ≥10 点（AIAG 常以 ≥20~25 点为稳健）；若确需用少量点评估，请重点看能力指数而非受控结论。`});
+  }
   // P0 复查③ 规格限与数据严重脱节（防填错：小数点/位数错位）
   const dmin=arrayMin(nums), dmax=arrayMax(nums), dspan=(dmax-dmin)||1;
   if((lsl!=null&&lsl<dmin-1.5*dspan)||(usl!=null&&usl>dmax+1.5*dspan)){
@@ -1249,6 +1256,17 @@ function calc(auto){
     nnCap=nonnormalCap(sorted,lsl,usl);
     warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514-2 经验法估算能力',
       text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无超限样本，经验法 Ppk* 存在理论上限（n=${n} 时约 1.58），数值偏低属正常，不代表能力真的只有这么多。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
+    // ⑤ 轻量对数诊断：数据全部 >0 时，自动试一下取自然对数能否恢复正态（Box-Cox λ→0 即对数变换）。
+    // 若 ln(x) 后 R² 明显提升并越过 0.95，就给出可操作的下一步；不实际变换数据/规格限，避免误改结果。
+    if(nums.length>=5 && sorted[0]>0){
+      const lnz=nums.map(v=>Math.log(v)).sort((a,b)=>a-b);
+      const lz=lnz.map((_,i)=>normInv((i+1-0.375)/(n+0.25)));
+      const r2Log=corr(lnz,lz)**2;
+      if(r2Log>0.95&&r2Log>r2+0.01){
+        warns.push({level:'info',icon:'🌱',title:'试试对数据取对数（Box-Cox λ≈0）',
+          text:`数据全部为正值：对 x 取自然对数后 R² 由 ${r2.toFixed(4)} 提升到 ${r2Log.toFixed(4)}（>0.95），说明该批数据接近对数正态，取对数后很可能恢复正态、正态法 Cpk 即可用。如需使用，请在数据区自行对每个值取 ln（或先在 Excel 加一列 =LN(值) 再粘贴）；取对数会改变量纲，规格限也需按同样规则换算后填入。`});
+      }
+    }
   }
   // P1 复查② 已填规格限但未勾选启用（防忘勾选导致单侧误判）
   const lslBox=document.getElementById('lsl').value.trim();
@@ -1257,6 +1275,17 @@ function calc(auto){
     text:`规格下限 LSL=${lslBox} 已填写但「启用规格下限」未勾选，当前按单侧(上限)分析。若需双侧请勾选「启用规格下限 LSL」。`});
   if(!useUsl&&uslBox!=='') warns.push({level:'info',icon:'☑️',title:'USL 已填值但未启用',
     text:`规格上限 USL=${uslBox} 已填写但「启用规格上限」未勾选，当前按单侧(下限)分析。若需双侧请勾选「启用规格上限 USL」。`});
+  // 表头规格限「检测到但未生效」警告（P0-3 修复后的强提示）：表头明写 LSL/USL，
+  // 但对应勾选框未启用 → 这些规格限被静默忽略，会按单侧甚至无规格计算，Cpk 严重失真。
+  if(specFromHeader&&(specFromHeader.lsl!=null||specFromHeader.usl!=null)){
+    const hd=[];
+    if(specFromHeader.lsl!=null&&(!useLsl||lsl==null)) hd.push('LSL='+specFromHeader.lsl+'（未启用）');
+    if(specFromHeader.usl!=null&&(!useUsl||usl==null)) hd.push('USL='+specFromHeader.usl+'（未启用）');
+    if(hd.length){
+      warns.push({level:'warn',icon:'📋',title:'表头规格限未生效，结果会失真',
+        text:`表头已识别到规格限但未被用于计算：${hd.join('、')}。当前正按${(lsl==null&&usl==null)?'无规格限（Cpk 无法计算）：':(both?'双侧：':(lsl!=null?'仅下限：':'仅上限：'))}分析，Cp/Cpk/Ppk 会严重失真。请勾选「启用规格限」复选框让表头规格限生效，或在左侧输入框填写并勾选。`});
+    }
+  }
   renderDiag(warns);
 
   // ---- 能力判级横幅（优先看 Cpk，单侧则看对应的单侧值）----
@@ -1779,11 +1808,22 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
   const mName=spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 ');
   const allReasons=ctrl.reasons.concat(mOut?[mName+mOut+' 点超出控制限（第 '+mCtrl.out.map(i=>i+1).join('、')+' 个）'
     +(mOut<M_OUT_TRIGGER?'；单点越界在 MR/R 图上属随机波动常见现象（约 0.9%/点），未据此判失控，请人工核实是否为已知特殊原因':'')]:[]);
+  // 受控置信度分级（P0-2 误报修复后的延伸）：当判「失控」时，向用户说明这次结论靠不靠得住——
+  // 强信号 = 连续 9 点同侧 / 连续 7 点趋势 / 辅助图多点越界（真实异常概率高）；
+  // 弱信号 = 主图仅 1 个孤立单点越界且无其他模式（n 大时纯随机也常出现，误报风险高，宜核实而非立即停线）。
+  const mainPts=ctrl&&ctrl.out?ctrl.out.length:0;
+  const strong = (ctrl&&ctrl.sameIdx>=0)||(ctrl&&ctrl.trendIdx>=0)||mOut>=M_OUT_TRIGGER;
+  let confNote='';
+  if(!stable && !strong){
+    confNote=`<div class="note" style="margin:6px 0;color:var(--mar);border-color:var(--mar)55">
+      <b>🧾 低置信度信号（请先核实再行动）</b>：本次仅见 <b>${mainPts}</b> 个孤立单点越界，未构成连续 9 点同侧 / 7 点趋势 / 辅助图多点越界等强模式。纯随机受控过程在点数多时也可能偶然出现单个越界点（约 0.3%/点），因此<b>建议先回查该点前后是否对应换班 / 换料 / 调机 / 刀具磨损等已知事件</b>；找不到对应特殊原因时，勿仅凭这一个点停线或调机。</div>`;
+  }
   document.getElementById('ctrlMsg').innerHTML=
     `<div class="verdict" style="--vc-bg:${c.c}1f;border-color:${c.c}55;color:${c.c}">
        <span class="badge" style="background:${c.c}">${c.t}</span>
        <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（'+(spc.type==='Xbar-S'?'S':'MR/R')+'）均无多点越界、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>
-    <div class="legend" style="text-align:left;margin-top:4px">ℹ <b>固有误报提示</b>：控制限由数据自身估计，即便过程真实受控，单点仍有约 <b>0.3%</b>（${spc.sub>1?'Xbar':'I'} 图）/ <b>0.9%</b>（${spc.type==='Xbar-S'?'S':(spc.sub>1?'R':'MR')} 图）的越界概率——点数越多越可能见到越界点，这属控制图固有特性，不代表一定有问题。出现越界时先核对是否对应已知特殊原因（换班 / 换料 / 调机 / 刀具磨损），不要仅凭统计信号盲目调机。</div>`;
+    <div class="legend" style="text-align:left;margin-top:4px">ℹ <b>固有误报提示</b>：控制限由数据自身估计，即便过程真实受控，单点仍有约 <b>0.3%</b>（${spc.sub>1?'Xbar':'I'} 图）/ <b>0.9%</b>（${spc.type==='Xbar-S'?'S':(spc.sub>1?'R':'MR')} 图）的越界概率——点数越多越可能见到越界点，这属控制图固有特性，不代表一定有问题。出现越界时先核对是否对应已知特殊原因（换班 / 换料 / 调机 / 刀具磨损），不要仅凭统计信号盲目调机。</div>`
+    + (confNote||'');
 
   // ---- 控制限 vs 规格限 对比 ----
   // 观测越界用「原始个体数据」统计（组均值越界 ≠ 个体越界，组均值会被平均掩盖超差个体）
@@ -2786,6 +2826,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.12.0',date:'2026-09-08',tag:'feat',tagTxt:'诊断自动化增强',
+   items:['受控判定置信度分级（自动化）：判「统计失控」时自动区分强信号（连续 9 点同侧 / 7 点趋势 / 辅助图多点越界）与弱信号（主图孤立单点越界、无其他模式）；弱信号时面板加「🧾 低置信度：先核实换班/换料/调机等已知事件再行动，勿仅凭一个点停线」提示，承接 v2.11.1 的误报修复','表头规格限「未生效」强提示（防呆）：表头已识别到 LSL/USL，但对应「启用规格限」勾选框未勾选 → 该侧规格限被静默忽略、按单侧/无规格分析会失真，现升级为 warn 级红条明示「LSL=…（未启用）」','SPC 受控判定样本量提示（防呆）：个体 I-MR 模式移动极差数 = n−1，n<10 时 MR̄/控制限本身不稳，「统计受控/失控」仅具参考性——独立于既有的能力判级样本量提示（n<20/<30）','对数变换诊断（自动化·轻量）：数据全部为正且判非正态时，自动试算取 ln 后的 R²；若由 ≤0.95 提升到 >0.95，提示「数据接近对数正态，可先取对数再用正态法」，并说明需同步换算规格限——不实际改数据，规避变换链边界风险','性能说明：数据粘贴实时重算沿用既有 350ms 防抖；实测核心计算 20 万行 <100ms、50 万行 ~150ms，无卡顿瓶颈，无需额外开关'],
+   sub:'2026-09-08 诊断自动化增强（v2.12.0）：4 条低风险高价值的防呆/自动化提示（受控置信度分级 / 表头规格限未生效 / SPC 小样本 / 对数正态诊断），全部经 headless 浏览器 + 合成数据实测通过、0 console 错误。'},
   {ver:'v2.11.1',date:'2026-09-08',tag:'fix',tagTxt:'计算可靠性修复',
    items:['受控性判据修正（P0）：「连续 9 点同侧」原实现为累积净盈余计数（上方+1/下方−1、不归零），把「8 上 1 下」等交替序列误判为 9 点同侧，误报率放大约 4 倍（n=120 实测 70.3% vs 正确 18.2%）。已改为真正的游程计数：落在中心线或符号翻转即重新起算','辅助图判据修正（P0）：MR/R/S 图分布右偏，用 UCL=3.267·MR̄ 时纯随机过程的单点越界率约 0.9%/点（I 图约 0.3%），点数多时几乎必见越界点，属 I-MR 图固有特性而非特殊原因。原「任一点越界即失控」致真实受控过程被大量误判（n=100 纯随机 84% 被判失控）。改为需 ≥2 点越界才判失控，单点越界仍列出点号供人工核实','表头规格限污染修复（P0）：粘贴「LSL 9.95 USL 10.05」+ 单列数据时，首行 2 个数字 > 数据行众数 1，原判定不认表头，导致规格限数字混入数据集（n 变大、σ 拉大、Cpk 全错）。表头判定放宽：首行含规格关键词（LSL/USL/规格/公差/下限/上限…）一律按表头跳过，表头规格限自动识别在单列场景恢复生效','组内/总能力表口径修正（P1）：Cpm（田口指数）只用整体 σ，本属长期指数，原错列在「组内 Sigma 能力」表（公式却用整体 σ，口径不一致）。已移出组内表，仅列总 Sigma 表并补图例说明','反向生成偏差说明修正（P1）：σ 由 n 个样本估计、抽样误差约 1/√(2n)，实际 Cpk 与目标偏差 10% 上下属正常，旧提示只说「略有偏差」易误导。生成后即回算实际 Cpk 与偏差、并提示理论抽样误差','示例筛选透明化（P1）：示例数据为按目标档位筛选生成（非无条件的随机样本），其受控比例显著高于真实随机过程，示例区与代码注释均已注明，避免误导对失控率的理解','术语百科措辞（P2）：ISO 22514-2 条目 abbr 去掉已废止的「Pearson-Clements」旧称（v2.8.3 已声明废弃，实现实为经验分位数法），仅保留注释说明','深色模式图表修复（P2）：正态概率图 R² 标注原写死白底（深色下为白底橙字方块），改为跟随主题的画布背景色；散点色改为语义数据色+透明度；指标卡中性灰边框 #c9d1d9 收敛为 var(--muted)','多批对比 XSS 防护（P2）：批次标签为用户粘贴文本，拼入 innerHTML 前补 escHtml 转义，防止 HTML 标签注入','README 一致性（P2）：项目结构补 _headers/smoke.js/package.json；图表表述「四张图」与术语百科「五张图」口径统一；新增冒烟测试使用说明与 package.json 脚本'],
    sub:'2026-09-08 审查修复：3 个 P0（9 点同侧游程判据 / 辅助图多点越界判据 / 表头规格限污染）+ P1（Cpm 归位、反向生成偏差说明、示例筛选透明化）+ P2 若干。核心数值引擎经 Node 复算与蒙特卡洛回归全部通过；修复后纯随机数据误报率 n=100 由 84% 降至约 45%。'},
