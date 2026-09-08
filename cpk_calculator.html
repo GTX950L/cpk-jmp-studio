@@ -1206,7 +1206,8 @@ function calc(auto){
   // 受控判定样本量提示（③，区别于上面针对能力判级的样本量提示）：
   // 个体 I-MR 模式移动极差数 = n−1，n 太小时 MR̄ 与控制限本身就不稳，
   // 「统计受控/失控」这一结论的参考性也随之下降，需单独提示用户别把低样本下的失控判据当铁证。
-  else if(sub===0&&n<10&&n>=2){
+  // 注：用独立 if（勿挂到上方 sub>1 的 else 链），避免未来改动破坏子组模式下的独立性。
+  if(sub===0&&n<10&&n>=2){
     warns.push({level:'info',icon:'📉',title:'受控判定样本量偏少',
       text:`个体 I-MR 模式：移动极差数 = n−1 = ${n-1} 个，n=${n} < 10 时 MR̄ 与控制限估计不稳，本次「统计受控/失控」判定仅具参考性。SPC 受控判定建议 ≥10 点（AIAG 常以 ≥20~25 点为稳健）；若确需用少量点评估，请重点看能力指数而非受控结论。`});
   }
@@ -1283,7 +1284,7 @@ function calc(auto){
     if(specFromHeader.usl!=null&&(!useUsl||usl==null)) hd.push('USL='+specFromHeader.usl+'（未启用）');
     if(hd.length){
       warns.push({level:'warn',icon:'📋',title:'表头规格限未生效，结果会失真',
-        text:`表头已识别到规格限但未被用于计算：${hd.join('、')}。当前正按${(lsl==null&&usl==null)?'无规格限（Cpk 无法计算）：':(both?'双侧：':(lsl!=null?'仅下限：':'仅上限：'))}分析，Cp/Cpk/Ppk 会严重失真。请勾选「启用规格限」复选框让表头规格限生效，或在左侧输入框填写并勾选。`});
+        text:`表头已识别到规格限但未被用于计算：${hd.join('、')}。当前正按${lsl!=null?'仅下限（单侧）分析':'仅上限（单侧）分析'}，Cp/Cpk/Ppk 会失真。请勾选「启用规格限」复选框让表头规格限生效，或在左侧输入框填写并勾选。`});
     }
   }
   renderDiag(warns);
@@ -1816,7 +1817,7 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
   let confNote='';
   if(!stable && !strong){
     confNote=`<div class="note" style="margin:6px 0;color:var(--mar);border-color:var(--mar)55">
-      <b>🧾 低置信度信号（请先核实再行动）</b>：本次仅见 <b>${mainPts}</b> 个孤立单点越界，未构成连续 9 点同侧 / 7 点趋势 / 辅助图多点越界等强模式。纯随机受控过程在点数多时也可能偶然出现单个越界点（约 0.3%/点），因此<b>建议先回查该点前后是否对应换班 / 换料 / 调机 / 刀具磨损等已知事件</b>；找不到对应特殊原因时，勿仅凭这一个点停线或调机。</div>`;
+      <b>🧾 低置信度信号（请先核实再行动）</b>：本次仅见 <b>${mainPts}</b> 个主图越界点，未构成连续 9 点同侧 / 7 点趋势 / 辅助图多点越界等强模式。纯随机受控过程在点数多时也可能偶然出现单点越界（约 0.3%/点），因此<b>建议先回查越界点前后是否对应换班 / 换料 / 调机 / 刀具磨损等已知事件</b>；找不到对应特殊原因时，勿仅凭孤立越界点停线或调机。</div>`;
   }
   document.getElementById('ctrlMsg').innerHTML=
     `<div class="verdict" style="--vc-bg:${c.c}1f;border-color:${c.c}55;color:${c.c}">
