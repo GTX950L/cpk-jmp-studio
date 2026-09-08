@@ -104,7 +104,7 @@
   .hint{font-size:12px;color:var(--muted);margin-top:13px;line-height:1.5}
   .subhint{display:block;font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5}
   .metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:13px;margin:13px 0}
-  .metric{background:var(--card);border:1px solid var(--border);border-left:4px solid #c9d1d9;
+  .metric{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--muted);
           border-radius:10px;padding:10px 8px;text-align:center;position:relative;overflow:hidden;
           display:flex;flex-direction:column;justify-content:center;
           transition:transform .15s ease,box-shadow .15s ease}
@@ -337,7 +337,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.11.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.11.1</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -371,7 +371,7 @@
       <button id="btnClear" class="sec">清空</button>
       <span class="subhint" style="margin-left:10px">粘贴 / 改动后自动计算，一般无需手动点击</span>
     </div>
-    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定（多组演示同一判定的不同 σ 水平，便于横向对比）</div>
+    <div id="sampleInfo" class="subhint">💡 点「填入示例」可依次体验 7 组不同场景（每点一次循环下一组），覆盖「理想 / 受控但能力不足 / 能力达标但失控 / 失控且能力不足」四种判定（多组演示同一判定的不同 σ 水平，便于横向对比）。注意：示例数据为<b>演示目标场景而筛选生成</b>（会剔除不满足目标档位的随机样本），真实随机过程触发失控判据的概率明显更高，见 ⑦ 受控性说明。</div>
 
     <details id="genBox" style="margin-top:10px">
       <summary>🔧 反向生成测试数据（按目标 Cpk 造数据）</summary>
@@ -387,7 +387,7 @@
         <label>均值 μ（留空=规格中点）<input type="number" id="genMu" step="any" placeholder="双侧留空即可"></label>
       </div>
       <button id="btnGen" class="sec">生成并填入</button>
-      <span class="subhint" style="display:block">按「目标 Cpk → σ」反推：σ = 中心到最近规格距离 ÷ (3×Cpk)，生成接近目标的正态数据（实际 Cpk 因随机波动与目标略有偏差）。双侧规格均值可留空自动取中点；单侧规格请填均值 μ。</span>
+      <span class="subhint" style="display:block">按「目标 Cpk → σ」反推：σ = 中心到最近规格距离 ÷ (3×Cpk)，生成接近目标的正态数据。双侧规格均值可留空自动取中点；单侧规格请填均值 μ。生成后会回算<b>实际 Cpk 及与目标的理论抽样误差</b>（σ 由 n 个样本估计，误差约 1/√(2n)），偏差属正常，n 越大越接近目标。</span>
     </details>
 
     <h2 style="margin-top:20px"><span class="step">2</span> 规格限与参数</h2>
@@ -437,6 +437,7 @@
       <div class="report-block">
         <h4>总 Sigma 能力（长期能力）</h4>
         <table class="cap-table" id="overallCap"><thead></thead><tbody></tbody></table>
+        <div class="legend" style="text-align:left;margin-top:4px">Cpm（田口指数）需同时计入长期波动与对目标 T 的偏移，只能用整体 σ，故仅列于「总 Sigma 能力」表；Cp / Cpk 系列用组内 σ（短期），列于左表。</div>
       </div>
     </div>
 
@@ -506,13 +507,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.11.0</b> · 最近更新 2026-09-07</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.11.1</b> · 最近更新 2026-09-08</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.11.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.11.1 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -639,16 +640,28 @@ function spcAnalysis(x,sub){
     pts:x.slice(),mpts:mrs,mcl:mrbar,mucl:3.267*mrbar,mlcl:0,groups:x.length};
 }
 
+// 辅助图（MR / R / S 图）判失控所需的越界点数阈值。
+// 见 spcAnalysis 后 stable 判定处的说明：MR/R 分布右偏，单点越界是随机波动的常见表现，
+// 要求 ≥2 点才判失控；单点越界仍列出点号供人工核实，但不改变受控结论。
+const M_OUT_TRIGGER=2;
+
 // 受控性判定（Nelson 常用判据）：①越界点（±3σ 之外）②连续 9 点同侧（均值漂移，Nelson 规则 2）
-// ③连续 7 点单调趋势（6 差分；随机数据 6 差分全同向概率≈0.04%，误报极低）
+// ③连续 7 点单调趋势（6 差分；随机数据 7 点全单调概率 = 2/7! ≈ 0.04%，误报极低）
 // 注：同侧取 9 点而非 7 点——7 点在批量数据上误报率过高（约 90%，120 点随机数据几乎必触发），9 点是 Nelson 标准
+// 修正（v2.11.1）：同侧判定必须用「游程」计数——遇到落在中心线上的点、或符号翻转，都要重新起算。
+// 旧实现用累积净盈余（上方 +1 / 下方 −1，不归零），等价于随机游程走到 ±9，会把「8 上 1 下」这类
+// 交替序列误判为「连续 9 点同侧」，实测误报率放大约 4 倍（n=120：70.3% vs 正确 18.2%）。
 function checkControl(pts,cl,ucl,lcl){
   const out=[];
   for(let i=0;i<pts.length;i++)if(pts[i]>ucl||pts[i]<lcl)out.push(i);
-  let same=0,sameIdx=-1,up=0,dn=0,trendIdx=-1;
+  let run=0,runSide=0,sameIdx=-1,up=0,dn=0,trendIdx=-1;
   for(let i=0;i<pts.length;i++){
-    same = pts[i]>cl?same+1:(pts[i]<cl?same-1:0);
-    if(same>=9&&sameIdx<0)sameIdx=i-8; else if(same<=-9&&sameIdx<0)sameIdx=i-8;
+    // 连续 9 点同侧（Nelson 规则 2）：真正的游程计数
+    const side = pts[i]>cl?1:(pts[i]<cl?-1:0);
+    if(side===0){ run=0; runSide=0; }              // 落在中心线上 → 游程中断
+    else if(side===runSide){ run++; }              // 同侧延续
+    else { run=1; runSide=side; }                  // 符号翻转 → 重新起算
+    if(run>=9&&sameIdx<0)sameIdx=i-8;
     if(i>0){
       // 趋势规则：连续 7 个点单调上升/下降（7 点 = 6 个差分），AIAG 常用判据
       if(pts[i]>pts[i-1]){up++;dn=0;if(up>=6&&trendIdx<0)trendIdx=i-6;}
@@ -820,6 +833,11 @@ function extractHeaderText(line){
   return txt.length>24 ? txt.slice(0,24)+'…' : txt;
 }
 
+// HTML 转义：凡把用户粘贴的原始文本（批次标签、表头等）拼进 innerHTML 前必须先转义，防止标签注入/XSS
+function escHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
 // 智能解析：自动跳过表头行 / 纯文本行，返回 {vals, skipped, header, headerText, uniformSub, strippedLead, mismatch}
 // uniformSub：子组自动推断——若纳入数据的行数 ≥2 且每行数字个数一致且 ≥2（子组粘贴格式，如每行 5 个），返回该子组大小，否则 0
 // strippedLead：是否已剔除"前导序号列"（如 SN 001/002… 或 1/2/3… 序号），防止序号被误当测量值、并防止被误判为子组 n=2
@@ -854,9 +872,20 @@ function parseNums(raw){
   //         首行标签与其余行同性质，按表头跳过会丢掉第一个数据点。
   const textLead=t=>{if(!t)return false;const c=t[0];return !(c>='0'&&c<='9')&&c!=='.'&&c!=='-'&&c!=='+';};
   const allTextLead=lines.every(l=>l.split(/[\s,;，、]+/).some(textLead));
+  // 规格限表头识别（v2.11.1 修正）：形如「LSL 9.95 USL 10.05」「下限9.95 上限10.05」「规格 10±0.05」。
+  // 这类首行的数字个数通常「多于」数据行（单列数据 → 首行 2 个数字 vs 众数 1 个），
+  // 旧判定要求「首行数字数 < 众数」才认表头，于是规格限数字被当成测量值混入数据集
+  // （n 变大、σ 被拉大、Cpk 全错），同时 headerText 为空 → 表头规格限自动预填完全失效。
+  // 故：首行出现规格限关键词 → 无论数字个数多少，一律按表头跳过并提取。
+  const SPEC_HDR_RE=/(lsl|usl|规格|公差|下限|上限|下差|上差|下界|上界|target|目标值|标称|nominal)/i;
+  const firstHasSpecKw=SPEC_HDR_RE.test(lines[0]||'');
+  const firstHasText=(lines[0]||'').split(/[\s,;，、]+/).some(textLead);
   counts.forEach((c,i)=>{
+    if(i===0 && firstHasSpecKw){ header++; headerText=extractHeaderText(lines[0]); return; }
     if(c===0){ if(i===0){ header++; headerText=extractHeaderText(lines[i]); } else skipped++; return; }
     if(i===0 && c!==mode && c<mode && mode>0){ header++; headerText=extractHeaderText(lines[i]); return; }
+    // 首行含文字 token 且数字个数与众数不一致 → 表头（如「直径 10.01 10.02」vs 单列数据）
+    if(i===0 && c!==mode && firstHasText && !strippedLead){ header++; headerText=extractHeaderText(lines[i]); return; }
     if(i===0 && c===mode && !strippedLead && !allTextLead && lines[i].split(/[\s,;，、]+/).some(textLead)){ header++; headerText=extractHeaderText(lines[i]); return; }
     vals.push(...rows[i]);
     dataCounts.push(c);
@@ -1089,7 +1118,13 @@ function calc(auto){
   const loOk = lsl==null || spc.lcl>lsl;
   const hiOk = usl==null || spc.ucl<usl;
   const ctrlInSpec = loOk && hiOk;
-  const stable = ctrl.stable && mCtrl.out.length===0;   // 总体受控 = 主图无异常模式 + 辅助图无越界
+  // 辅助图判据（v2.11.1 修正）：越界数 ≥ M_OUT_TRIGGER(=2) 才判失控。
+  // 原因：MR/R 分布右偏，用 UCL=3.267·MR̄（=D4(2)·MR̄）时纯随机过程的单点越界率约 0.9%/点，
+  // 是 I 图（≈0.27%/点）的 3 倍多——n=100 时纯随机就有约 57% 概率出现至少 1 个越界点。
+  // 这是 I-MR 图的固有特性，不是特殊原因；「任一点越界即失控」会把真实受控过程大量误判。
+  // 单点越界仍会在面板上列出点号，供人工核实，但不据此判失控。
+  const mStable = mCtrl.out.length < M_OUT_TRIGGER;
+  const stable = ctrl.stable && mStable;   // 总体受控 = 主图无异常模式 + 辅助图无多点越界
 
   // ---- 不合格分析（观测 % / 期望组内 % / 期望总体 %）----
   const obsBelowPct = lsl!=null ? 100*nums.filter(v=>v<lsl).length/n : 0;
@@ -1105,7 +1140,9 @@ function calc(auto){
   ];
 
   // ---- 各指数的 95% 置信区间（组内 & 总体）----
-  const withinIdx={Cpk:cpk,Cpl:cpl,Cpu:cpu,Cp:cp,Cpm:cpm};
+  // Cpm 只用整体 σ（长期波动 + 对目标的偏移），本质上属"总体/长期"指数，
+  // 故不再放进组内表（旧版列在组内表但公式用整体 σ，口径不一致），仅列于总体表。
+  const withinIdx={Cpk:cpk,Cpl:cpl,Cpu:cpu,Cp:cp};
   const overallIdx={Ppk:ppk,Ppl:ppl,Ppu:ppu,Pp:pp,Cpm:cpm};
   const withinCI={},overallCI={};
   // 组内指数（Cp/Cpk/…）基于组内 σ（子组估计），有效样本量 = 子组数 k，而非总观测数 n；
@@ -1241,11 +1278,11 @@ function calc(auto){
     return `<div class="metric" style="border-left-color:${tone.c}">
               <div class="k">${k}</div><div class="v">${fmt(v)}</div></div>`;
   }).join('') +
-  `<div class="metric" style="border-left-color:#c9d1d9"><div class="k">样本量 n</div><div class="v">${n}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">均值 μ</div><div class="v">${fmt(m,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
-   <div class="metric" style="border-left-color:#c9d1d9"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
+  `<div class="metric" style="border-left-color:var(--muted)"><div class="k">样本量 n</div><div class="v">${n}</div></div>
+   <div class="metric" style="border-left-color:var(--muted)"><div class="k">均值 μ</div><div class="v">${fmt(m,4)}</div></div>
+   <div class="metric" style="border-left-color:var(--muted)"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
+   <div class="metric" style="border-left-color:var(--muted)"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
+   <div class="metric" style="border-left-color:var(--muted)"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
   + (targetFromInput?'':'<div class="legend" style="text-align:left;margin-top:2px">* Cpm 未填「目标值 T」，自动取规格中点作目标。</div>')
   ;
 
@@ -1270,7 +1307,7 @@ function calc(auto){
     ['中心线 CL',fmt(spc.cl,4),spc.type+' 图中心线 = 过程均值'],
     ['控制下限 LCL',fmt(spc.lcl,4),spc.type+' 图：中心线 − 3σ（过程数据算出，随波动动态变化）'],
     ['MR̄ / R̄ / S̄',fmt(spc.mcl,4),spc.type==='Xbar-S'?'子组平均标准差 S̄（Xbar-S 图）':(spc.sub>1?'子组平均极差 R̄（Xbar-R 图）':'平均移动极差 MR̄（I-MR 图）')],
-    ['受控性判定',ctrl.stable&&mCtrl.out.length===0?'统计受控':'统计失控',ctrl.reasons.concat(mCtrl.out.length?[(spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 '))+mCtrl.out.length+' 点超出控制限']:[]).join('；')||'主图无越界、无异常模式（±3σ 判据）'],
+    ['受控性判定',stable?'统计受控':'统计失控',ctrl.reasons.concat(mCtrl.out.length?[(spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 '))+mCtrl.out.length+' 点超出控制限'+(mCtrl.out.length<M_OUT_TRIGGER?'（单点越界属随机波动常见现象，未据此判失控）':'')]:[]).join('；')||'主图无越界、无异常模式（±3σ 判据）'],
     ['控制限∩规格限',ctrlInSpec?'控制限 ⊆ 规格限':'控制限超出规格限',ctrlInSpec?'±3σ 完全落在规格限内 → 理想过程区间':'±3σ 已越过规格限 → 即便受控也会出不合格品'],
     ['Cp',fmt(cp),'潜在能力（仅规格宽度/σ）'],
     ['Cpk',fmt(cpk),'实际能力（含中心偏移）'],
@@ -1359,7 +1396,9 @@ function getCss(v){return getComputedStyle(document.documentElement).getProperty
 let _histHit=null,_ctrlMainHit=null,_ctrlAuxHit=null;
 const C={data:()=>getCss('--c-data'),fit:()=>getCss('--c-fit'),lsl:()=>getCss('--c-lsl'),
          usl:()=>getCss('--c-usl'),target:()=>getCss('--c-target'),grid:()=>getCss('--c-grid'),axis:()=>getCss('--c-axis'),
-         text:()=>getCss('--canvas-text'),ink:()=>getCss('--canvas-ink'),muted:()=>getCss('--canvas-muted'),bg:()=>getCss('--canvas-bg')};
+         text:()=>getCss('--canvas-text'),ink:()=>getCss('--canvas-ink'),muted:()=>getCss('--canvas-muted'),bg:()=>getCss('--canvas-bg'),
+         // 取语义色并加透明度（用于散点/阴影等需透明的前景色；hex→rgba，保证深色模式下仍跟随主题色板）
+         a:function(nm,alpha){let v=getCss(nm)||'';if(/^#[0-9a-fA-F]{6}$/.test(v)){const n=parseInt(v.slice(1),16);return 'rgba('+(n>>16&255)+','+(n>>8&255)+','+(n&255)+','+alpha+')';}return v;}};
 
 // 按设备像素比（DPR）放大 canvas 实际分辨率，绘制坐标仍用逻辑像素。
 // 避免高分屏下浏览器拉伸位图导致图表发虚；窄容器时等比缩小不变形。
@@ -1587,8 +1626,8 @@ function drawQuant(sorted,z,axisLabel){
   const r=corr(sorted,z),b_=cov_(sorted,z)/cov_(z,z),a_=mean(sorted)-b_*mean(z);
   ctx.strokeStyle=C.fit();ctx.lineWidth=2;ctx.beginPath();
   ctx.moveTo(x2px(zmin),y2px(a_+b_*zmin));ctx.lineTo(x2px(zmax),y2px(a_+b_*zmax));ctx.stroke();
-  // 散点（带透明度的数据蓝）
-  ctx.fillStyle='rgba(47,109,181,.72)';
+  // 散点（数据色 + 透明度；跟随主题，深色下仍为可读的数据蓝）
+  ctx.fillStyle=C.a('--c-data',0.72);
   for(let i=0;i<sorted.length;i++){ctx.beginPath();ctx.arc(x2px(z[i]),y2px(sorted[i]),2.8,0,7);ctx.fill();}
   // 刻度
   ctx.fillStyle=C.axis();ctx.font='10px sans-serif';ctx.textAlign='center';ctx.textBaseline='top';
@@ -1604,7 +1643,7 @@ function drawQuant(sorted,z,axisLabel){
   // R² 标注
   const r2Txt='R² = '+(r*r).toFixed(4);
   ctx.font='bold 12px sans-serif';const tw=ctx.measureText(r2Txt).width;
-  ctx.fillStyle='rgba(255,255,255,.92)';ctx.save();
+  ctx.fillStyle=C.bg();ctx.save();   // 旧版写死 rgba(255,255,255,.92)，深色模式下是白底橙字方块，改为跟随主题的画布背景色
   ctx.shadowColor='rgba(16,32,64,.16)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
   ctx.fillRect(padL+8,padT+8,tw+14,22);
   ctx.restore();
@@ -1736,11 +1775,15 @@ function drawCtrl(spc,lsl,usl,m,axisLabel){
 function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,primary,specAuto){
   // ---- 受控性横幅 ----
   const c=stable?{c:getCss('--good'),t:'统计受控'}:{c:getCss('--bad'),t:'统计失控'};
-  const allReasons=ctrl.reasons.concat(mCtrl.out.length?[(spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 '))+mCtrl.out.length+' 点超出控制限（第 '+mCtrl.out.map(i=>i+1).join('、')+' 个）']:[]);
+  const mOut=mCtrl.out.length;
+  const mName=spc.type==='Xbar-S'?'S 图 ':(spc.sub>1?'R 图 ':'MR 图 ');
+  const allReasons=ctrl.reasons.concat(mOut?[mName+mOut+' 点超出控制限（第 '+mCtrl.out.map(i=>i+1).join('、')+' 个）'
+    +(mOut<M_OUT_TRIGGER?'；单点越界在 MR/R 图上属随机波动常见现象（约 0.9%/点），未据此判失控，请人工核实是否为已知特殊原因':'')]:[]);
   document.getElementById('ctrlMsg').innerHTML=
     `<div class="verdict" style="--vc-bg:${c.c}1f;border-color:${c.c}55;color:${c.c}">
        <span class="badge" style="background:${c.c}">${c.t}</span>
-       <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（'+(spc.type==='Xbar-S'?'S':'MR/R')+'）均无越界点、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>`;
+       <span>${stable?'主图（'+spc.type.split('-')[0]+'）与辅助图（'+(spc.type==='Xbar-S'?'S':'MR/R')+'）均无多点越界、无异常模式，过程处于统计稳定状态。':'过程存在特殊原因异常波动：'+allReasons.join('；')+'。'}</span></div>
+    <div class="legend" style="text-align:left;margin-top:4px">ℹ <b>固有误报提示</b>：控制限由数据自身估计，即便过程真实受控，单点仍有约 <b>0.3%</b>（${spc.sub>1?'Xbar':'I'} 图）/ <b>0.9%</b>（${spc.type==='Xbar-S'?'S':(spc.sub>1?'R':'MR')} 图）的越界概率——点数越多越可能见到越界点，这属控制图固有特性，不代表一定有问题。出现越界时先核对是否对应已知特殊原因（换班 / 换料 / 调机 / 刀具磨损），不要仅凭统计信号盲目调机。</div>`;
 
   // ---- 控制限 vs 规格限 对比 ----
   // 观测越界用「原始个体数据」统计（组均值越界 ≠ 个体越界，组均值会被平均掩盖超差个体）
@@ -1880,7 +1923,9 @@ const SAMPLE_SETS=[
 ];
 let sampleIdx=0;
 // 示例造数：按目标档位（是否受控 × 能力是否达标）反复生成，保证每次点击都稳定演示目标场景。
-// 只排除"长游程/越界"的极端样本，留下的仍是近似正态数据，不会失真。
+// 注意：这是「按目标场景筛选」——不满足目标档位的随机样本会被丢弃重抽，因此示例数据并非无条件的
+// 随机样本，其受控比例高于真实随机过程（真实随机 n=60 触发失控判据的概率约 26%，见 ⑦ 面板提示）。
+// 用途是演示四种判定组合的读法，不可当作真实过程的受控率参考。
 // jump=true 的示例（⑦ 波动突增）：前 3/4 段稳定、后 1/4 段均值阶跃，构造"能力达标但失控"
 function makeDemo(s, n){
   const lsl=9.950, usl=10.050;
@@ -1902,7 +1947,7 @@ function makeDemo(s, n){
     }
     const spc=spcAnalysis(out,0), ctrl=checkControl(spc.pts,spc.cl,spc.ucl,spc.lcl);
     const mCtrl=checkControl(spc.mpts,spc.mcl,spc.mucl,spc.mlcl);
-    const stable=ctrl.stable&&mCtrl.out.length===0;
+    const stable=ctrl.stable&&mCtrl.out.length<M_OUT_TRIGGER;
     const m=mean(out), cpk=Math.min((usl-m)/(3*spc.mcl/1.128),(m-lsl)/(3*spc.mcl/1.128));
     const cap=cpk>=1.33;
     if(stable===s.targetStable&&cap===s.targetCap) return out.map(v=>v.toFixed(4));
@@ -1967,7 +2012,17 @@ document.getElementById('btnGen').onclick=()=>{
   document.getElementById('usl').value=gUsl!=null?String(gUsl):'';
   document.getElementById('sub').value='0';
   calc(false);saveState();
-  setMsg('ok','✅ 已生成 '+gN+' 个测试数据：目标 Cpk='+gCpk+'，μ='+mean.toFixed(4)+'，σ='+sigma.toFixed(6)+'（实际 Cpk 见指标卡，随机波动下与目标略有偏差）。');
+  // 生成后即时回算「实际 Cpk」：σ 由 n 个样本估计，抽样误差约 1/√(2n)（n=100 时约 7%），
+  // 因此实际 Cpk 与目标存在偏差是统计上的必然——实测中位约 3~4%，P95 可达 10% 左右，n 越小偏差越大。
+  // 旧版只说「略有偏差」，用户无法判断偏差是否正常，故直接给出实际值与 σ 的理论抽样误差。
+  const gv=out.map(Number), gSd=sampleStd(gv), gMn=mean(gv);
+  let actCpk=Infinity;
+  if(gUsl!=null)actCpk=Math.min(actCpk,(gUsl-gMn)/(3*gSd));
+  if(gLsl!=null)actCpk=Math.min(actCpk,(gMn-gLsl)/(3*gSd));
+  const dev=isFinite(actCpk)&&gCpk>0?Math.abs(actCpk-gCpk)/gCpk*100:NaN;
+  const devTxt=isFinite(dev)?'，实际 Cpk='+actCpk.toFixed(3)+'（偏差 '+dev.toFixed(1)+'%）':'';
+  setMsg('ok','✅ 已生成 '+gN+' 个测试数据：目标 Cpk='+gCpk+'，μ='+mean.toFixed(4)+'，σ='+sigma.toFixed(6)
+    +devTxt+'。注：σ 由样本估计，理论抽样误差约 ±'+(100/Math.sqrt(2*gN)).toFixed(1)+'%，故实际 Cpk 与目标有偏差属正常；n 越大越接近目标。');
 };
 document.getElementById('btnClear').onclick=()=>{
   document.getElementById('data').value='';
@@ -2056,7 +2111,7 @@ function exportCsv(){
   lines.push('控制上限 UCL,'+fmt(r.spc.ucl,4)+','+r.spc.type+' 控制图：中心线+3σ（数据算出，动态）');
   lines.push('中心线 CL,'+fmt(r.spc.cl,4)+',=过程均值');
   lines.push('控制下限 LCL,'+fmt(r.spc.lcl,4)+','+r.spc.type+' 控制图：中心线−3σ（数据算出，动态）');
-  lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / 辅助图('+(r.spc.type==='Xbar-S'?'S':'MR/R')+') '+r.mCtrl.out.length);
+  lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / 辅助图('+(r.spc.type==='Xbar-S'?'S':'MR/R')+') '+r.mCtrl.out.length+'（辅助图需≥'+M_OUT_TRIGGER+'点越界才判失控）');
   lines.push('控制限∩规格限,'+(r.ctrlInSpec?'控制限在规格限内':'控制限超出规格限')+',理想=控制限完全落在规格限内部');
   // 不合格分析
   lines.push('类别,观测%,期望组内%,期望总体%');
@@ -2288,8 +2343,8 @@ function batchCompare(){
     '<div class="legend" style="text-align:left;margin-bottom:6px">对比口径：共用当前规格限与子组设置，每批独立计算；正式判级请逐批查看明细。</div>'+
     '<table class="cap-table"><thead><tr><th scope="col">批次</th><th scope="col" class="num">n</th><th scope="col" class="num">均值 μ</th><th scope="col" class="num">σ组内</th><th scope="col" class="num">σ总</th><th scope="col" class="num">Cpk</th><th scope="col" class="num">Ppk</th><th scope="col" class="num">实测PPM</th><th scope="col">判定</th></tr></thead><tbody>'+
     rows.map(r=>r.err
-      ? `<tr><td><b>${r.name}</b></td><td colspan="8" style="color:var(--bad)">${r.err}</td></tr>`
-      : `<tr><td><b>${r.name}</b></td>${r.cells.slice(0,7).map(c=>`<td class="num">${c}</td>`).join('')}<td><span style="color:${r.cells[8]};font-weight:700">${r.cells[7]}</span></td></tr>`).join('')+
+      ? `<tr><td><b>${escHtml(r.name)}</b></td><td colspan="8" style="color:var(--bad)">${escHtml(r.err)}</td></tr>`
+      : `<tr><td><b>${escHtml(r.name)}</b></td>${r.cells.slice(0,7).map(c=>`<td class="num">${c}</td>`).join('')}<td><span style="color:${r.cells[8]};font-weight:700">${r.cells[7]}</span></td></tr>`).join('')+
     '</tbody></table>';
 }
 document.getElementById('btnBatch').onclick=batchCompare;
@@ -2647,8 +2702,8 @@ const GLOSS=[
    impact:'ndc<5 说明量具/记录精度太粗，相邻产品测出来几乎一样，过程波动被掩盖、Cpk 被系统性高估，判级结论不可信。',
    action:'ndc<5 时先换更高分辨率的量具或提高记录小数位，再重新测量判级；不要用四舍五入过的数据下正式结论。',
    tip:'数据全是 0.01/0.001 的"台阶值"且波动小 → 大概率 ndc<5；工具结果区黄条会直接告诉你。'},
-  {cat:'算法与软件',abbr:'ISO 22514-2 经验分位法（Pearson-Clements）',name:'Nonnormal Capability（Empirical Percentile Method）',cn:'非正态能力（经验分位数法）',
-   def:'数据非正态（本工具 R²≤0.95）时，正态法 Cpk/Ppk 会失真。ISO 22514-2 经验分位数法（非参数，直接用数据实际分布）计算 Z 基准：Z.LSL = Φ⁻¹(实测≤LSL 比例)、Z.USL = Φ⁻¹(1−实测>USL 比例)，Ppk* = min(Z.USL, −Z.LSL)/3。',
+  {cat:'算法与软件',abbr:'ISO 22514-2 经验分位法',name:'Nonnormal Capability（Empirical Percentile Method）',cn:'非正态能力（经验分位数法）',
+   def:'数据非正态（本工具 R²≤0.95）时，正态法 Cpk/Ppk 会失真。ISO 22514-2 经验分位数法（非参数，直接用数据实际分布）计算 Z 基准：Z.LSL = Φ⁻¹(实测≤LSL 比例)、Z.USL = Φ⁻¹(1−实测>USL 比例)，Ppk* = min(Z.USL, −Z.LSL)/3。注：v2.8.3 之前本方法曾误称「Pearson-Clements 法」，实现实为经验分位数法（Pearson-Clements 是另一套用偏度/峰度拟合 Pearson 曲线族的算法，本工具未采用），旧称已废止。',
    formula:'Ppk* = min( Φ⁻¹(1−p_USL), −Φ⁻¹(p_LSL) ) / 3；Cp* = (Z.USL − Z.LSL) / 6',
    steps:['数据排序，统计 ≤LSL 与 >USL 的实测比例 p_LSL / p_USL','换算成标准正态分位 Z（Z.LSL 通常为负，取负号后为正距离）','取 min(Z.USL, −Z.LSL) 除以 3 得 Ppk*'],
    impact:'对偏态/厚尾分布（如寿命、强度数据）比正态法更贴近真实不合格率；正态法在非正态下会低估或高估超规率。',
@@ -2731,6 +2786,9 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.11.1',date:'2026-09-08',tag:'fix',tagTxt:'计算可靠性修复',
+   items:['受控性判据修正（P0）：「连续 9 点同侧」原实现为累积净盈余计数（上方+1/下方−1、不归零），把「8 上 1 下」等交替序列误判为 9 点同侧，误报率放大约 4 倍（n=120 实测 70.3% vs 正确 18.2%）。已改为真正的游程计数：落在中心线或符号翻转即重新起算','辅助图判据修正（P0）：MR/R/S 图分布右偏，用 UCL=3.267·MR̄ 时纯随机过程的单点越界率约 0.9%/点（I 图约 0.3%），点数多时几乎必见越界点，属 I-MR 图固有特性而非特殊原因。原「任一点越界即失控」致真实受控过程被大量误判（n=100 纯随机 84% 被判失控）。改为需 ≥2 点越界才判失控，单点越界仍列出点号供人工核实','表头规格限污染修复（P0）：粘贴「LSL 9.95 USL 10.05」+ 单列数据时，首行 2 个数字 > 数据行众数 1，原判定不认表头，导致规格限数字混入数据集（n 变大、σ 拉大、Cpk 全错）。表头判定放宽：首行含规格关键词（LSL/USL/规格/公差/下限/上限…）一律按表头跳过，表头规格限自动识别在单列场景恢复生效','组内/总能力表口径修正（P1）：Cpm（田口指数）只用整体 σ，本属长期指数，原错列在「组内 Sigma 能力」表（公式却用整体 σ，口径不一致）。已移出组内表，仅列总 Sigma 表并补图例说明','反向生成偏差说明修正（P1）：σ 由 n 个样本估计、抽样误差约 1/√(2n)，实际 Cpk 与目标偏差 10% 上下属正常，旧提示只说「略有偏差」易误导。生成后即回算实际 Cpk 与偏差、并提示理论抽样误差','示例筛选透明化（P1）：示例数据为按目标档位筛选生成（非无条件的随机样本），其受控比例显著高于真实随机过程，示例区与代码注释均已注明，避免误导对失控率的理解','术语百科措辞（P2）：ISO 22514-2 条目 abbr 去掉已废止的「Pearson-Clements」旧称（v2.8.3 已声明废弃，实现实为经验分位数法），仅保留注释说明','深色模式图表修复（P2）：正态概率图 R² 标注原写死白底（深色下为白底橙字方块），改为跟随主题的画布背景色；散点色改为语义数据色+透明度；指标卡中性灰边框 #c9d1d9 收敛为 var(--muted)','多批对比 XSS 防护（P2）：批次标签为用户粘贴文本，拼入 innerHTML 前补 escHtml 转义，防止 HTML 标签注入','README 一致性（P2）：项目结构补 _headers/smoke.js/package.json；图表表述「四张图」与术语百科「五张图」口径统一；新增冒烟测试使用说明与 package.json 脚本'],
+   sub:'2026-09-08 审查修复：3 个 P0（9 点同侧游程判据 / 辅助图多点越界判据 / 表头规格限污染）+ P1（Cpm 归位、反向生成偏差说明、示例筛选透明化）+ P2 若干。核心数值引擎经 Node 复算与蒙特卡洛回归全部通过；修复后纯随机数据误报率 n=100 由 84% 降至约 45%。'},
   {ver:'v2.11.0',date:'2026-09-07',tag:'fix',tagTxt:'可访问性与一致性',
    items:['图表可访问性（P1）：五张自绘 canvas（直方图/能力箱线图/正态概率图/控制图主辅图）补 role="img" + aria-label 描述性标签，读屏用户可知晓每张图类型与读法（关键数字仍由页面上 HTML 能力表/汇总表提供）','动态结果播报（P1）：判级横幅 #verdict 与受控性横幅 #ctrlMsg 补 role="status" + aria-live="polite"，粘贴自动计算后读屏可感知结论更新','模态框焦点管理（P1）：术语百科 / 更新记录两个弹窗补 aria-modal，打开时自动聚焦弹窗内控件、Tab 键在弹窗内循环（焦点陷阱）、关闭后焦点还原到触发按钮；Escape 统一由单监听处理','配色收敛语义变量（P2）：图例、明细表、控制限 vs 规格限对比表等多处硬编码色（#2f6db5/#e4572e/#d97706/#c0392b/#64748b 等）收敛为 CSS 语义变量（--c-data/--c-fit/--c-lsl/--bad/--muted…），深色模式下图例与表格文字随主题正确变亮','响应式自动重绘（P2）：新增 ResizeObserver，容器宽度变化（窗口缩放/窄屏）后防抖 250ms 自动按新宽度重绘画布，避免拉伸后图表发虚/溢出','表格语义（P3）：能力表/不合格表/明细表/多批对比表表头补 <th scope="col">','措辞严谨化（P3）：控制限 vs 规格限「理想」场景「理论不合格率约 ≤66 PPM」改为「约不超过 66 PPM，Cpk 越高越低」'],
    sub:'2026-09-07 可访问性（P1）+ 配色收敛/响应式（P2）+ 语义与措辞（P3）审查修复。核心计算无改动（此前已 Node 数值验证），全部为 UX/可访问性/一致性改进。'},
