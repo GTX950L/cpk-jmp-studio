@@ -379,7 +379,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.14.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.15.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -405,7 +405,7 @@
   <!-- 左侧：输入 -->
   <div class="panel">
     <h2><span class="step">1</span> 数据（粘贴即算，自动跳过表头/单位）</h2>
-    <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径(mm)&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，支持拖入 .txt .csv）"></textarea>
+    <textarea id="data" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径（mm）&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，支持拖入 .txt .csv）"></textarea>
     <div id="parseInfo" class="parseinfo"></div>
     <div style="margin-top:10px">
       <button id="btnCalc">🔄 重新计算</button>
@@ -464,8 +464,8 @@
     <div id="diagNote"></div>
 
     <div class="chart-title">① 直方图 + 正态曲线 + 规格限</div>
-    <div class="cv-scroll"><canvas id="cvHist" width="720" height="400" role="img" aria-label="直方图：测量数据分布叠加总体与组内两条正态拟合曲线，含规格限 LSL/USL、目标 T 与均值 μ 竖线。柱顶贴合曲线说明数据近似正态；均值线越界(红)说明中心超规格。"></canvas></div>
-    <div class="legend"><span style="color:var(--c-data)">▮ 测量数据</span>　─ <span style="color:var(--c-fit)">总体拟合(σ总)</span>　┄ <span style="color:var(--good)">组内拟合(σ组内)</span>　┊ <span style="color:var(--c-lsl)">LSL</span> / <span style="color:var(--c-lsl)">USL</span> 规格限　<span style="color:var(--c-target)">▴ 目标值</span>　<span style="color:var(--c-fit)">μ 均值</span>（越界变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 1/测量值）：柱高与正态曲线可直接对比，柱顶贴合曲线说明数据近似正态；<button class="gloss-jump" onclick="openGlossAt('概率密度')">📖 详解见术语百科 · 概率密度</button></div>
+    <div class="cv-scroll"><canvas id="cvHist" width="720" height="400" role="img" aria-label="直方图：测量数据分布叠加整体与组内两条正态拟合曲线，含规格限 LSL/USL、目标 T 与均值 μ 竖线。柱顶贴合曲线说明数据近似正态；均值线超出规格限时变红，说明中心偏移。"></canvas></div>
+    <div class="legend"><span style="color:var(--c-data)">▮ 测量数据</span>　─ <span style="color:var(--c-fit)">整体 σ 拟合</span>　┄ <span style="color:var(--good)">组内 σ 拟合</span>　┊ <span style="color:var(--c-lsl)">LSL</span> / <span style="color:var(--c-lsl)">USL</span> 规格限　<span style="color:var(--c-target)">▴ 目标值</span>　<span style="color:var(--c-fit)">μ 均值</span>（超出规格限变红）<br>📊 <b>Y 轴 = 概率密度</b>（单位 1/测量值）：柱高与正态曲线可直接对比，柱顶贴合曲线说明数据近似正态；<button class="gloss-jump" onclick="openGlossAt('概率密度')">📖 详解见术语百科 · 概率密度</button></div>
 
     <!-- ===== JMP 式报告区（截图即用） ===== -->
     <div class="chart-title">② 过程汇总（Process Summary）</div>
@@ -475,26 +475,26 @@
     <div class="chart-title">③ 能力指数（含 95% 置信区间，近似）</div>
     <div class="report-grid">
       <div class="report-block">
-        <h4>组内 Sigma 能力（短期能力）</h4>
+        <h4>组内 Sigma 能力（短期）</h4>
         <table class="cap-table" id="withinCap"><thead></thead><tbody></tbody></table>
       </div>
       <div class="report-block">
-        <h4>总 Sigma 能力（长期能力）</h4>
+        <h4>整体 Sigma 能力（长期）</h4>
         <table class="cap-table" id="overallCap"><thead></thead><tbody></tbody></table>
       </div>
     </div>
-    <div class="legend" style="margin-top:6px">Cpm（田口指数）需同时计入长期波动与对目标 T 的偏移，只能用整体 σ，故仅列于「总 Sigma 能力」表；Cp / Cpk 系列用组内 σ（短期），列于左表。</div>
+    <div class="legend" style="margin-top:6px">Cpm（田口指数）需同时计入长期波动与对目标 T 的偏移，只能用整体 σ，故仅列于「整体 Sigma 能力」表；Cp / Cpk 系列用组内 σ（短期），列于左表。</div>
 
     <div class="chart-title">④ 不合格分析（观测 vs 期望，% 超规格）</div>
     <table class="cap-table" id="defectTable"><thead></thead><tbody></tbody></table>
-    <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望总体% = 用整体 σ 的正态估计。</div>
+    <div class="legend">观测% = 实际数据超规比例；期望组内% = 用组内 σ 的正态估计；期望整体% = 用整体 σ 的正态估计。</div>
 
     <div class="chart-title">⑤ 能力箱线图（观测值相对规格限的位置）</div>
-    <div class="cv-scroll"><canvas id="cvBox" width="720" height="400" role="img" aria-label="能力箱线图：箱体为 Q1~Q3、中位线与均值点，叠加规格带(绿区 LSL~USL)。箱体落在规格带内且有余量=过程合格；顶到或越过规格线=超规风险高。"></canvas></div>
+    <div class="cv-scroll"><canvas id="cvBox" width="720" height="400" role="img" aria-label="能力箱线图：箱体为 Q1~Q3、中位线与均值点，叠加规格带（绿区 LSL~USL）。箱体落在规格带内且有余量=过程合格；顶到或越过规格线=超规风险高。"></canvas></div>
     <div class="legend">▦ 箱 = Q1~Q3（中间 50% 数据）　─ 中位数　● <span style="color:var(--c-fit)">μ 均值</span>　— 须 = 最小~最大　<span style="background:rgba(46,139,87,.12);border:1px dashed rgba(46,139,87,.5)">&nbsp;绿区&nbsp;</span> = 规格带 LSL~USL。箱体全部落在绿区内且有余量 = 过程合格；箱体顶到/越过规格线 = 超规风险高。</div>
 
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
-    <div class="cv-scroll"><canvas id="cvQuant" width="720" height="400" role="img" aria-label="正态概率图(Q-Q 图)：样本测量值对理论正态分位数作图，右下角给出拟合优度 R²。点越接近拟合直线说明数据越接近正态；右下角徽标给出拟合优度 R²。"></canvas></div>
+    <div class="cv-scroll"><canvas id="cvQuant" width="720" height="400" role="img" aria-label="正态概率图（Q-Q 图）：样本测量值对理论正态分位数作图。点越接近拟合直线说明数据越接近正态；右下角徽标给出拟合优度 R²。"></canvas></div>
     <div class="legend">横轴 = <b>理论正态分位数 z</b>（标准正态分布的分位点，如 0=均值、±1.96=95% 边界）；纵轴 = 样本测量值。<b>点越接近直线，数据越接近正态</b>；右下角 R² = 拟合优度（&gt;0.95 视为近似正态，正态能力法才可靠）。</div>
 
     <div class="chart-title">⑦ 控制图（I-MR / Xbar-R / Xbar-S，过程稳定性判断）</div>
@@ -531,7 +531,7 @@
 <div id="glossOverlay">
   <div class="gloss-box" role="dialog" aria-label="术语百科">
     <div class="gloss-head">
-      <h2>📖 术语百科（57 条 · 中英速查）</h2>
+      <h2>📖 术语百科（<span id="glossTotal">58</span> 条 · 中英速查）</h2>
       <input id="glossSearch" type="search" aria-label="搜索术语：支持英文简称与中文关键词" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
       <button class="gloss-close" id="glossClose">✕ 关闭</button>
     </div>
@@ -551,13 +551,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.14.0</b> · 最近更新 2026-09-10</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.15.0</b> · 最近更新 2026-09-10</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.14.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.15.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1029,11 +1029,13 @@ function extractSpecFromText(t){
 }
 
 // 非正态能力（ISO 22514-2 经验分位数法，非参数）：
-// 用数据实际分布（而非正态假设）的实测超限比例换算 Z 基准：
+// 用数据实际分布（而非正态假设）的实测超出规格限比例换算 Z 基准：
 //   Z.LSL = Φ⁻¹(实测 ≤LSL 比例)，Z.USL = Φ⁻¹(1 − 实测 >USL 比例)
 //   Ppk* = min(Z.USL, −Z.LSL)/3，Cp* = (Z.USL − Z.LSL)/6
 // 注：Z.LSL 通常为负（数据大多位于 LSL 之上），取负号才是「距下限的等效 σ 距离」。
-// 经验法无超限样本时 Ppk* 存在理论上限（n=100 时约 1.58，随样本量增大而增大），属正常现象。
+// 经验法无样本超出规格限时，Ppk* 由实现下限决定：实测比例被钳在 1e-6，
+// 故 Ppk* 恒为 Φ⁻¹(1−1e-6)/3 ≈ 1.58，与样本量无关（切勿写成「随样本量增大而增大」）。
+// 它只说明「本批未见超规」，不代表真实能力水平。
 function nonnormalCap(sorted,lsl,usl){
   const n=sorted.length;
   const pL = lsl!=null ? sorted.filter(v=>v<=lsl).length/n : 0;
@@ -1103,7 +1105,7 @@ function calc(auto){
     else { sub=0; subNonInt=true; }
   }
   // 已剔除前导序号列（SN 1/2/3… + 测量值）时，在解析反馈条中说明
-  if(info.strippedLead) parseNotes.push('已自动忽略首列序号(SN)');
+  if(info.strippedLead) parseNotes.push('已自动忽略首列序号（SN）');
   // 自动推断的子组大小"失粘"（v2.13.0）：自动推断值会回填到输入框，此后 sub!==0 使自动推断永久失效，
   // 换一批数据时仍沿用上一个数据集推断出的子组大小且无任何提示（实测：5 个/行 → 换成单列 40 点，
   // 仍按子组 5 的 Xbar-R 分析）。故当输入框里的值确为"上一次自动推断"写入的（dataset.auto）而当前
@@ -1213,7 +1215,7 @@ function calc(auto){
   let obs=0; if(usl!=null)obs+=nums.filter(v=>v>usl).length; if(lsl!=null)obs+=nums.filter(v=>v<lsl).length;
   const obsPpm=1e6*obs/n;
 
-  // ---- 稳定性指标（JMP：总 σ ÷ 组内 σ，>1 表示长期波动大于短期，存在组间漂移）----
+  // ---- 稳定性指标（JMP：整体 σ ÷ 组内 σ，>1 表示长期波动大于短期，存在组间漂移）----
   const stability=sd/sw;
 
   // ---- SPC 控制限与受控性判定（控制图）----
@@ -1235,7 +1237,7 @@ function calc(auto){
   const mStable = mCtrl.out.length < M_OUT_TRIGGER;
   const stable = ctrl.stable && mStable;   // 总体受控 = 主图无异常模式 + 辅助图无多点越界
 
-  // ---- 不合格分析（观测 % / 期望组内 % / 期望总体 %）----
+  // ---- 不合格分析（观测 % / 期望组内 % / 期望整体 %）----
   const obsBelowPct = lsl!=null ? 100*nums.filter(v=>v<lsl).length/n : 0;
   const obsAbovePct = usl!=null ? 100*nums.filter(v=>v>usl).length/n : 0;
   const expWBelowPct = lsl!=null ? 100*normCdf(lsl,m,sw) : 0;
@@ -1288,7 +1290,7 @@ function calc(auto){
   // P0-① 测量分辨率 / ndc≥5
   if(ndc<5){
     warns.push({level:'warn',icon:'🔬',title:'测量分辨率可能过粗（ndc<5）',
-      text:`估算数据记录分度 ≈ ${resText}，区分度指数 ndc = 1.41×σ组内/分度 ≈ ${ndc.toFixed(2)}，低于 AIAG MSA 要求的 ≥5。分辨率不足会把 Cpk 高估、掩盖真实波动，请确认量具精度或用更高分辨率的数据。`});
+      text:`估算数据记录分度 ≈ ${resText}，区分度指数 ndc = 1.41 × 组内 σ ÷ 分度 ≈ ${ndc.toFixed(2)}，低于 AIAG MSA 要求的 ≥5。分辨率不足会把 Cpk 高估、掩盖真实波动，请确认量具精度或用更高分辨率的数据。`});
   }
   // P0-② 高 Cpk 合理性复核
   if(isFinite(primary)&&primary>=2.0){
@@ -1380,7 +1382,7 @@ function calc(auto){
   if(!normOk){
     nnCap=nonnormalCap(sorted,lsl,usl);
     warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514-2 经验法估算能力',
-      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无超限样本，经验法 Ppk* 存在理论上限（n=${n} 时约 1.58），数值偏低属正常，不代表能力真的只有这么多。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
+      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无样本超出规格限，经验法 Ppk* 只能取到实现下限（恒 ≈1.58，与样本量 n 无关）——它只说明「本批未见超规」，不能作为能力水平的证据。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
     // ⑤ 轻量对数诊断：数据全部 >0 时，自动试一下取自然对数能否恢复正态（Box-Cox λ→0 即对数变换）。
     // 若 ln(x) 后 R² 明显提升并越过 0.95，就给出可操作的下一步；不实际变换数据/规格限，避免误改结果。
     if(nums.length>=5 && sorted[0]>0){
@@ -1397,9 +1399,9 @@ function calc(auto){
   const lslBox=document.getElementById('lsl').value.trim();
   const uslBox=document.getElementById('usl').value.trim();
   if(!useLsl&&lslBox!=='') warns.push({level:'info',icon:'☑️',title:'LSL 已填值但未启用',
-    text:`规格下限 LSL=${lslBox} 已填写但「启用规格下限」未勾选，当前按单侧(上限)分析。若需双侧请勾选「启用规格下限 LSL」。`});
+    text:`规格下限 LSL=${lslBox} 已填写但「启用规格下限」未勾选，当前按单侧（上限）分析。若需双侧请勾选「启用规格下限 LSL」。`});
   if(!useUsl&&uslBox!=='') warns.push({level:'info',icon:'☑️',title:'USL 已填值但未启用',
-    text:`规格上限 USL=${uslBox} 已填写但「启用规格上限」未勾选，当前按单侧(下限)分析。若需双侧请勾选「启用规格上限 USL」。`});
+    text:`规格上限 USL=${uslBox} 已填写但「启用规格上限」未勾选，当前按单侧（下限）分析。若需双侧请勾选「启用规格上限 USL」。`});
   // 表头规格限「检测到但未生效」警告（P0-3 修复后的强提示）：表头明写 LSL/USL，
   // 但对应勾选框未启用 → 这些规格限被静默忽略，会按单侧甚至无规格计算，Cpk 严重失真。
   if(specFromHeader&&(specFromHeader.lsl!=null||specFromHeader.usl!=null)){
@@ -1426,7 +1428,7 @@ function calc(auto){
         <span>${vText||'请先设置规格限'}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
-  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（总）',pp],['Ppk（总）',ppk],['Cpm（目标）'+(targetFromInput?'':(both?'*':'')),cpm]];
+  const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（目标）'+(targetFromInput?'':(both?'*':'')),cpm]];
   document.getElementById('metrics').innerHTML = cardDefs.map(([k,v])=>{
     const tone=capTone(v);
     return `<div class="metric" style="border-left-color:${tone.c}">
@@ -1435,7 +1437,7 @@ function calc(auto){
   `<div class="metric" style="border-left-color:var(--muted)"><div class="k">样本量 n</div><div class="v">${n}</div></div>
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">均值 μ</div><div class="v">${fmt(m,4)}</div></div>
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
-   <div class="metric" style="border-left-color:var(--muted)"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
+   <div class="metric" style="border-left-color:var(--muted)"><div class="k">整体 σ</div><div class="v">${fmt(sd,4)}</div></div>
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`;
   // 长数值降级字号：卡片 overflow:hidden，六位 PPM（1,000,000）在 122px 卡里会被裁掉末位
   // 显示成错误数字。渲染后实测 scrollWidth，按需降一档字号，宁可小一号也不能显示错的数值。
@@ -1462,10 +1464,10 @@ function calc(auto){
     ['样本量 n',fmt(n,0),'参与计算的观测个数'],
     ['均值 μ',fmt(m,4),'数据算术平均'],
     ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':(both?'自动取规格中点 (LSL+USL)/2，用于 Cpm':'单侧规格：自动取该侧规格限（单侧时 Cpm 无定义，仅作展示）')],
-    ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':'均值相对规格中点的偏移（0=恰好居中）'],
+    ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':(both?'均值相对规格中点的偏移（0=恰好居中）':'单侧规格时 T=该侧规格限，此处为均值相对该规格限的偏移')],
     ['组内 σ',fmt(sw,4),sub>1?(sub>10?'子组标准差法 S̄/c4（短期波动）':'子组极差法 R̄/d2（短期波动）'):'移动极差法 MR̄/1.128（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
-    ['稳定性指标',fmt(stability,4),'整体σ ÷ 组内σ；>1.3 提示组间漂移/特殊原因'],
+    ['稳定性指标',fmt(stability,4),'整体 σ ÷ 组内 σ；>1.3 提示组间漂移 / 特殊原因'],
     ['控制上限 UCL',fmt(spc.ucl,4),spc.type+' 图：中心线 + 3σ（过程数据算出，随波动动态变化）'],
     ['中心线 CL',fmt(spc.cl,4),spc.type+' 图中心线 = 过程均值'],
     ['控制下限 LCL',fmt(spc.lcl,4),spc.type+' 图：中心线 − 3σ（过程数据算出，随波动动态变化）'],
@@ -1479,20 +1481,20 @@ function calc(auto){
     ['Cpm',fmt(cpm),'含目标偏移的过程能力'],
     ['西格玛水平 Zst（短期）',zstTxt,zNeg?'= 3×Cpk：均值已落在规格范围外（Cpk≤0），西格玛水平为负、不具实际意义，故显示「—」':'= 3×Cpk；反映当前中心位置下的短期能力（已含中心偏移），六西格玛惯例约再 +1.5 为含长期漂移的换算水平'],
     ['西格玛水平 Zlt（长期）',zltTxt,ppk<=0?'= 3×Ppk：均值已落在规格范围外（Ppk≤0），西格玛水平为负、不具实际意义，故显示「—」':'= 3×Ppk；含长期漂移的实际 sigma 水平'],
-    ['理论超规 PPM(组内)',fmt(ppmWithin,1),'基于组内σ的正态估计'],
-    ['理论超规 PPM(整体)',fmt(ppmOverall,1),'基于整体σ的正态估计'],
-    ['实测超规 PPM',fmt(obsPpm,1),`实际越界 ${obs} 个`],
-    ['测量分辨率(估)',resText,'数据记录的最小分度，用于区分度 ndc'],
-    ['区分度 ndc',fmt(ndc,2),'1.41·σ组内/分辨率；<5 提示量具分辨率不足（AIAG MSA）']];
+    ['理论超规 PPM(组内)',fmt(ppmWithin,1),'基于组内 σ 的正态估计'],
+    ['理论超规 PPM(整体)',fmt(ppmOverall,1),'基于整体 σ 的正态估计'],
+    ['实测超规 PPM',fmt(obsPpm,1),`超出规格限 ${obs} 个`],
+    ['测量分辨率（估）',resText,'数据记录的最小分度，用于区分度 ndc'],
+    ['区分度 ndc',fmt(ndc,2),'1.41·组内 σ ÷ 分辨率；<5 提示量具分辨率不足（AIAG MSA）']];
   if(nnCap) rows.push(
-    ['Ppk*（非正态）',fmt(nnCap.ppk),'ISO 22514-2 经验分位法：基于数据实际分布（无超限样本时存在理论上限）'],
+    ['Ppk*（非正态）',fmt(nnCap.ppk),'ISO 22514-2 经验分位法：基于数据实际分布；无样本超出规格限时取实现下限 ≈1.58（与样本量无关）'],
     ['Cp*（非正态）',fmt(nnCap.cp),'非正态潜在能力（经验分位法）']);
   // 追加各指数的 95% 置信区间（区间内用中文顿号分隔，避免导出 CSV 时被英文逗号拆列）
   const ciRow=(k,v,ci,suffix)=>{const vOk=isFinite(v);
     return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}，${fmt(ci[1])}]`:'—',
       (suffix==='(组内)'&&sub>1?'近似置信区间（组内 σ 自由度 ν=k(n−1)='+nuWithin+'，即 '+nGroupsEff+' 组 × (n='+sub+'−1)）':'近似置信区间（样本量 n='+n+'，自由度 ν=n−1='+(n-1)+'）')];};
   for(const k in withinIdx)rows.push(ciRow(k,withinIdx[k],withinCI[k],'(组内)'));
-  for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(总)'));
+  for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(整体)'));
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:var(--muted)">${d}</td></tr>`).join('');
 
   // ---- JMP 式报告区渲染 ----
@@ -1519,7 +1521,7 @@ function calc(auto){
       <table class="cap-table"><tbody>
         <tr><th>项目</th><th class="num">数值</th></tr>
         ${sunRow('组内 Sigma', fmt(sw,4))}
-        ${sunRow('总 Sigma', fmt(sd,4))}
+        ${sunRow('整体 Sigma', fmt(sd,4))}
         <tr><td>稳定性指标</td><td class="num ${stability>1.3?'stability-high':''}">${fmt(stability,4)}${stability>1.3?' ⚠':''}</td></tr>
         ${sunRow('控制上限 UCL', fmt(spc.ucl,4))}
         ${sunRow('控制下限 LCL', fmt(spc.lcl,4))}
@@ -1528,7 +1530,7 @@ function calc(auto){
       </tbody></table>
     </div>`;
   document.getElementById('summaryNote').innerHTML =
-    `稳定性指标 = 总 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。`+
+    `稳定性指标 = 整体 σ ÷ 组内 σ；>1.3 提示存在组间漂移 / 特殊原因，能力判定需谨慎。`+
     `西格玛水平：Zst = 3×Cpk（短期）、Zlt = 3×Ppk（长期）；六西格玛惯例含 1.5σ 漂移的长期水平约 = Zst + 1.5。`+
     `${primary>0?'':' <b>本批过程均值已落在规格范围外（Cpk ≤ 0），西格玛水平为负、不具实际意义，故显示为「—」。</b>'}<br>`+
     `控制限 UCL/LCL = 过程数据均值 ± 3σ（${spc.type} 法），与规格限是两套不同的线（控制限判受控、规格限判合格）。`;
@@ -1552,13 +1554,13 @@ function calc(auto){
   // （n=60 → 每档 1.6667%），写成 3.3333 属虚假精度；期望值来自正态分布，保留 3 位。
   const pctObs=v=>v.toFixed(2), pctExp=v=>v.toFixed(3);
   document.querySelector('#defectTable thead').innerHTML=
-    '<tr><th scope="col">类别</th><th scope="col" class="num">观测 %</th><th scope="col" class="num">期望组内 %</th><th scope="col" class="num">期望总体 %</th></tr>';
+    '<tr><th scope="col">类别</th><th scope="col" class="num">观测 %</th><th scope="col" class="num">期望组内 %</th><th scope="col" class="num">期望整体 %</th></tr>';
   document.querySelector('#defectTable tbody').innerHTML=
     defectRows.map((r,i)=>`<tr class="${i===2?'defect-row-total':''}">
       <td>${r[0]}</td><td class="num">${pctObs(r[1])}</td><td class="num">${pctExp(r[2])}</td><td class="num">${pctExp(r[3])}</td></tr>`).join('');
 
   // 保存结果供导出
-  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, primary, withinIdx, withinCI, overallIdx, overallCI, defectRows,
+  lastResult={rows, nums, lsl, usl, target, m, sd, sw, stability, primary, zstTxt, zltTxt, withinIdx, withinCI, overallIdx, overallCI, defectRows,
               spc, ctrl, mCtrl, ctrlInSpec, stable, lslAuto, uslAuto};
 
   setMsg('ok','✅ 计算完成。');
@@ -1717,7 +1719,7 @@ function drawHist(x,lsl,usl,target,m,sd,sw,axisLabel){
   if(lsl!=null)vline(ctx,x2px(lsl),padT,plotH,C.lsl(),'LSL',C.lsl());
   if(usl!=null)vline(ctx,x2px(usl),padT,plotH,C.usl(),'USL',C.usl());
   // 均值线（越界时变红；与 T 线重合时用「T/μ」合并标签，避免 μ 不可见）
-  const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?getCss('--bad'):C.fit();
+  const muC=((lsl!=null&&m<lsl)||(usl!=null&&m>usl))?getCss('--bad'):C.fit();
   const muPx=x2px(m),tPx=target!=null?x2px(target):null;
   const nearT=(tPx!=null&&Math.abs(muPx-tPx)<=20);
   if(target!=null)vline(ctx,tPx,padT,plotH,C.target(),nearT?'T = μ':'T',C.target());
@@ -1783,7 +1785,7 @@ function drawBox(x,lsl,usl,target,m,axisLabel){
   ctx.strokeStyle=C.text();ctx.lineWidth=2;
   ctx.beginPath();ctx.moveTo(x2px(q2),yMid-half);ctx.lineTo(x2px(q2),yMid+half);ctx.stroke();
   // 均值点（越界时变红）+ 数值标注（点正下方）
-  const muC=(lsl!=null&&usl!=null&&(m<lsl||m>usl))?getCss('--bad'):C.fit();
+  const muC=((lsl!=null&&m<lsl)||(usl!=null&&m>usl))?getCss('--bad'):C.fit();
   ctx.fillStyle=muC;ctx.beginPath();ctx.arc(x2px(m),yMid,5,0,7);ctx.fill();
   ctx.strokeStyle=C.bg();ctx.lineWidth=1;ctx.stroke();
   ctx.fillStyle=muC;ctx.font='10px sans-serif';ctx.textAlign='center';
@@ -2030,7 +2032,7 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
   if(stable&&capOk)sc={c:getCss('--good'),t:'理想：受控且能力达标',
     d:'过程统计稳定，且能力指数 Cpk≥1.33 满足要求（理论不合格率约不超过 66 PPM，Cpk 越高越低）。维持现行监控即可。'};
   else if(stable&&!capOk)sc={c:getCss('--mar'),t:'受控但能力不足',
-    d:'所有点都在控制限内（过程统计稳定），但 Cpk&lt;1.33——即便过程稳定也会持续产出超差品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
+    d:'所有点都在控制限内（过程统计稳定），但 Cpk&lt;1.33——即便过程稳定也会持续产出不合格品。根因是波动（σ）过大或中心偏移，需减小波动 / 调整中心来提升能力（Cpk）。'};
   else if(!stable&&capOk)sc={c:getCss('--mar'),t:'能力达标但失控',
     d:'Cpk 暂时达标，但过程已失控（存在特殊原因异常），随时可能演变为批量不合格。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再评估能力。'};
   else sc={c:getCss('--bad'),t:'失控且能力不足',
@@ -2058,9 +2060,9 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
         <h4>规格限（图纸 / 客户给定 · 固定不变）</h4>
         <table class="cap-table">
           <tr><th>项目</th><th class="num">数值</th><th class="num">判定</th></tr>
-          <tr><td>规格上限 USL</td><td class="num" style="color:var(--c-lsl);font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:var(--muted)">${usl!=null?(uslIn?'UCL 在内 ✅':'UCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>规格上限 USL</td><td class="num" style="color:var(--c-lsl);font-weight:700">${usl!=null?fmt(usl,4):'—'}</td><td class="num" style="color:var(--muted)">${usl!=null?(uslIn?'UCL 在规格内 ✅':'UCL 超出规格 ⚠'):'未启用'}</td></tr>
           <tr><td>目标值 T</td><td class="num">${target!=null?fmt(target,4):'—'}</td><td class="num" style="color:var(--muted)">用于 Cpm</td></tr>
-          <tr><td>规格下限 LSL</td><td class="num" style="color:var(--c-lsl);font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:var(--muted)">${lsl!=null?(lslIn?'LCL 在内 ✅':'LCL 越界 ⚠'):'未启用'}</td></tr>
+          <tr><td>规格下限 LSL</td><td class="num" style="color:var(--c-lsl);font-weight:700">${lsl!=null?fmt(lsl,4):'—'}</td><td class="num" style="color:var(--muted)">${lsl!=null?(lslIn?'LCL 在规格内 ✅':'LCL 超出规格 ⚠'):'未启用'}</td></tr>
           <tr><td>观测越界</td><td class="num">${obsN} 个</td><td class="num" style="color:var(--muted)">原始个体数据超规格数</td></tr>
         </table>
       </div>
@@ -2369,7 +2371,7 @@ function exportCsv(){
   lines.push('受控性判定,'+(r.stable?'统计受控':'统计失控')+',越界点数：主图 '+r.ctrl.out.length+' / 辅助图('+(r.spc.type==='Xbar-S'?'S':'MR/R')+') '+r.mCtrl.out.length+'（辅助图需≥'+M_OUT_TRIGGER+'点越界才判失控）');
   lines.push('控制限∩规格限,'+(r.ctrlInSpec?'控制限在规格限内':'控制限超出规格限')+',理想=控制限完全落在规格限内部');
   // 不合格分析
-  lines.push('类别,观测%,期望组内%,期望总体%');
+  lines.push('类别,观测%,期望组内%,期望整体%');
   // 观测列 2 位、期望列 3 位（与页面表格一致，v2.14.0）
   lastResult.defectRows.forEach(r=>lines.push(r[0]+','+r[1].toFixed(2)+','+r[2].toFixed(3)+','+r[3].toFixed(3)));
   lines.push('');lines.push('原始数据');
@@ -2427,8 +2429,8 @@ function exportPng(){
     ['规格下限 LSL',r.lsl!=null?fmt(r.lsl,4):'—','目标值 T',fmt(r.target,4)],
     ['规格上限 USL',r.usl!=null?fmt(r.usl,4):'—','样本量 n',r.nums.length],
     ['样本均值 μ',fmt(r.m,4),'组内 Sigma',fmt(r.sw,4)],
-    ['总 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)],
-    ['西格玛水平 Zst',fmt(3*r.primary),'西格玛水平 Zlt',fmt(3*r.overallIdx.Ppk)]
+    ['整体 Sigma',fmt(r.sd,4),'稳定性指标',fmt(r.stability,4)],
+    ['西格玛水平 Zst',r.zstTxt||fmt(3*r.primary),'西格玛水平 Zlt',r.zltTxt||fmt(3*r.overallIdx.Ppk)]
   ];
   drawTableBlock('■ 过程汇总', sumRows, sumColX);
   // 控制限 vs 规格限（数据算出的动态界限 vs 客户给定的固定界限）
@@ -2448,7 +2450,7 @@ function exportPng(){
   const ocapRows=Object.keys(r.overallIdx).map(k=>[k,fmt(r.overallIdx[k]),
     r.overallCI[k][0]!=null?fmt(r.overallCI[k][0]):'—',r.overallCI[k][1]!=null?fmt(r.overallCI[k][1]):'—']);
   ctx.fillStyle=C.ink();ctx.font='bold 12px sans-serif';ctx.fillText('■ 组内 Sigma 能力',pad,y);
-  ctx.fillText('■ 总 Sigma 能力',pad+half+20,y);
+  ctx.fillText('■ 整体 Sigma 能力',pad+half+20,y);
   y+=16;
   ['指数','估计','95%下','95%上'].forEach((t,j)=>{ctx.font='10px sans-serif';ctx.fillStyle=C.muted();
     ctx.textAlign=j?'right':'left';ctx.fillText(t,capHeadX[j],y);ctx.textAlign='left';});
@@ -2473,7 +2475,7 @@ function exportPng(){
   y+=8;
   // 不合格分析
   const defRows=r.defectRows.map(row=>[row[0],row[1].toFixed(2),row[2].toFixed(3),row[3].toFixed(3)]);
-  drawTableBlock('■ 不合格分析（观测% / 期望组内% / 期望总体%）', defRows, [pad,pad+150,pad+280,pad+410]);
+  drawTableBlock('■ 不合格分析（观测% / 期望组内% / 期望整体%）', defRows, [pad,pad+150,pad+280,pad+410]);
   // ---- 图表区 ----
   y+=10;
   src.forEach((c,i)=>{
@@ -2496,10 +2498,10 @@ function buildMarkdown(){
     '# Cpk 过程能力分析报告','',
     '- 样本量 n = '+r.nums.length,
     '- 均值 μ = '+fmt(r.m,4)+'　目标 T = '+fmt(r.target,4),
-    '- 组内 σ = '+fmt(r.sw,4)+'　总 σ = '+fmt(r.sd,4),
+    '- 组内 σ = '+fmt(r.sw,4)+'　整体 σ = '+fmt(r.sd,4),
     '- 规格限 LSL = '+(r.lsl!=null?fmt(r.lsl,4):'—')+'　USL = '+(r.usl!=null?fmt(r.usl,4):'—'),
     '- 能力指数：Cp='+L('Cp')+'　Cpk='+L('Cpk')+'　Pp='+L('Pp')+'　Ppk='+L('Ppk')+'　Cpm='+L('Cpm'),
-    '- 西格玛水平：Zst='+fmt(3*r.primary)+'　Zlt='+fmt(3*r.overallIdx.Ppk),
+    '- 西格玛水平：Zst='+(r.zstTxt||fmt(3*r.primary))+'　Zlt='+(r.zltTxt||fmt(3*r.overallIdx.Ppk)),
     '- 受控性：'+(r.stable?'统计受控':'统计失控')+'　控制限∩规格限：'+(r.ctrlInSpec?'完全在内':'超出规格'),
     '- 实测超规 PPM = '+L('实测超规 PPM')
   ].join('\n');
@@ -2597,7 +2599,7 @@ function batchCompare(){
   ttl.style.display='flex';
   el.innerHTML=
     '<div class="legend" style="text-align:left;margin-bottom:6px">对比口径：共用当前规格限与子组设置，每批独立计算；正式判级请逐批查看明细。</div>'+
-    '<table class="cap-table"><thead><tr><th scope="col">批次</th><th scope="col" class="num">n</th><th scope="col" class="num">均值 μ</th><th scope="col" class="num">σ组内</th><th scope="col" class="num">σ总</th><th scope="col" class="num">Cpk</th><th scope="col" class="num">Ppk</th><th scope="col" class="num">实测PPM</th><th scope="col">判定</th></tr></thead><tbody>'+
+    '<table class="cap-table"><thead><tr><th scope="col">批次</th><th scope="col" class="num">n</th><th scope="col" class="num">均值 μ</th><th scope="col" class="num">组内 σ</th><th scope="col" class="num">整体 σ</th><th scope="col" class="num">Cpk</th><th scope="col" class="num">Ppk</th><th scope="col" class="num">实测 PPM</th><th scope="col">判定</th></tr></thead><tbody>'+
     rows.map(r=>r.err
       ? `<tr><td><b>${escHtml(r.name)}</b></td><td colspan="8" style="color:var(--bad)">${escHtml(r.err)}</td></tr>`
       : `<tr><td><b>${escHtml(r.name)}</b></td>${r.cells.slice(0,7).map(c=>`<td class="num">${c}</td>`).join('')}<td><span style="color:${r.cells[8]};font-weight:700">${r.cells[7]}</span></td></tr>`).join('')+
@@ -2660,7 +2662,7 @@ const GLOSS=[
    def:'图纸、客户或标准规定的<b>合格范围边界</b>，由<b>规格下限 LSL</b>（最小合格值）与<b>规格上限 USL</b>（最大合格值）组成，<b>固定不变、与数据无关</b>，是判定"产品合不合格"的依据。<b>不是</b>这批数据的最大/最小值——例如轴径 10±0.02 → LSL=9.980、USL=10.020；也不随过程波动变化，与数据算出的控制限（判过程受控）是两套不同的线。',
    formula:'规格带 = [LSL, USL]；宽度 = USL − LSL',
    steps:['查图纸 / 客户要求 / 行业标准，确定最小允许值 LSL 与最大允许值 USL','填入"规格下限 LSL / 规格上限 USL"输入框并勾选启用；单侧要求（只有上限或下限）时取消勾选另一侧','留空自动预填"均值 ± 3σ"仅为试算占位，正式判级前务必替换为真实规格限'],
-   impact:'LSL 填错 → Cpl/Cp/Cpk 失真：填得比真实要求宽松（如填均值−3σ）会高估能力、出货后才发现批量超差，填得过于严格又误判不合格、浪费改善资源；USL 填错 → Cpu/Ppu 及上侧超规 PPM 完全失真。',
+   impact:'LSL 填错 → Cpl/Cp/Cpk 失真：填得比真实要求宽松（如填均值−3σ）会高估能力、出货后才发现批量超规，填得过于严格又误判不合格、浪费改善资源；USL 填错 → Cpu/Ppu 及上侧超规 PPM 完全失真。',
    action:'判级前务必核对图纸版本与客户最新要求，LSL 与 USL 同源核对；单侧规格时取消勾选另一侧即可切换为单侧分析。',
    tip:'工具会自动检测「规格限与数据严重脱节」（如 LSL 远低于数据最小值）并黄条警告，多半是位数/小数点填错；留空的均值±3σ 只是试算占位，正式判级务必填真实规格限。'},
   {cat:'规格与目标',abbr:'T',name:'Target Value',cn:'目标值',
@@ -2676,19 +2678,19 @@ const GLOSS=[
    impact:'公差带越窄，对过程波动要求越高；Cp/Cpk 本质是"过程 6σ 与公差带之比"。对称公差带中心 = 规格中点；非对称公差（如 φ20 +0.1/−0.05）中心 ≠ 设计目标 T，判 Cpm 时必须填 T。',
    action:'公差带由设计决定，过程只能去适应；新项目早期介入 DFM 可避免过严公差。',
    tip:'规格带放宽 ≠ 过程变好：放宽公差会掩盖真实波动。判级必须基于真实图纸公差，不要为"结果好看"而放宽。'},
-  {cat:'规格与目标',abbr:'超差',name:'Out of Specification',cn:'超差（不合格品）',
-   def:'测量值超出规格限（>USL 或 <LSL），即不合格品。工具统计实测超差数量/百分比与理论 PPM。',
-   formula:'超差 = x > USL 或 x < LSL；超差率 = 超差数/n',
-   steps:['工具自动统计实测超差数与理论期望超差率'],
-   impact:'超差品流出 = 客户投诉/退货/审核不合格；理论 PPM 高于实测说明正态假设或规格填写可能有问题。',
-   action:'超差率高的特性优先排入改善计划；首件/巡检重点拦截。'},
+  {cat:'规格与目标',abbr:'超规',name:'Out of Specification',cn:'超规（亦称超差 / 不合格品）',
+   def:'测量值超出规格限（>USL 或 <LSL），即不合格品；俗称超差、超限。工具统计实测超规数量/百分比与理论 PPM。',
+   formula:'超规 = x > USL 或 x < LSL；超规率 = 超规数/n',
+   steps:['工具自动统计实测超规数与理论期望超规率'],
+   impact:'超规品流出 = 客户投诉/退货/审核不合格；理论 PPM 高于实测说明正态假设或规格填写可能有问题。',
+   action:'超规率高的特性优先排入改善计划；首件/巡检重点拦截。'},
   // ---------- 统计量 ----------
   {cat:'统计量',abbr:'μ (mu)',name:'Mean',cn:'均值（过程中心）',
    def:'所有测量值的算术平均，代表过程当前的中心位置。μ = Σxᵢ / n。它同时是直方图均值线、控制图中心线 CL 的位置；μ 越接近规格中点 / 目标 T，中心偏移越小。',
    formula:'μ = (x₁ + x₂ + … + xₙ) / n',
    steps:['把所有测量值相加','除以样本量 n'],
    impact:'μ 与规格中点 / 目标 T 的偏差 = 中心偏移。中心偏移是 Cpk 低于 Cp、Ppk 低于 Pp 的根本原因之一，直接决定超上差还是超下差。',
-   action:'当均值明显偏离规格中点时，优先调整过程设定值；均值越界时直方图中均值线会变红提示。'},
+   action:'当均值明显偏离规格中点时，优先调整过程设定值；均值超出规格限时，直方图中的均值线会变红提示。'},
   {cat:'统计量',abbr:'σ (sigma)',name:'Standard Deviation',cn:'标准差（波动）',
    def:'衡量数据离散（波动）程度的指标。本工具区分两组 σ：<b>组内 σ</b>（短期波动）与<b>整体 σ</b>（长期波动），分别用于 Cpk/Ppk 两组指数。',
    formula:'σ_overall = √( Σ(xᵢ−μ)² / (n−1) )　（样本标准差，ddof=1）',
@@ -2705,7 +2707,7 @@ const GLOSS=[
    def:'样本标准差（ddof=1），包含所有短期与长期波动来源，反映过程<b>长期总体</b>波动。用于 Pp / Ppk / Cpm 系列。',
    formula:'σ_overall = √( Σ(xᵢ−μ)² / (n−1) )',
    steps:['直接对全部数据计算样本标准差'],
-   impact:'σ_overall ≥ σ_within 恒成立；两者比值 = 稳定性指标。σ_overall 越大，长期不良率越高。',
+   impact:'σ_overall ≥ σ_within 恒成立；两者比值 = 稳定性指标。σ_overall 越大，长期不合格率越高。',
    action:'长期质量评估、客户 PPAP 以 σ_overall 体系为准；当 σ_overall 明显大于 σ_within 时启动批次间差异排查。'},
   {cat:'统计量',abbr:'n',name:'Sample Size',cn:'样本量',
    def:'参与计算的测量值个数。n 越大，能力指数估计越可靠，95% 置信区间越窄。工具按 n 自动提示：n<20 判级仅供参考、20≤n<30 建议扩充至 ≥30 再下正式结论。',
@@ -2758,9 +2760,9 @@ const GLOSS=[
    action:'先核实原始记录与测量过程；确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。',
    tip:'工具用 Tukey IQR 1.5 倍规则自动提示疑似离群点（结果区黄条），会给出具体范围；先核实再决定是否剔除。'},
   {cat:'统计量',abbr:'组间变异',name:'Between-Subgroup Variation',cn:'组间变异（批次间差异）',
-   def:'不同子组/批次/班次之间的均值差异，反映长期漂移。总 σ 包含组内+组间，组内 σ 只含组内；两者之比 = 稳定性指标。',
+   def:'不同子组/批次/班次之间的均值差异，反映长期漂移。整体 σ 包含组内+组间，组内 σ 只含组内；两者之比 = 稳定性指标。',
    formula:'σ_overall² ≈ σ_within² + σ_between²；稳定性 = σ_overall/σ_within',
-   steps:['对比 Cpk（组内）与 Ppk（总）','比值 >1.3 提示组间变异显著'],
+   steps:['对比 Cpk（组内）与 Ppk（整体）','比值 >1.3 提示组间变异显著'],
    impact:'组间变异大 → Ppk 明显低于 Cpk → 客户长期绩效差，短期抽检却"看起来合格"。',
    action:'按班次/机台/批次分层做控制图，锁定漂移源（换班/换料/温湿度）后针对性管控。'},
   {cat:'统计量',abbr:'正态分布',name:'Normal Distribution',cn:'正态分布',
@@ -2786,7 +2788,7 @@ const GLOSS=[
   {cat:'质量指标',abbr:'95% CI',name:'95% Confidence Interval',cn:'95% 置信区间',
    def:'能力指数真值所在的大致范围（双侧 95%）：如果反复抽样，约 95% 的区间会覆盖真值。样本量越小区间越宽。',
    formula:'Cp/Pp：卡方法 CI = C·√(χ²_p(ν)/ν)；Cpk/Ppk 等：Bissell/Kotz 近似 se = √(1/(9n) + K²/(2(ν−1)))',
-   steps:['工具自动对每个指数计算 [下限, 上限]','ν = σ 的有效自由度：整体 σ（Pp/Ppk 系列）取 n−1；组内 σ 个体模式取 n−1、子组模式取 k(n−1)（k=完整子组数，每个子组的样本标准差各贡献 n−1）'],
+   steps:['工具自动对每个指数计算 [下限，上限]','ν = σ 的有效自由度：整体 σ（Pp/Ppk 系列）取 n−1；组内 σ 个体模式取 n−1、子组模式取 k(n−1)（k=完整子组数，每个子组的样本标准差各贡献 n−1）'],
    impact:'只看点估计（如 Cpk=1.42）会高估可靠性：若 95%CI 是 [1.08, 1.76]，真实能力可能不到 1.33，判级结论可能翻转。样本量越小区间越宽。',
    action:'判级时同时看点估计与置信区间下界：下界 < 1.33 时建议增加样本量再下结论，或按更保守的等级管理。',
    tip:'判级口诀：以「置信区间下界」为准，不用点估计——下界过了哪一档，才敢宣布哪一档。子组模式下组内指数的区间宽度应与整体指数同量级（两者自由度相当）；若看到 Cpk 的 CI 比 Ppk 宽数倍，属异常。'},
@@ -2809,7 +2811,7 @@ const GLOSS=[
    impact:'Zst / Zlt 与 Cpk / Ppk 一一对应，只是换算口径；西格玛水平越高说明波动越少、越能容纳规格。Zlt 明显低于 Zst 说明长期漂移吃掉能力。',
    action:'汇报时若对方习惯"几σ"口径，用本换算直接给 Zst / Zlt；改善方向仍以减小 σ、对准中心为准（与 Cpk 一致）。'},
   {cat:'质量指标',abbr:'A / B / C / D',name:'Capability Grading',cn:'能力等级判级',
-   def:'按 Cpk（单侧按 Cpu/Cpl）自动分级：≥1.67 → A 优秀；≥1.33 → B 合格；≥1.0 → C 边缘；<1.0 → D 不足。',
+   def:'按 Cpk（单侧按 Cpu/Cpl）自动判级：≥1.67 → A 优秀；≥1.33 → B 合格；≥1.0 → C 边缘；<1.0 → D 不足。',
    formula:'Cpk ≥ 1.67 → A；≥ 1.33 → B；≥ 1.0 → C；< 1.0 → D',
    steps:['计算 Cpk → 对照区间得到等级'],
    impact:'等级直接对应风险与处置力度：A/B 可正常出货，C 需要加强管控，D 超规风险高，必须停线/拦截改善。',
@@ -2833,7 +2835,7 @@ const GLOSS=[
    def:'按<b>生产 / 测量顺序</b>绘制的过程监控图，含中心线 CL 与上下控制限 UCL / LCL，用于区分普通原因（过程固有波动）与特殊原因（可纠正的异常）。本工具提供：个体数据 → <b>I-MR 图</b>（单值 + 移动极差）；子组 n≤10 → <b>Xbar-R 图</b>（组均值 + 组极差）；子组 n&gt;10 → <b>Xbar-S 图</b>（组均值 + 组标准差）。',
    formula:'I-MR：I 图看单值、MR 图看相邻点移动极差；Xbar-R：Xbar 图看组均值、R 图看组极差；Xbar-S：Xbar 图看组均值、S 图看组标准差',
    steps:['数据按生产顺序排列（不要排序！）','按子组设置自动选择 I-MR / Xbar-R / Xbar-S','对比各点与控制限，识别越界点 / 连续 9 点同侧 / 连续 7 点趋势（Nelson 常用判据）'],
-   impact:'控制图是"过程稳不稳"的裁判：失控时即使产品暂时合格也存在批量隐患；受控时即使不合格也能稳定预测不良率。是 5S / 产线审核中最常被要求的过程证据。',
+   impact:'控制图是"过程稳不稳"的裁判：失控时即使产品暂时合格也存在批量隐患；受控时不合格率可稳定预测。是 5S / 产线审核中最常被要求的过程证据。',
    action:'日常产线建议用控制图持续监控；失控时立即排查特殊原因，消除后确认点回归控制限内，再做能力（Cpk）判定。'},
   {cat:'控制图',abbr:'A2 / D3 / D4',name:'Control Chart Constants (R)',cn:'控制图常数（极差法）',
    def:'Xbar-R 控制图计算控制限所用的查表常数：<b>A2</b> 用于均值图（= 3/(d2·√n)），<b>D3 / D4</b> 用于极差图（R 图的上下控制限系数，n≤6 时 D3=0 即 R 图无下限）。',
@@ -2851,7 +2853,7 @@ const GLOSS=[
    def:'控制图判定的过程状态：所有点落在 UCL/LCL 内且无异常模式 → <b>统计受控</b>（波动全部来自普通原因）；有点越界或出现 9 点同侧 / 7 点趋势 → <b>统计失控</b>（存在特殊原因）。',
    formula:'受控 = 主图与辅助图均无越界点、无异常模式',
    steps:['工具自动运行三判据：±3σ 越界 / 连续 9 点同侧 / 连续 7 点趋势','全部通过 = 受控；任一触发 = 失控'],
-   impact:'受控 ≠ 合格：受控只说明波动稳定可预测；Cpk 才是是否合格的判据。失控时产品质量不可预测，随时可能批量超差。',
+   impact:'受控 ≠ 合格：受控只说明波动稳定可预测；是否合格要看 Cpk。失控时产品质量不可预测，随时可能出现批量不合格。',
    action:'失控先找特殊原因（换班/换料/刀具磨损/环境），用 5W2H / FACA 定位后再调机；不要盲目调机掩盖问题。'},
   {cat:'控制图',abbr:'普通原因 / 特殊原因',name:'Common / Special Cause',cn:'普通原因 / 特殊原因',
    def:'过程波动的两类来源：<b>普通原因</b> = 过程固有的、随机的小波动（如材料微差、振动），受控状态下的正常波动；<b>特殊原因</b> = 可纠正的异常（如刀具崩刃、换错料、温度突变），会导致过程失控。',
@@ -2891,7 +2893,7 @@ const GLOSS=[
    impact:'箱体完全落在绿区内且留有余量 = 过程合格；箱体顶到或越过规格线 = 超规风险高。',
    action:'箱体偏绿区一侧 = 中心偏移，配合 Cpu/Cpl 定位是哪一侧不足，针对性调整中心。'},
   {cat:'图与交互',abbr:'Process Summary',name:'Process Summary',cn:'过程汇总表',
-   def:'JMP 报告区首屏汇总：LSL / 目标 T / USL / 样本量 n / 均值 μ / 组内 σ / 总 σ / 稳定性指标，一屏看全关键参数。',
+   def:'JMP 报告区首屏汇总：LSL / 目标 T / USL / 样本量 n / 均值 μ / 组内 σ / 整体 σ / 稳定性指标，一屏看全关键参数。',
    formula:'—（结果汇总表）',
    steps:['工具自动汇总全部关键参数到一张表'],
    impact:'用于快速核对输入是否与图纸一致，避免"规格限填错导致全盘结论错误"。',
@@ -2905,7 +2907,7 @@ const GLOSS=[
    action:'重要客户报告建议用 JMP/Minitab 交叉复核关键指数；日常快速看板用本工具即可。'},
   {cat:'算法与软件',abbr:'Shapiro-Francia',name:'Shapiro-Francia Test',cn:'正态性检验（近似）',
    def:'正态性检验的一种。本工具以其近似形式实现：直接使用 Q-Q 图的 R² 作为正态性依据（R²>0.95 视为正态）。',
-   formula:'W′ = R² = corr(排序数据, 理论分位)²',
+   formula:'W′ = R² = corr(排序数据，理论分位)²',
    steps:['数据排序 → 与理论正态分位求相关系数 → 平方'],
    impact:'是"能否使用正态能力法"的判据，非正态时所有正态假设的 PPM/能力结论失真。',
    action:'R²≤0.95 时谨慎解读结果，先排查数据来源；正式场合可用严格 Shapiro-Wilk 检验。'},
@@ -2958,9 +2960,9 @@ const GLOSS=[
    impact:'便于把分析结果沉淀为可追溯的质量记录，供审核与改善跟踪使用。',
    action:'判级结论、改善前后对比建议截图/导出存档，纳入质量管理记录。'},
   {cat:'质量指标',abbr:'ndc',name:'Number of Distinct Categories',cn:'区分度指数（测量系统分辨率）',
-   def:'衡量量具能把产品区分为多少个"可区分等级"的指数：ndc = 1.41 × (过程σ组内 ÷ 测量分辨率)。AIAG MSA 要求 ndc ≥ 5 才认为测量系统分辨能力合格；ndc 不足时数据被四舍五入，会把 Cpk 高估。',
+   def:'衡量量具能把产品区分为多少个"可区分等级"的指数：ndc = 1.41 × (组内 σ ÷ 测量分辨率)。AIAG MSA 要求 ndc ≥ 5 才认为测量系统分辨能力合格；ndc 不足时数据被四舍五入，会把 Cpk 高估。',
    formula:'ndc = 1.41 × (σ_within / 分辨率)，其中分辨率 = 数据记录的最小分度（如 10.01/10.02 → 0.01）',
-   steps:['估算数据记录分度（工具自动从粗到细尝试）','ndc = 1.41 × σ组内 ÷ 分度','ndc<5 → 黄条提示分辨率不足会虚高 Cpk'],
+   steps:['估算数据记录分度（工具自动从粗到细尝试）','ndc = 1.41 × 组内 σ ÷ 分度','ndc<5 → 黄条提示分辨率不足会虚高 Cpk'],
    impact:'ndc<5 说明量具/记录精度太粗，相邻产品测出来几乎一样，过程波动被掩盖、Cpk 被系统性高估，判级结论不可信。',
    action:'ndc<5 时先换更高分辨率的量具或提高记录小数位，再重新测量判级；不要用四舍五入过的数据下正式结论。',
    tip:'数据全是 0.01/0.001 的"台阶值"且波动小 → 大概率 ndc<5；工具结果区黄条会直接告诉你。'},
@@ -2970,10 +2972,10 @@ const GLOSS=[
    steps:['数据排序，统计 ≤LSL 与 >USL 的实测比例 p_LSL / p_USL','换算成标准正态分位 Z（Z.LSL 通常为负，取负号后为正距离）','取 min(Z.USL, −Z.LSL) 除以 3 得 Ppk*'],
    impact:'对偏态/厚尾分布（如寿命、强度数据）比正态法更贴近真实不合格率；正态法在非正态下会低估或高估超规率。',
    action:'页面 R²≤0.95 时会自动给出 Ppk*/Cp*，正式场合可再做 Box-Cox 变换或核对是否混批；对外报告注明用的是经验分位数法。',
-   tip:'经验法直接用实测超限比例换算：样本完全无超限时 Ppk* 有理论上限（n=100 时约 1.58），偏低属正常，勿与正态法 Ppk 直接对比。'},
+   tip:'经验法直接用实测超出规格限的比例换算：样本完全无超出时，实现按最小比例 1e-6 代入，Ppk* 恒为 ≈1.58（与样本量无关）——这只是方法下限，不代表真实能力水平，勿与正态法 Ppk 直接对比。'},
   {cat:'图与交互',abbr:'多批对比',name:'Batch Comparison',cn:'多批对比（批间横向比较）',
    def:'把多批（多天/多机台/多供应商）数据横向对比 Cpk/Ppk/PPM 的功能：数据区用<b>空行</b>分隔不同批次，或用<b>批次标签列</b>（如 批次A,10.01）逐行粘贴，一键生成对比表。',
-   formula:'每批独立计算 n / μ / σ组内 / σ总 / Cpk / Ppk / 实测PPM，共用当前规格限与子组设置',
+   formula:'每批独立计算 n / μ / 组内 σ / 整体 σ / Cpk / Ppk / 实测 PPM，共用当前规格限与子组设置',
    steps:['数据区粘贴多批数据（空行分隔或批次标签列）','点「📊 多批对比」','对比表中颜色区分各批判级（A/B/C/D）'],
    impact:'一眼看出哪批能力最差、哪批波动失控，便于按批追溯根因（换班/换料/换机台），避免"平均掩盖差异"。',
    action:'发现某批 Cpk 明显偏低时，单独分析该批数据并排查批次特有因素；多批对比用于初筛，正式判级请逐批查看明细。',
@@ -3013,6 +3015,17 @@ function renderGloss(){
     (glossActiveCat==='全部'||g.cat===glossActiveCat) &&
     (!kw|| [g.abbr,g.name,g.cn,g.def,g.impact,g.action,g.formula].join(' ').toLowerCase().includes(kw))
   );
+  // 搜索排序（v2.15.0）：词条名精确命中或中文名前缀命中的条目置顶——
+  // 例：搜「超规」时，词条「超规」应排在所有正文提及「超规」的条目之前（此前按收录顺序，专条反而靠后）。
+  if(kw){
+    const rank=g=>{
+      const ab=(g.abbr||'').toLowerCase(), nm=(g.name||'').toLowerCase(), cn=(g.cn||'').toLowerCase();
+      if(ab===kw||nm===kw||cn===kw) return 3;
+      if(cn.startsWith(kw)||nm.startsWith(kw)||ab.startsWith(kw)) return 2;
+      return 0;
+    };
+    list.sort((a,b)=>rank(b)-rank(a));
+  }
   document.getElementById('glossCount').textContent='共 '+GLOSS.length+' 个条目 · 当前显示 '+list.length+' 个';
   document.getElementById('glossList').innerHTML=list.length
     ? list.map(g=>glossCard(g,false)).join('')   // 所有条目默认收起，点击卡片头部展开
@@ -3039,6 +3052,7 @@ document.getElementById('glossSearch').addEventListener('input',e=>{glossKW=e.ta
 // 分类 chips
 document.getElementById('glossCats').innerHTML=GLOSS_CATS.map(c=>
   `<button class="${c===glossActiveCat?'on':''}" data-cat="${c}">${c}</button>`).join('');
+document.getElementById('glossTotal').textContent=GLOSS.length;   // 条目数动态取值，避免标题写死后过期
 document.querySelectorAll('#glossCats button').forEach(b=>{
   b.onclick=()=>{glossActiveCat=b.dataset.cat;
     document.querySelectorAll('#glossCats button').forEach(x=>x.classList.toggle('on',x===b));
@@ -3048,6 +3062,19 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.15.0',date:'2026-09-10',tag:'fix',tagTxt:'文案审查修复（事实 / 术语 / 标点）',
+   items:[
+    '事实修正（P0）：经验分位法「无超限样本时 Ppk* 上限」表述不准确——原文案与代码注释称「n=100 时约 1.58、随样本量增大而增大」，实测该值由实现下限（超限比例钳在 1e-6）决定，恒为 ≈1.58、与样本量无关。诊断提示 / 明细表说明 / 术语百科 / 代码注释统一改为准确口径：它只是方法下限，只说明「本批未见超规」，不能作为能力水平的证据',
+    '术语统一（P1）：整体 σ 的三种叫法（总 σ / 整体 σ / 总体）收敛为「整体 σ」——指标卡（Pp（总）→ Pp（整体））、③ 能力表标题、① 汇总行、④ 不合格表列（期望总体 %→期望整体 %）、⑧ 判定表、⑨ 多批对比表头、PNG/Markdown 导出、术语百科与 README 全部同步；σ组内 / σ总 / 组内σ / 整体σ 等符号混写统一为「组内 σ / 整体 σ」',
+    '用词统一（P1）：超出规格限的表述收敛为「超规」（术语百科词条「超差」更名为「超规」，释义保留超差 / 超限俗称，双向可搜）；「不良率」→「不合格率」；控制图语境的「越界」与规格语境的「超出规格限」分开口径（此前直方图均值线与 ⑧ 判定表混用「越界」）',
+    '术语搜索排序（P2）：搜索词精确命中词条名（abbr / 中文名 / 英文名）或中文名前缀命中时该词条置顶——此前按收录顺序排列，搜「超规」时专条反而排在其正文提及者之后；配合词条更名，保证「超规 / 超差 / 超限」任一写法第一眼就能找到专条',
+    '标点规范（P2）：用户可见文案（placeholder / aria-label / 图例 / 解析提示 / 明细表 / 术语百科 / 更新记录 / README）中的半角括号与逗号统一为全角；CSV 数据行分隔符保持半角不变',
+    '措辞修正（P2）：「Cpk 才是是否合格的判据」→「是否合格要看 Cpk」；③ 能力表标题「（短期能力）/（长期能力）」→「（短期）/（长期）」；单侧规格时「中心偏移 μ−T」说明改为「相对该侧规格限的偏移」；④ 术语百科「自动分级」→「自动判级」',
+    '计数硬编码修复（P2）：术语百科标题写死「57 条」但实际已 58 条 → 改为运行时从 GLOSS.length 取值，杜绝再次过期',
+    '逻辑与图例对齐（P2）：直方图 / 箱线图均值线「超出规格限变红」原仅在双侧规格时生效，单侧规格下即使 μ 已越过该侧规格限也不变红；改为任一已启用规格限被越过即变红，与图例描述一致',
+    '导出一致性（P2）：PNG 报告与 Markdown 导出中的西格玛水平此前直接输出 3×Cpk / 3×Ppk，Cpk ≤ 0 时会出现负值（页面已显示「—（均值已在规格外）」）→ 与页面统一'
+   ],
+   sub:'2026-09-10 文案专项审查：读者视角通读 + 定量断言复核 + 术语/标点扫描三路交叉，修复 1 处事实错误、1 处硬编码计数、1 处图例与逻辑不一致，完成全站术语与标点统一（计算引擎未改动）。'},
   {ver:'v2.14.0',date:'2026-09-10',tag:'fix',tagTxt:'视觉与布局修复（P0→P3，17 项）',
    items:[
     '【P0】指标卡六位数值被裁切、显示错误数字：「超规 PPM」达到六位数时，卡片右边缘把末位裁掉——1,000,000 显示成「1,000,00」，375px 窄屏下 200,000 显示成「200,00」（.metric 的 overflow:hidden + 92px 最小卡宽 + 23px/字重 800）。修复：卡宽 minmax(92px→138px)（1440px 下排 5 列 × 2 行，10 张卡刚好两整行），并新增「渲染后实测 scrollWidth」的两级字号降级（v-sm 17px / v-xs 14px）——宁可小一号，也绝不显示错的数值',
@@ -3070,11 +3097,11 @@ const CHANGELOG=[
    sub:'2026-09-10 视觉与布局修复（v2.14.0）：基于像素级测量 + 1440/768/375 三档实测 + WCAG 对比度计算 + 画布文字真实坐标重叠检测，修复 17 项（3 个 P0 含 1 项绘图几何缺陷、5 个 P1、6 个 P2、3 个 P3）。画布文字重叠由每场景 70~95 对降到 0 对；计算引擎未改动。'},
   {ver:'v2.13.0',date:'2026-09-10',tag:'fix',tagTxt:'全面审查修复（P0→P3）',
    items:[
-    '【P0】带表头的序号(SN)列剔除失效（数据入口）：前导序号列识别写在表头判定之前，且要求"所有行"都 ≥2 个数值；表头行数字个数为 0 → 整段判定失败，「序号 + 表头 + 测量值」这一最常见粘贴形态下序号被当成测量值、n 直接翻倍，每行 2 个数字又触发"子组 n=2"自动推断。实测 100 行：n=200、μ=30.25、组内 σ=36.70、Cpk=−0.183，仍输出明确的「D 级」判级（正确值应为 n=100、Cpk≈1.35）。修复：校验范围改为仅「数据行」（排除表头行），并把表头预判提到序号列剔除之前',
+    '【P0】带表头的序号（SN）列剔除失效（数据入口）：前导序号列识别写在表头判定之前，且要求"所有行"都 ≥2 个数值；表头行数字个数为 0 → 整段判定失败，「序号 + 表头 + 测量值」这一最常见粘贴形态下序号被当成测量值、n 直接翻倍，每行 2 个数字又触发"子组 n=2"自动推断。实测 100 行：n=200、μ=30.25、组内 σ=36.70、Cpk=−0.183，仍输出明确的「D 级」判级（正确值应为 n=100、Cpk≈1.35）。修复：校验范围改为仅「数据行」（排除表头行），并把表头预判提到序号列剔除之前',
     '【P0】自动预填的「均值 ± 3σ」占位规格限换批后失去警示：占位值会写回输入框，而 lslAuto/uslAuto 只是单次 calc 内的局部变量 → 下一批数据读到"非空输入框"就当成用户填的真实规格限，占位警告消失。实测换批后 Cpk=−38.371 却无任何占位提示。修复：把占位标记持久化到元素 dataset（随 localStorage 保存/恢复），用户手动编辑即清除；并在 μ 落在规格范围之外（Cpk 为负）时新增专门诊断，提示先核对规格限是否为占位值',
     '【P1】子组模式下组内指数的 95% 置信区间自由度取错：旧实现用「子组个数 k」当样本量，正确的是 ν = k(n−1)。实测 6 组 × 20 点：Cpk 的 CI 宽度 1.787，而 Ppk 仅 0.374（放大约 5 倍且方向与工业惯例相反——组内 σ 的自由度 114 与整体 σ 的 119 本就相当）。修复：ciCpLike/ciIndexLike 改为接收显式自由度 ν，组内指数用 k(n−1)、整体指数用 n−1，偏移项仍用观测总数 n',
     '【P1】自动推断的子组大小"粘"到下一批数据：推断值回填输入框后 sub≠0 使自动推断永久失效，换数据仍沿用旧子组且无提示。修复：给自动推断写入的值打 dataset 标记，当数据形态与之不符时自动复位为个体测量并在解析条说明；用户手动填写（无标记）不受影响，保留"单列数据手动指定子组"的用法',
-    '【P1】辅助图(MR/R/S)「≥2 点越界才判失控」这条例外只存在于代码注释：README 与术语百科均只写「越界点」、读者会理解为任一点越界即失控。修复：README「已知限制」补条目，术语百科「失控信号」词条补上该差异及其统计学理由（MR 分布右偏，单点越界率约 0.9%/点，n=100 纯随机约 57% 概率至少 1 点越界）',
+    '【P1】辅助图（MR/R/S）「≥2 点越界才判失控」这条例外只存在于代码注释：README 与术语百科均只写「越界点」、读者会理解为任一点越界即失控。修复：README「已知限制」补条目，术语百科「失控信号」词条补上该差异及其统计学理由（MR 分布右偏，单点越界率约 0.9%/点，n=100 纯随机约 57% 概率至少 1 点越界）',
     '【P2】术语百科「Wilson-Hilferty」词条已过时：仍称"本工具用它计算 Cp/Pp 的 95% 置信区间、真值差 <1%"，而 v2.11.1 起卡方分位已改为精确求解、WH 仅作 Newton 初值（低自由度尾偏差约 4%），与代码注释、更新记录三处口径矛盾。修复：改写该词条为"仅作迭代初值"，并新增「卡方逆 CDF 精确解」词条补上真正在用的算法（正则化不完全伽马 + Newton 迭代）',
     '【P2】术语百科「Cpk」「95% CI」词条口径补全：Cpk 计算步骤补上子组 n>10 的 S̄/c4 分支（此前只有移动极差法与极差法两种，与同百科的 d2/c4、A3/B3/B4 词条不一致）；95% CI 词条补上自由度 ν 的取值规则',
     '【P2】单侧规格时「自动取 (LSL+USL)/2」表述不成立（实现是取该侧规格限）：明细表「目标 T」说明与指标卡图例改为按双侧/单侧分别措辞；同时修正 calc 内"自动取 (最大+最小)/2"这一陈旧注释',
@@ -3092,7 +3119,7 @@ const CHANGELOG=[
    items:['图表可访问性（P1）：五张自绘 canvas（直方图/能力箱线图/正态概率图/控制图主辅图）补 role="img" + aria-label 描述性标签，读屏用户可知晓每张图类型与读法（关键数字仍由页面上 HTML 能力表/汇总表提供）','动态结果播报（P1）：判级横幅 #verdict 与受控性横幅 #ctrlMsg 补 role="status" + aria-live="polite"，粘贴自动计算后读屏可感知结论更新','模态框焦点管理（P1）：术语百科 / 更新记录两个弹窗补 aria-modal，打开时自动聚焦弹窗内控件、Tab 键在弹窗内循环（焦点陷阱）、关闭后焦点还原到触发按钮；Escape 统一由单监听处理','配色收敛语义变量（P2）：图例、明细表、控制限 vs 规格限对比表等多处硬编码色（#2f6db5/#e4572e/#d97706/#c0392b/#64748b 等）收敛为 CSS 语义变量（--c-data/--c-fit/--c-lsl/--bad/--muted…），深色模式下图例与表格文字随主题正确变亮','响应式自动重绘（P2）：新增 ResizeObserver，容器宽度变化（窗口缩放/窄屏）后防抖 250ms 自动按新宽度重绘画布，避免拉伸后图表发虚/溢出','表格语义（P3）：能力表/不合格表/明细表/多批对比表表头补 <th scope="col">','措辞严谨化（P3）：控制限 vs 规格限「理想」场景「理论不合格率约 ≤66 PPM」改为「约不超过 66 PPM，Cpk 越高越低」'],
    sub:'2026-09-07 可访问性（P1）+ 配色收敛/响应式（P2）+ 语义与措辞（P3）审查修复。核心计算无改动（此前已 Node 数值验证），全部为 UX/可访问性/一致性改进。'},
   {ver:'v2.10.1',date:'2026-09-01',tag:'fix',tagTxt:'联动修复',
-   items:['修复「🔗 工具 ▾」下拉菜单被下方高 z-index 元素遮挡：fixed 定位虽避开 header overflow:hidden 裁切，但仍受 header>*{z-index:1} 形成的祖先层叠上下文限制(整体 z:1)。改为打开时把 #toolsMenu 移至 document.body 顶层跳出祖先 SC，z-index:1000 直接生效；同步补视口边界保护(菜单高度超出底部时向上弹出，避免滚动/窄屏截断)','下拉打开时同步加 .drop-menu.is-open 类(不依赖祖先 .drop，移至 body 后仍能正常触发显示)','四个联动项目统一修复（shift-scheduler / equipment-failure-commonality / wps-img-fixer 同步应用同一方案），消除未来回归隐患'],
+   items:['修复「🔗 工具 ▾」下拉菜单被下方高 z-index 元素遮挡：fixed 定位虽避开 header overflow:hidden 裁切，但仍受 header>*{z-index:1} 形成的祖先层叠上下文限制（整体 z:1）。改为打开时把 #toolsMenu 移至 document.body 顶层跳出祖先 SC，z-index:1000 直接生效；同步补视口边界保护（菜单高度超出底部时向上弹出，避免滚动/窄屏截断）','下拉打开时同步加 .drop-menu.is-open 类（不依赖祖先 .drop，移至 body 后仍能正常触发显示）','四个联动项目统一修复（shift-scheduler / equipment-failure-commonality / wps-img-fixer 同步应用同一方案），消除未来回归隐患'],
    sub:'2026-09-01 四项目联动修复：fixed 定位未解决 ancestor stacking context 限制，统一改为打开时移 menu 至 body 顶层 + 独立 .is-open 触发类。'},
   {ver:'v2.10.0',date:'2026-09-01',tag:'feat',tagTxt:'风格升级',
    items:['深色模式（P2-1）：header 新增「🌙 深色」切换按钮，支持手动切换 / 记忆偏好 / 跟随系统；全站配色收敛为 CSS 设计令牌（:root 变量），canvas 自绘五图（直方图/箱线图/概率图/控制图主辅图）自动随主题换色，无需重开页面','图表交互增强（P2-3）：直方图 / 控制图主图 / 控制图辅助图新增 hover 读值 tooltip（显示区间、频数、点位数值与控制限）；切换数据/主题时图表 150ms 渐变淡入重绘','响应式与可访问性（P2-2/P3-1）：新增 900px 断点（面板堆叠、header 按钮换行、输入区单列）；:focus-visible 键盘焦点环扩展到输入框/下拉/链接','统一 Toast 提示（P2-4）：新增底部浮层 toast() 组件，导出 / 复制等操作即时反馈','配色细节：能力判定色、控制限色、受控/失控横幅改为语义变量（深色模式自动变亮），导出报告大图跟随当前主题'],
@@ -3116,7 +3143,7 @@ const CHANGELOG=[
    items:['数据疑似已排序检测（P0）：相邻差值同方向占比 ≥98% 时黄条警告「排序数据会让移动极差法失真、Cpk 虚高」，请按生产顺序粘贴','完整子组数过少提示（P0）：子组模式下完整子组 <5 个时提示 R̄/S̄ 与控制限估计不稳','规格限与数据严重脱节检测（P0）：LSL/USL 距数据超过 1.5 倍数据跨度时提示可能填错（小数点/位数错位）','列错位/缺列检测（P1）：数据行数字个数与众数不一致时黄条提示具体行号','已填规格限但未勾选启用提示（P1）：输入框有值但勾选框未启用时提示当前按单侧分析','GBK 乱码文件自动重读（P1）：拖入 .csv 若 UTF-8 解码乱码，自动改用 GBK 解码（兼容 Excel 另存的 GBK 编码）','多批对比支持批次标签列（P2）：首列为批次/批号标签（文本或可重复编号）时自动按列分组，免空行','URL 参数导入 + 生成分享链接（P2）：打开带 ?data=&lsl=… 或 #hash 的链接即自动填入计算；新增「🔗 生成分享链接」按钮','小样本提示细化（P2）：20≤n<30 增加 info 级建议（对齐 AIAG ≥30），与 n<20 警告平滑衔接','术语百科新增 3 词条：ndc（区分度指数）/ ISO 22514·Pearson-Clements（非正态能力）/ 多批对比（56 条）'],
    sub:'2026-08-27 第二轮防呆/自动化复查（P0→P3）全部落实：排序失真、组数不足、规格脱节、列错位、编码乱码等边界显式化。'},
   {ver:'v2.7.0',date:'2026-08-27',tag:'feat',tagTxt:'新功能',
-   items:['测量分辨率与区分度检测（P0）：估算数据记录分度，ndc = 1.41×σ组内/分度 <5 时黄条警告「分辨率不足会虚高 Cpk」（AIAG MSA 口径）','高 Cpk（≥2.0）合理性复核提示（P0）：一键复核分辨率/样本量/数据失真三点','小样本判级降级警告（P0）：n<20 时提示置信区间宽、判级仅供参考','判级与实测矛盾检测（P1）：Cpk≥1.33 但实测已有超规样品时红条警示，以实测为准','离群点提示（P1）：Tukey IQR 1.5 倍规则检出疑似离群点并提示核实','子组非整数不再静默截断（P1）：输入 3.5 等小数时四舍五入并显式提示','自动子组误判防护（P2）：「SN 序号 + 测量值」两列格式自动剔除序号列，避免序号被当测量值、避免误判为子组 n=2','子组尾差不再静默丢弃（P2）：数据量不能整除子组大小时黄条提示末尾已丢弃数据个数','非正态自动切换（自动化）：R²≤0.95 时自动按 ISO 22514 / Pearson-Clements 分位法估算 Ppk*/Cp* 并提示','表头规格限识别（自动化）：表头含「LSL/USL/下限/上限 + 数字」时自动预填规格限','一键复制 Markdown（自动化）：结果摘要一键复制，方便贴报告/IM','快捷键（自动化）：Ctrl+Enter（Cmd+Enter）立即重新计算','多批对比（自动化）：数据区用空行分隔多批，一键横向对比 n/μ/Cpk/Ppk/PPM/判级'],
+   items:['测量分辨率与区分度检测（P0）：估算数据记录分度，ndc = 1.41 × 组内 σ ÷ 分度 <5 时黄条警告「分辨率不足会虚高 Cpk」（AIAG MSA 口径）','高 Cpk（≥2.0）合理性复核提示（P0）：一键复核分辨率/样本量/数据失真三点','小样本判级降级警告（P0）：n<20 时提示置信区间宽、判级仅供参考','判级与实测矛盾检测（P1）：Cpk≥1.33 但实测已有超规样品时红条警示，以实测为准','离群点提示（P1）：Tukey IQR 1.5 倍规则检出疑似离群点并提示核实','子组非整数不再静默截断（P1）：输入 3.5 等小数时四舍五入并显式提示','自动子组误判防护（P2）：「SN 序号 + 测量值」两列格式自动剔除序号列，避免序号被当测量值、避免误判为子组 n=2','子组尾差不再静默丢弃（P2）：数据量不能整除子组大小时黄条提示末尾已丢弃数据个数','非正态自动切换（自动化）：R²≤0.95 时自动按 ISO 22514 / Pearson-Clements 分位法估算 Ppk*/Cp* 并提示','表头规格限识别（自动化）：表头含「LSL/USL/下限/上限 + 数字」时自动预填规格限','一键复制 Markdown（自动化）：结果摘要一键复制，方便贴报告/IM','快捷键（自动化）：Ctrl+Enter（Cmd+Enter）立即重新计算','多批对比（自动化）：数据区用空行分隔多批，一键横向对比 n/μ/Cpk/Ppk/PPM/判级'],
    sub:'2026-08-27 防呆/自动化审查（P0→P3）全部落实：边界场景显式化 + 生产力增强。'},
   {ver:'v2.6.3',date:'2026-08-19',tag:'feat',tagTxt:'新功能',
    items:['子组大小自动推断：粘贴"每行 n 个数值"的子组格式数据时自动按每行个数分组（如每行 5 个数 → 自动填子组 5），提示条可见；手动改过子组后不再自动覆盖','新增西格玛水平：Zst = 3×Cpk（短期）、Zlt = 3×Ppk（长期），展示于过程汇总表、指标明细表、CSV 导出与 PNG 报告','术语百科新增「Zst / Zlt（西格玛水平）」词条'],

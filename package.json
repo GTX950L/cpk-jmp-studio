@@ -1,6 +1,6 @@
 {
   "name": "cpk-jmp-studio",
-  "version": "2.14.0",
+  "version": "2.15.0",
   "private": true,
   "description": "Cpk 过程能力计算器（离线单文件 HTML）。可选冒烟测试依赖（不参与最终产物）。",
   "scripts": {
