@@ -337,7 +337,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.12.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.13.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -488,7 +488,7 @@
   <div class="gloss-box" role="dialog" aria-label="术语百科">
     <div class="gloss-head">
       <h2>📖 术语百科（57 条 · 中英速查）</h2>
-      <input id="glossSearch" type="search" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
+      <input id="glossSearch" type="search" aria-label="搜索术语：支持英文简称与中文关键词" placeholder="🔍 搜索简称 / 中文 / 英文（如 Cpk、规格、sigma）">
       <button class="gloss-close" id="glossClose">✕ 关闭</button>
     </div>
     <div class="gloss-cats" id="glossCats"></div>
@@ -507,13 +507,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.12.0</b> · 最近更新 2026-09-08</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.13.0</b> · 最近更新 2026-09-10</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.12.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.13.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -739,26 +739,31 @@ function chi2Inv(p,df){
   return x;
 }
 
-// Cp/Pp 类指数的 95% 置信区间：CI = C·√(χ²_{p}(n−1)/(n−1))
-// p 取下尾 0.025 / 0.975 得 [下限, 上限]（近似，子组法通常用 ν≈组数×(n−1)，此处统一用 n−1 保守近似）
-function ciCpLike(C,n){
-  if(!(C>0)||!(n>2))return [null,null];
-  const df=n-1;
-  return [C*Math.sqrt(chi2Inv(0.025,df)/df), C*Math.sqrt(chi2Inv(0.975,df)/df)];
+// Cp/Pp 类指数的 95% 置信区间：CI = C·√(χ²_p(ν)/ν)，ν = σ 的有效自由度
+// 个体模式 ν = n−1；子组模式组内 σ 的 ν = k(n−1)（每个子组的样本标准差各贡献 n−1 个自由度）
+function ciCpLike(C,nu){
+  if(!(C>0)||!(nu>2))return [null,null];
+  return [C*Math.sqrt(chi2Inv(0.025,nu)/nu), C*Math.sqrt(chi2Inv(0.975,nu)/nu)];
 }
 
 // Cpk/Cpl/Cpu/Ppk/Ppl/Ppu/Cpm 类指数的 95% 置信区间（Bissell / Kotz 近似）：
-// se ≈ √(1/(9n) + K²/(2(n−1)))，CI = K ± z_{0.975}·se
-function ciIndexLike(K,n){
+// se ≈ √(1/(9·n_obs) + K²/(2·(ν−1)))，CI = K ± z_{0.975}·se
+//   n_obs = 观测总数（偏移项的信息量来自均值）
+//   ν     = σ 的有效自由度（整体指数 n−1；组内指数个体模式 n−1、子组模式 k(n−1)）
+// 修正（v2.13.0）：旧实现把「子组个数 k」当成样本量代入，使组内指数 CI 被放大约 5 倍
+// （6 组 × 20 点：Cpk CI 宽度 1.787 vs Ppk 0.374），且方向与工业惯例相反——组内 σ 的
+// 自由度（114）本就与整体 σ（119）相当，Cpk 的 CI 不应比 Ppk 宽。
+function ciIndexLike(K,nu,nObs){
   if(!isFinite(K)||K==null)return [null,null];
-  const se=Math.sqrt(1/(9*n)+K*K/(2*(n-1)));
+  if(!(nu>1))return [null,null];
+  const se=Math.sqrt(1/(9*nObs)+K*K/(2*(nu-1)));
   return [Math.max(0,K-Z975*se), K+Z975*se];
 }
 
-// 按指数类型取 CI：Cp/Pp 用卡方法，其余用正态近似
-function ciFor(name,K,n){
-  if(name==='Cp'||name==='Pp')return ciCpLike(K,n);
-  return ciIndexLike(K,n);
+// 按指数类型取 CI：Cp/Pp 用卡方法（只需 ν），其余用正态近似（需 ν 与观测总数）
+function ciFor(name,K,nu,nObs){
+  if(name==='Cp'||name==='Pp')return ciCpLike(K,nu);
+  return ciIndexLike(K,nu,nObs);
 }
 
 // 漂亮的刻度（1/2/5 序列）
@@ -802,6 +807,9 @@ function capTone(v){
 let lastResult=null;
 // 子组自动推断的"用户否决"标记：用户手动改过子组输入框后置 true，不再自动推断覆盖
 let userOverrideSub=false;
+// 最近一次"因数据形态变化而作废的自动推断子组大小"（0=无）。
+// 用模块级状态而非一次性事件，保证同一批数据反复点「重新计算」时提示不会消失。
+let autoSubResetFrom=0;
 
 // 全角数字/符号转半角（中文输入法粘贴常见）：１０.０１ → 10.01、－3.2 → -3.2
 const toHalfWidth=s=>s.replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
@@ -843,33 +851,25 @@ function escHtml(s){
 // strippedLead：是否已剔除"前导序号列"（如 SN 001/002… 或 1/2/3… 序号），防止序号被误当测量值、并防止被误判为子组 n=2
 // mismatch：被纳入数据的行中，数字个数与众数（多数行）不一致的行号（1 基），用于列错位/缺列检测
 function parseNums(raw){
-  const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
-  if(!lines.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0,strippedLead:false,mismatch:[]};
+  const lines0=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
+  if(!lines0.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0,strippedLead:false,mismatch:[],footSkipped:0};
+  // —— 表尾统计行剔除 ——
+  // 「合计 / 平均 / 最大 / 最小 / 小计 …」这类行是从 Excel 整表复制时的常见尾巴，
+  // 混入数据会把 n 虚增、均值拉偏（如 5 个测量值 + 合计行 → n=7）。
+  // 仅从【末尾连续】剔除，且要求该行含统计关键词（纯数字行永不命中），避免误删数据区中间的行。
+  const FOOTER_RE=/(合计|总计|小计|平均|均值|最大值|最小值|最大|最小|标准差|极差|中位数|合格率|不良率|^\s*(max|min|avg|mean|sum|total|std|sd)\b)/i;
+  const isFooterLine=l=>FOOTER_RE.test(l) && !/^[\d\s.,;，、+Ee-]*$/.test(l);
+  let footEnd=lines0.length;
+  while(footEnd>1 && isFooterLine(lines0[footEnd-1])) footEnd--;
+  const footSkipped=lines0.length-footEnd;
+  const lines=footSkipped?lines0.slice(0,footEnd):lines0;
   const rows=lines.map(rowNumbers);
   const counts=rows.map(r=>r.length);
-  // —— 前导序号列识别（P2 防护）——
-  // 若所有数据行都 ≥2 个数值，且首列构成 1..N（或 0..N-1）连续整数，判定为「SN/序号 + 测量值」格式，
-  // 剔除首列后再解析：既避免把序号当测量值计入，也避免被自动子组推断误判为"每行 2 个"。
-  let strippedLead=false;
-  if(rows.length>=2 && rows.every(r=>r.length>=2)){
-    let seqOk=true;
-    for(let i=0;i<rows.length;i++){ if(rows[i][0]!==i+1 && rows[i][0]!==i){seqOk=false;break;} }
-    if(seqOk){
-      strippedLead=true;
-      for(let i=0;i<rows.length;i++){ rows[i]=rows[i].slice(1); counts[i]=counts[i]-1; }
-    }
-  }
-  // 表头判定：多数数据行含相同个数的数字（须在剔除序号列之后重算众数）；首行数字数少于众数 → 视为表头
-  const freq={}; counts.forEach(c=>freq[c]=(freq[c]||0)+1);
-  let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
-  const vals=[]; let header=0,skipped=0,headerText='';
-  const dataCounts=[];   // 被纳入数据的行各自含几个数字
-  const mismatch=[];     // 数字个数与众数不一致的数据行号（1 基）
+  // —— 表头预判（必须先于「序号列剔除」：剔除的范围取决于首行是不是表头）——
   // 首行表头增强判定：若首行存在"以文字开头的 token"（如 No.、直径、编号），
   // 即使数字个数与众数相同（如单列数据 "No. 1 直径"）也视为表头跳过。
-  // 例外一：已剔除前导 SN 序号列（strippedLead）——此时首行余下部分全是数字，不应再按文字判表头；
-  // 例外二：所有行都以文字开头（allTextLead）——这是"行标签 + 数值"数据（如 批次A 10.01），
-  //         首行标签与其余行同性质，按表头跳过会丢掉第一个数据点。
+  // 例外：所有行都以文字开头（allTextLead）——这是"行标签 + 数值"数据（如 批次A 10.01），
+  //       首行标签与其余行同性质，按表头跳过会丢掉第一个数据点。
   const textLead=t=>{if(!t)return false;const c=t[0];return !(c>='0'&&c<='9')&&c!=='.'&&c!=='-'&&c!=='+';};
   const allTextLead=lines.every(l=>l.split(/[\s,;，、]+/).some(textLead));
   // 规格限表头识别（v2.11.1 修正）：形如「LSL 9.95 USL 10.05」「下限9.95 上限10.05」「规格 10±0.05」。
@@ -880,13 +880,39 @@ function parseNums(raw){
   const SPEC_HDR_RE=/(lsl|usl|规格|公差|下限|上限|下差|上差|下界|上界|target|目标值|标称|nominal)/i;
   const firstHasSpecKw=SPEC_HDR_RE.test(lines[0]||'');
   const firstHasText=(lines[0]||'').split(/[\s,;，、]+/).some(textLead);
+  const freq0={}; counts.forEach(c=>freq0[c]=(freq0[c]||0)+1);
+  let mode0=0,best0=0; for(const k in freq0){if(freq0[k]>best0){best0=freq0[k];mode0=+k;}}
+  const firstIsHeader = counts[0]===0
+    || firstHasSpecKw
+    || (counts[0]!==mode0 && counts[0]<mode0 && mode0>0)
+    || (counts[0]!==mode0 && firstHasText)
+    || (counts[0]===mode0 && !allTextLead && firstHasText);
+  const dataStart = firstIsHeader ? 1 : 0;
+  // —— 前导序号列识别（P2 防护）——
+  // 若所有【数据行】都 ≥2 个数值，且首列构成 1..N（或 0..N-1）连续整数，判定为「SN/序号 + 测量值」格式，
+  // 剔除首列后再解析：既避免把序号当测量值计入，也避免被自动子组推断误判为"每行 2 个"。
+  // 修正（v2.13.0）：校验范围必须排除表头行——表头行数字个数为 0，旧实现要求"所有行"都 ≥2 才继续，
+  // 于是「序号 + 表头 + 测量值」这一最常见粘贴形态整段判定失败，序号被当成测量值、n 直接翻倍，
+  // 每行 2 个数字又恰好触发"子组 n=2"自动推断，结果彻底失真。改为只校验数据行。
+  let strippedLead=false;
+  const dataRows=rows.slice(dataStart);
+  if(dataRows.length>=2 && dataRows.every(r=>r.length>=2)){
+    let seqOk=true;
+    for(let i=0;i<dataRows.length;i++){ if(dataRows[i][0]!==i+1 && dataRows[i][0]!==i){seqOk=false;break;} }
+    if(seqOk){
+      strippedLead=true;
+      for(let i=dataStart;i<rows.length;i++){ rows[i]=rows[i].slice(1); counts[i]=counts[i]-1; }
+    }
+  }
+  // 表头判定：多数数据行含相同个数的数字（须在剔除序号列之后重算众数）
+  const freq={}; for(let i=dataStart;i<counts.length;i++)freq[counts[i]]=(freq[counts[i]]||0)+1;
+  let mode=0,best=0; for(const k in freq){if(freq[k]>best){best=freq[k];mode=+k;}}
+  const vals=[]; let header=0,skipped=0,headerText='';
+  const dataCounts=[];   // 被纳入数据的行各自含几个数字
+  const mismatch=[];     // 数字个数与众数不一致的数据行号（1 基）
   counts.forEach((c,i)=>{
-    if(i===0 && firstHasSpecKw){ header++; headerText=extractHeaderText(lines[0]); return; }
+    if(i===0 && firstIsHeader){ header++; headerText=extractHeaderText(lines[0]); return; }
     if(c===0){ if(i===0){ header++; headerText=extractHeaderText(lines[i]); } else skipped++; return; }
-    if(i===0 && c!==mode && c<mode && mode>0){ header++; headerText=extractHeaderText(lines[i]); return; }
-    // 首行含文字 token 且数字个数与众数不一致 → 表头（如「直径 10.01 10.02」vs 单列数据）
-    if(i===0 && c!==mode && firstHasText && !strippedLead){ header++; headerText=extractHeaderText(lines[i]); return; }
-    if(i===0 && c===mode && !strippedLead && !allTextLead && lines[i].split(/[\s,;，、]+/).some(textLead)){ header++; headerText=extractHeaderText(lines[i]); return; }
     vals.push(...rows[i]);
     dataCounts.push(c);
     if(c!==mode) mismatch.push(i+1);   // 列错位/缺列检测
@@ -897,20 +923,23 @@ function parseNums(raw){
     const first=dataCounts[0];
     if(first>=2&&dataCounts.every(c=>c===first)) uniformSub=first;
   }
-  return {vals, skipped, header, headerText, uniformSub, strippedLead, mismatch};
+  return {vals, skipped, header, headerText, uniformSub, strippedLead, mismatch, footSkipped};
 }
 
-// 解析反馈条：显示解析出多少个数值、跳过/忽略了多少
-function showParseInfo(info){
+// 解析反馈条：显示解析出多少个数值、跳过/忽略了多少，以及 notes 中的状态说明
+// （notes 由 calc 按当前状态统一收集，避免"只闪现一次"的追加式写法）
+function showParseInfo(info,notes){
   const el=document.getElementById('parseInfo');
   if(!info.vals.length){ el.textContent=''; el.className='parseinfo'; return; }
   let txt='已解析 '+info.vals.length+' 个数值';
-  const notes=[];
-  if(info.header>0) notes.push('自动跳过表头「'+info.headerText+'」');
-  if(info.skipped>0) notes.push('忽略 '+info.skipped+' 处文本');
-  if(notes.length) txt+='（'+notes.join(' · ')+'）';
+  const ns=[];
+  if(info.header>0) ns.push('自动跳过表头「'+info.headerText+'」');
+  if(info.skipped>0) ns.push('忽略 '+info.skipped+' 处文本');
+  if(info.footSkipped>0) ns.push('已跳过表尾 '+info.footSkipped+' 行统计行（合计/平均等）');
+  if(notes&&notes.length) ns.push(...notes);
+  if(ns.length) txt+='（'+ns.join(' · ')+'）';
   el.textContent=txt;
-  el.className='parseinfo '+(info.skipped>0?'warn':'ok');
+  el.className='parseinfo '+(info.skipped>0||info.footSkipped>0||(notes&&notes.length)?'warn':'ok');
 }
 
 // 统一设置顶部提示条
@@ -997,8 +1026,8 @@ function clearResults(silent){
 function calc(auto){
   const info=parseNums(document.getElementById('data').value);
   const nums=info.vals;
-  showParseInfo(info);
   if(nums.length<2){
+    showParseInfo(info,[]);
     if(!auto) setMsg('warn','⚠ 有效数据至少需要 2 个数值，请检查粘贴内容。');
     clearResults(true);   // 无论手动/自动，数据不足时都清掉旧结果，避免误导
     return;
@@ -1006,6 +1035,10 @@ function calc(auto){
 
   const n=nums.length;
   const m=mean(nums), sd=sampleStd(nums);
+  // 解析反馈条的附加说明：统一收集后在下方一次性渲染。
+  // 旧实现用 pi.textContent += 逐条追加，导致「重新计算」时 showParseInfo 先把文本重置、
+  // 而按状态生成的分支（自动推断等）在后续运行不再命中 → 提示只闪现一次就消失。
+  const parseNotes=[];
   // 子组大小解析：支持空/0（个体测量）；非整数不再静默截断（P1），改为四舍五入并显式提示
   let sub=0, subNonInt=false;
   const subRaw=document.getElementById('sub').value.trim();
@@ -1015,54 +1048,75 @@ function calc(auto){
     else { sub=0; subNonInt=true; }
   }
   // 已剔除前导序号列（SN 1/2/3… + 测量值）时，在解析反馈条中说明
-  if(info.strippedLead){
-    const pi=document.getElementById('parseInfo');
-    pi.textContent+=' · 已自动忽略首列序号(SN)';
-    pi.className='parseinfo warn';
+  if(info.strippedLead) parseNotes.push('已自动忽略首列序号(SN)');
+  // 自动推断的子组大小"失粘"（v2.13.0）：自动推断值会回填到输入框，此后 sub!==0 使自动推断永久失效，
+  // 换一批数据时仍沿用上一个数据集推断出的子组大小且无任何提示（实测：5 个/行 → 换成单列 40 点，
+  // 仍按子组 5 的 Xbar-R 分析）。故当输入框里的值确为"上一次自动推断"写入的（dataset.auto）而当前
+  // 数据形态与之不符时，复位为个体测量。用户手动填写的值（无 dataset.auto 标记）不受影响，
+  // 保留「对单列数据手动指定子组大小」这一合法用法。
+  const subEl=document.getElementById('sub');
+  if(subEl.dataset.auto==='1'&&sub>0&&info.uniformSub!==sub){
+    autoSubResetFrom=sub;
+    sub=0; subEl.value='0'; delete subEl.dataset.auto;
   }
   // 子组自动推断：数据为"每行 n 个数值"的子组粘贴格式、且用户未手动指定子组时，自动按每行个数分组
   const autoSub=!userOverrideSub&&sub===0&&info.uniformSub>1&&info.uniformSub<=25;
   if(autoSub){
     sub=info.uniformSub;
-    document.getElementById('sub').value=String(sub);   // 回填输入框让用户看到实际使用的值
-    const pi=document.getElementById('parseInfo');
-    pi.textContent+=' · 检测到每行 '+sub+' 个数值，已自动按子组 '+sub+' 分析（改回 0=个体测量）';
-    pi.className='parseinfo warn';
+    subEl.value=String(sub);      // 回填输入框让用户看到实际使用的值
+    subEl.dataset.auto='1';       // 标记"该值由自动推断写入"，数据形态变化时自动失效（见上方失粘处理）
+    autoSubResetFrom=0;           // 本次重新推断成功，旧的作废记录失效
   }else if(!userOverrideSub&&sub===0&&info.uniformSub>25){
-    const pi=document.getElementById('parseInfo');
-    pi.textContent+=' · 检测到每行 '+info.uniformSub+' 个数值，超过子组上限 25，已按个体测量处理';
-    pi.className='parseinfo warn';
+    parseNotes.push('检测到每行 '+info.uniformSub+' 个数值，超过子组上限 25，已按个体测量处理');
   }
+  // 只要当前子组大小是"自动推断"得来的（无论本次推断还是沿用），反馈条都常驻说明，
+  // 避免「重新计算」后提示消失、用户看不出正按子组分析
+  if(sub>1&&subEl.dataset.auto==='1') parseNotes.push('按子组 '+sub+' 分析（每行 '+sub+' 个数值自动推断，改回 0=个体测量）');
+  else if(sub===0&&autoSubResetFrom) parseNotes.push('数据形态已变化（上次自动推断的子组 '+autoSubResetFrom+' 已不匹配），本次改按个体测量；如需子组请手动填 n');
 
   // 边界检查：数据无波动 / 子组大小超过数据量 / 超出系数表范围
-  if(sd===0){setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
-  if(sub>1&&sub>nums.length){setMsg('warn','⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
-  if(sub>25){setMsg('warn','⚠ 子组大小最大支持 25（标准 SPC 系数表上限），请调小。');return;}
+  if(sd===0){showParseInfo(info,parseNotes);setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
+  if(sub>1&&sub>nums.length){showParseInfo(info,parseNotes);setMsg('warn','⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
+  if(sub>25){showParseInfo(info,parseNotes);setMsg('warn','⚠ 子组大小最大支持 25（标准 SPC 系数表上限），请调小。');return;}
   const sw=withinSigma(nums,sub);
-  if(!isFinite(sw)||sw<=0){setMsg('warn','⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
+  if(!isFinite(sw)||sw<=0){showParseInfo(info,parseNotes);setMsg('warn','⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
+  showParseInfo(info,parseNotes);   // 数据与子组都已确定，此处统一渲染解析反馈条
 
   // 规格限
   const useLsl=document.getElementById('useLsl').checked;
   const useUsl=document.getElementById('useUsl').checked;
-  const lslRaw=document.getElementById('lsl').value, uslRaw=document.getElementById('usl').value;
+  const lslEl=document.getElementById('lsl'), uslEl=document.getElementById('usl');
+  const lslRaw=lslEl.value, uslRaw=uslEl.value;
   let lsl=useLsl?(lslRaw.trim()!==''?parseFloat(lslRaw):NaN):null;
   let usl=useUsl?(uslRaw.trim()!==''?parseFloat(uslRaw):NaN):null;
-  let lslAuto=false, uslAuto=false;   // 标记规格限是否由工具自动预填（占位值，非真实规格）
+  // 占位值标记（v2.13.0）：工具自动预填的「均值±3σ」会写回输入框，若只用单次 calc 内的局部变量标记，
+  // 下一批数据读到的是"非空输入框"，会被当成用户填写的真实规格限，占位值警告随之消失
+  // （实测：换批后 Cpk=−38.371 却无任何占位提示）。故把标记持久化到元素 dataset，
+  // 用户一旦手动编辑该输入框即清除标记，标记随 localStorage 一起保存/恢复。
+  let lslAuto=lslEl.dataset.auto==='1', uslAuto=uslEl.dataset.auto==='1';
   // 表头规格限识别（自动化）：表头若含「LSL/USL/下限/上限 + 数字」，自动预填到输入框（优于均值±3σ 占位）
   const specFromHeader=info.headerText?extractSpecFromText(info.headerText):null;
   let lslFromHeader=false, uslFromHeader=false;
   // 输入框留空时：优先取表头规格限；其次自动用 均值±3σ 并回填让用户看到；输入了非数字内容则明确报错，不静默覆盖
   if(useLsl&&isNaN(lsl)){
     if(lslRaw.trim()!==''){setMsg('warn','⚠ 规格下限 LSL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
-    if(specFromHeader&&specFromHeader.lsl!=null){ lsl=specFromHeader.lsl; lslFromHeader=true; document.getElementById('lsl').value=lsl.toFixed(4); }
-    else{ lsl=m-3*sd; document.getElementById('lsl').value=lsl.toFixed(4); lslAuto=true; }
+    if(specFromHeader&&specFromHeader.lsl!=null){
+      lsl=specFromHeader.lsl; lslFromHeader=true; lslAuto=false;
+      lslEl.value=lsl.toFixed(4); delete lslEl.dataset.auto;
+    }else{
+      lsl=m-3*sd; lslAuto=true; lslEl.value=lsl.toFixed(4); lslEl.dataset.auto='1';
+    }
   }
   if(useUsl&&isNaN(usl)){
     if(uslRaw.trim()!==''){setMsg('warn','⚠ 规格上限 USL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
-    if(specFromHeader&&specFromHeader.usl!=null){ usl=specFromHeader.usl; uslFromHeader=true; document.getElementById('usl').value=usl.toFixed(4); }
-    else{ usl=m+3*sd; document.getElementById('usl').value=usl.toFixed(4); uslAuto=true; }
+    if(specFromHeader&&specFromHeader.usl!=null){
+      usl=specFromHeader.usl; uslFromHeader=true; uslAuto=false;
+      uslEl.value=usl.toFixed(4); delete uslEl.dataset.auto;
+    }else{
+      usl=m+3*sd; uslAuto=true; uslEl.value=usl.toFixed(4); uslEl.dataset.auto='1';
+    }
   }
-  // 目标值 T：用户显式输入优先；留空时自动取 (最大+最小)/2 作中心值（用于 Cpm）
+  // 目标值 T：用户显式输入优先；留空时取规格中点 (LSL+USL)/2（单侧则取该侧规格限，用于 Cpm）
   const tInput=document.getElementById('target').value.trim();
   let target=tInput!==''?parseFloat(tInput):NaN;
   const targetFromInput=!isNaN(target);   // 是否由用户显式提供（非自动回退）
@@ -1145,12 +1199,16 @@ function calc(auto){
   const withinIdx={Cpk:cpk,Cpl:cpl,Cpu:cpu,Cp:cp};
   const overallIdx={Ppk:ppk,Ppl:ppl,Ppu:ppu,Pp:pp,Cpm:cpm};
   const withinCI={},overallCI={};
-  // 组内指数（Cp/Cpk/…）基于组内 σ（子组估计），有效样本量 = 子组数 k，而非总观测数 n；
-  // 子组模式若用 n 会让 CI 偏窄（高估精度），故组内指数改用 effN（个体模式 effN=n）。
-  // 整体指数（Pp/Ppk/…）基于样本标准差（ddof=1），自由度 n−1，维持用总样本量 n。
-  const effN=sub>1?Math.floor(nums.length/sub):nums.length;
-  for(const k in withinIdx)withinCI[k]=ciFor(k,withinIdx[k],effN);
-  for(const k in overallIdx)overallCI[k]=ciFor(k,overallIdx[k],n);
+  // σ 的有效自由度（v2.13.0 修正）：
+  //   整体 σ = 样本标准差（ddof=1）        → ν = n−1
+  //   组内 σ：个体模式用移动极差 MR̄        → ν ≈ n−1
+  //           子组模式由 k 个子组的 R̄/S̄ 估计 → ν = k(n−1)
+  // 注意不能把「子组个数 k」当作样本量代入：那会把组内指数 CI 放大约 5 倍，且方向与工业惯例相反。
+  // 偏移项 1/(9n) 的信息量来自均值，故始终用观测总数 n。
+  const nGroupsEff=sub>1?Math.floor(nums.length/sub):0;
+  const nuWithin=sub>1?nGroupsEff*(sub-1):n-1;
+  for(const k in withinIdx)withinCI[k]=ciFor(k,withinIdx[k],nuWithin,n);
+  for(const k in overallIdx)overallCI[k]=ciFor(k,overallIdx[k],n-1,n);
 
   // 正态性（Shapiro-Francia 近似 = Q-Q 图 R²）
   const sorted=[...nums].sort((a,b)=>a-b);
@@ -1216,6 +1274,12 @@ function calc(auto){
   if((lsl!=null&&lsl<dmin-1.5*dspan)||(usl!=null&&usl>dmax+1.5*dspan)){
     warns.push({level:'warn',icon:'🎯',title:'规格限与数据严重脱节',
       text:`数据范围 [${fmt(dmin,4)}, ${fmt(dmax,4)}]，而 LSL=${fmt(lsl,4)} / USL=${fmt(usl,4)} 距数据超过 1.5 倍数据跨度。请核对规格限是否填错（如小数点/位数错位）。`});
+  }
+  // P0 复查④ 过程均值落在规格范围之外 → Cpk/Ppk 为负，此时"判级"没有意义，首要动作是核对规格限
+  // （典型诱因：规格限仍是工具自动预填的占位值「均值±3σ」，或数据换批后中心大幅偏移 / 混批）
+  if(both&&(m<lsl||m>usl)){
+    warns.push({level:'warn',icon:'🚨',title:'过程均值已在规格范围之外（Cpk 为负，不具判级意义）',
+      text:`样本均值 μ=${fmt(m,4)} 落在规格区间 [${fmt(lsl,4)}, ${fmt(usl,4)}] 之外，Cpk=${fmt(cpk)}、Ppk=${fmt(ppk)} 均为负值。请优先核对：① 规格限是否填错、或仍是工具自动预填的占位值（均值±3σ）；② 过程中心是否已大幅偏移、或数据混批。规格限与中心位置确认无误后，Cpk 才具备判级意义。`});
   }
   // P1 矛盾检测：Cpk 判合格但实测已有超规样品
   if(isFinite(primary)&&primary>=1.33&&obs>0){
@@ -1313,7 +1377,7 @@ function calc(auto){
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">组内 σ</div><div class="v">${fmt(sw,4)}</div></div>
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">总 σ</div><div class="v">${fmt(sd,4)}</div></div>
    <div class="metric" style="border-left-color:var(--muted)"><div class="k">超规 PPM</div><div class="v">${obsPpm.toLocaleString('en-US',{maximumFractionDigits:0})}</div></div>`
-  + (targetFromInput?'':'<div class="legend" style="text-align:left;margin-top:2px">* Cpm 未填「目标值 T」，自动取规格中点作目标。</div>')
+  + (targetFromInput?'':'<div class="legend" style="text-align:left;margin-top:2px">* Cpm 未填「目标值 T」，'+(both?'自动取规格中点作目标。':'单侧规格时 Cpm 无定义。')+'</div>')
   ;
 
   // ---- 正态性提示 ----
@@ -1328,7 +1392,7 @@ function calc(auto){
   const rows=[
     ['样本量 n',fmt(n,0),'参与计算的观测个数'],
     ['均值 μ',fmt(m,4),'数据算术平均'],
-    ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':'自动取 (LSL+USL)/2，用于 Cpm'],
+    ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':(both?'自动取规格中点 (LSL+USL)/2，用于 Cpm':'单侧规格：自动取该侧规格限（单侧时 Cpm 无定义，仅作展示）')],
     ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':'均值相对规格中点的偏移（0=恰好居中）'],
     ['组内 σ',fmt(sw,4),sub>1?(sub>10?'子组标准差法 S̄/c4（短期波动）':'子组极差法 R̄/d2（短期波动）'):'移动极差法 MR̄/1.128（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
@@ -1357,7 +1421,7 @@ function calc(auto){
   // 追加各指数的 95% 置信区间（区间内用中文顿号分隔，避免导出 CSV 时被英文逗号拆列）
   const ciRow=(k,v,ci,suffix)=>{const vOk=isFinite(v);
     return [k+' 95%CI'+suffix, vOk&&ci[0]!=null?`[${fmt(ci[0])}，${fmt(ci[1])}]`:'—',
-      (suffix==='(组内)'&&sub>1?'近似置信区间（子组数 k='+effN+'，组内 σ 由子组估计）':'近似置信区间（样本量 n='+n+'）')];};
+      (suffix==='(组内)'&&sub>1?'近似置信区间（组内 σ 自由度 ν=k(n−1)='+nuWithin+'，即 '+nGroupsEff+' 组 × (n='+sub+'−1)）':'近似置信区间（样本量 n='+n+'，自由度 ν=n−1='+(n-1)+'）')];};
   for(const k in withinIdx)rows.push(ciRow(k,withinIdx[k],withinCI[k],'(组内)'));
   for(const k in overallIdx)rows.push(ciRow(k,overallIdx[k],overallCI[k],'(总)'));
   document.querySelector('#detail tbody').innerHTML=rows.map(([k,v,d])=>`<tr><td>${k}</td><td>${v}</td><td style="color:var(--muted)">${d}</td></tr>`).join('');
@@ -1841,7 +1905,7 @@ function renderCtrlPanel(ctrl,mCtrl,stable,ctrlInSpec,spc,lsl,usl,target,m,nums,
     d:'Cpk 暂时达标，但过程已失控（存在特殊原因异常），随时可能演变为批量不合格。应立即排查特殊原因（换班 / 换料 / 刀具磨损 / 环境变化），恢复受控后再评估能力。'};
   else sc={c:getCss('--bad'),t:'失控且能力不足',
     d:'过程既失控、Cpk 又不达标，是最危险的状态：当前就在产出不合格品，且波动无规律、随时恶化。必须停线排查特殊原因，改善后重新评估。'};
-  const autoTip=specAuto?'<div class="note" style="margin-top:8px">⚠ 当前规格限为工具自动预填的「均值 ± 3σ」占位值，请填写图纸 / 客户真实规格限后再解读能力与规格限结论。</div>':'';
+  const autoTip=specAuto?'<div class="note warn" style="margin-top:8px">⚠ <b>当前规格限是工具自动预填的「均值 ± 3σ」占位值，不是图纸 / 客户给的真实规格</b>：它只适合试算，Cp / Cpk / 判级与规格限结论都不可用。请在左侧填写真实规格限（手动输入即视为真实值，本提示随之消失）后再解读。<br>注：换数据后占位值不会自动清空，如沿用旧数据的占位值计算，结果无意义——请务必确认「规格下限 / 规格上限」输入框里是本次数据对应的真实规格。</div>':'';
   const uslIn=usl!=null&&spc.ucl<usl, lslIn=lsl!=null&&spc.lcl>lsl;
   const ctrlNote=spc.sub>1?(spc.type==='Xbar-S'?'控制限 = 组均值 ± A3·S̄（Xbar-S 子组模式，n>10），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。':'控制限 = 组均值 ± A2·R̄（Xbar-R 子组模式），监控组均值稳定性；控制限 ⊆ 规格限 ≠ 个体全部合格，个体合格率以 Cpk 为准。'):'控制限 = 单值 ± 3σ（个体模式），直接反映个体波动。';
   document.getElementById('ctrlCompare').innerHTML=`
@@ -1887,7 +1951,11 @@ function saveState(){
       lsl:document.getElementById('lsl').value,
       usl:document.getElementById('usl').value,
       target:document.getElementById('target').value,
-      sub:document.getElementById('sub').value
+      sub:document.getElementById('sub').value,
+      // 占位值/自动推断标记一并持久化，避免刷新后丢掉"这不是用户填的真实值"这一信息
+      lslAuto:document.getElementById('lsl').dataset.auto==='1',
+      uslAuto:document.getElementById('usl').dataset.auto==='1',
+      subAuto:document.getElementById('sub').dataset.auto==='1'
     }));
   }catch(e){/* 隐私模式等场景静默失败 */}
 }
@@ -1903,6 +1971,9 @@ function restoreState(){
     if(s.usl)$('usl').value=s.usl;
     if(s.target)$('target').value=s.target;
     if(s.sub)$('sub').value=s.sub;
+    if(s.lslAuto)$('lsl').dataset.auto='1';
+    if(s.uslAuto)$('usl').dataset.auto='1';
+    if(s.subAuto)$('sub').dataset.auto='1';
     return !!s.data;
   }catch(e){return false;}
 }
@@ -1922,6 +1993,8 @@ function restoreFromUrl(){
     if(q.get('usl')!=null)$('usl').value=q.get('usl');
     if(q.get('target')!=null)$('target').value=q.get('target');
     if(q.get('sub')!=null)$('sub').value=q.get('sub');
+    // 链接携带的值一律视为"外部给定"，清除占位值/自动推断标记（否则会误判为工具自动预填）
+    ['lsl','usl','sub'].forEach(id=>delete $(id).dataset.auto);
     $('useLsl').checked=q.get('useLsl')!=='0';
     $('useUsl').checked=q.get('useUsl')!=='0';
     return true;
@@ -2008,6 +2081,8 @@ document.getElementById('btnSample').onclick=()=>{
   document.getElementById('lsl').value='9.950';
   document.getElementById('usl').value='10.050';
   document.getElementById('sub').value='0';         // 示例按个体测量展示（可改子组看 Xbar-R / Xbar-S 图）
+  ['lsl','usl','sub'].forEach(id=>delete document.getElementById(id).dataset.auto);   // 示例的规格限是真实值，清除占位标记
+  autoSubResetFrom=0;
   document.getElementById('sampleInfo').textContent='示例 '+s.name+'：'+s.desc;
   calc(false);saveState();
 };
@@ -2052,6 +2127,8 @@ document.getElementById('btnGen').onclick=()=>{
   document.getElementById('lsl').value=gLsl!=null?String(gLsl):'';
   document.getElementById('usl').value=gUsl!=null?String(gUsl):'';
   document.getElementById('sub').value='0';
+  ['lsl','usl','sub'].forEach(id=>delete document.getElementById(id).dataset.auto);   // 生成器的规格限来自用户填写，清除占位标记
+  autoSubResetFrom=0;
   calc(false);saveState();
   // 生成后即时回算「实际 Cpk」：σ 由 n 个样本估计，抽样误差约 1/√(2n)（n=100 时约 7%），
   // 因此实际 Cpk 与目标存在偏差是统计上的必然——实测中位约 3~4%，P95 可达 10% 左右，n 越小偏差越大。
@@ -2071,6 +2148,7 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('useLsl').checked=true;   // 恢复双侧规格默认
   document.getElementById('useUsl').checked=true;
   document.getElementById('sub').value='0';         // 恢复个体测量默认
+  ['lsl','usl','sub'].forEach(id=>delete document.getElementById(id).dataset.auto);   // 清除占位值/自动推断标记
   document.getElementById('parseInfo').textContent='';
   document.getElementById('parseInfo').className='parseinfo';
   document.getElementById('sampleInfo').textContent='';
@@ -2081,7 +2159,7 @@ document.getElementById('btnClear').onclick=()=>{
   document.getElementById('genLsl').value='';
   document.getElementById('genUsl').value='';
   document.getElementById('genMu').value='';
-  userOverrideSub=false;                             // 清空后恢复子组自动推断
+  userOverrideSub=false;autoSubResetFrom=0;          // 清空后恢复子组自动推断
   clearResults(false);                               // 结果区全部清空（含明细表、能力表、控制图、画布）
   try{localStorage.removeItem(LS_KEY);}catch(e){}
 };
@@ -2092,8 +2170,11 @@ function scheduleCalc(ms){clearTimeout(calcTimer);calcTimer=setTimeout(()=>calc(
 document.getElementById('data').addEventListener('input',()=>scheduleCalc(350));
 // 规格限 / 子组大小改动实时重算（README 承诺的行为）
 ['lsl','usl','target','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>scheduleCalc(350)));
+// 用户手动编辑规格限/子组输入框 → 立即清除"工具自动预填 / 自动推断"标记（v2.13.0）
+// 程序赋值不触发 input，故自动预填、示例、生成器、状态恢复都不会误清标记
+['lsl','usl','sub'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{delete document.getElementById(id).dataset.auto;}));
 // 用户手动改过子组大小 → 记否决标记，自动推断不再覆盖（示例/生成器/恢复状态是程序赋值，不触发）
-document.getElementById('sub').addEventListener('input',()=>{userOverrideSub=true;});
+document.getElementById('sub').addEventListener('input',()=>{userOverrideSub=true;autoSubResetFrom=0;});
 ['useLsl','useUsl'].forEach(id=>document.getElementById(id).addEventListener('change',()=>scheduleCalc(80)));
 
 // 拖拽导入 .txt/.csv/.tsv/.dat
@@ -2398,7 +2479,7 @@ const GLOSS=[
   {cat:'能力指数',abbr:'Cpk',name:'Process Capability Index（修正过程能力指数）',cn:'实际过程能力指数',
    def:'在 Cp 基础上同时考虑<b>中心偏移</b>，取"离规格线更近一侧"的能力值，反映过程<u>当前实际</u>能达到的质量水平。它是本工具判级（A/B/C/D）的主要依据，也是制造业最常用的出货能力指标。',
    formula:'Cpk = min( Cpu, Cpl ) = min( (USL−μ) / (3σ<sub>within</sub>), (μ−LSL) / (3σ<sub>within</sub>) )',
-   steps:['计算样本均值 μ = Σxᵢ / n','计算组内标准差 σ_within：个体数据用移动极差法 σ=MR̄/d2(2)；子组数据用极差法 σ=R̄/d2(n)','算上侧 Cpu = (USL−μ) / (3σ_within)，下侧 Cpl = (μ−LSL) / (3σ_within)','取较小值：距离规格线更近那一侧，即最薄弱环节'],
+   steps:['计算样本均值 μ = Σxᵢ / n','计算组内标准差 σ_within：个体数据用移动极差法 σ=MR̄/d2(2)；子组 n≤10 用极差法 σ=R̄/d2(n)；子组 n>10 自动切换标准差法 σ=S̄/c4(n)（Xbar-S 图）','算上侧 Cpu = (USL−μ) / (3σ_within)，下侧 Cpl = (μ−LSL) / (3σ_within)','取较小值：距离规格线更近那一侧，即最薄弱环节'],
    impact:'Cpk≥1.33 时理论不合格率一般可控制在 66 PPM 以内；Cpk 在 1.0~1.33 之间属于边缘，超规风险上升；Cpk<1.0 时超规概率显著放大，客户处易出现批量退货、投诉或审核不通过。',
    action:'按判级执行：A/B 级维持现有监控；C 级加强管控（加密抽检、减小波动、排查特殊原因）；D 级必须立即改善（调机、修设备、改工艺参数、做 FACA 找根因）。改善后再测，确认 Cpk 回升。',
    tip:'判级前务必填真实规格限 LSL/USL（来自图纸或客户），否则 Cpk 会被严重高估。'},
@@ -2570,11 +2651,11 @@ const GLOSS=[
    tip:'记住三个锚点即可快速心算：Cpk 1.0≈2700 PPM、1.33≈66 PPM、1.67≈0.6 PPM（组内 σ 口径）。'},
   {cat:'质量指标',abbr:'95% CI',name:'95% Confidence Interval',cn:'95% 置信区间',
    def:'能力指数真值所在的大致范围（双侧 95%）：如果反复抽样，约 95% 的区间会覆盖真值。样本量越小区间越宽。',
-   formula:'Cp/Pp 用卡方近似；Cpk/Ppk 等用正态近似（Bissell/Kotz）',
-   steps:['工具自动对每个指数计算 [下限, 上限]'],
-   impact:'只看点估计（如 Cpk=1.42）会高估可靠性：若 95%CI 是 [1.08, 1.76]，真实能力可能不到 1.33，判级结论可能翻转。',
+   formula:'Cp/Pp：卡方法 CI = C·√(χ²_p(ν)/ν)；Cpk/Ppk 等：Bissell/Kotz 近似 se = √(1/(9n) + K²/(2(ν−1)))',
+   steps:['工具自动对每个指数计算 [下限, 上限]','ν = σ 的有效自由度：整体 σ（Pp/Ppk 系列）取 n−1；组内 σ 个体模式取 n−1、子组模式取 k(n−1)（k=完整子组数，每个子组的样本标准差各贡献 n−1）'],
+   impact:'只看点估计（如 Cpk=1.42）会高估可靠性：若 95%CI 是 [1.08, 1.76]，真实能力可能不到 1.33，判级结论可能翻转。样本量越小区间越宽。',
    action:'判级时同时看点估计与置信区间下界：下界 < 1.33 时建议增加样本量再下结论，或按更保守的等级管理。',
-   tip:'判级口诀：以「置信区间下界」为准，不用点估计——下界过了哪一档，才敢宣布哪一档。'},
+   tip:'判级口诀：以「置信区间下界」为准，不用点估计——下界过了哪一档，才敢宣布哪一档。子组模式下组内指数的区间宽度应与整体指数同量级（两者自由度相当）；若看到 Cpk 的 CI 比 Ppk 宽数倍，属异常。'},
   {cat:'质量指标',abbr:'R²',name:'Coefficient of Determination',cn:'决定系数（正态性指标）',
    def:'本工具用 Q-Q 图（正态概率图）的拟合优度 R² 近似判断数据是否正态。R²>0.95 视为近似正态，正态能力法才可靠。',
    formula:'R² = (排序后数据与理论分位数 z 的相关系数)²',
@@ -2651,11 +2732,11 @@ const GLOSS=[
    impact:'均值漂移会直接压低 Cpk（Cpu 或 Cpl 单侧恶化），即使 Cp 高也会批量超单侧规格。',
    action:'排查设定值变更、刀具磨损、材料批次、工装定位等因素，把中心调回目标。'},
   {cat:'控制图',abbr:'失控信号',name:'Out-of-Control Signal',cn:'失控信号（越界点 / 异常模式）',
-   def:'控制图上提示特殊原因存在的信号，本工具检测三类：<b>越界点</b>（超出 UCL / LCL，主图越界=均值问题、辅助图 MR/R/S 越界=波动问题）、连续 9 点同侧（均值漂移）、连续 7 点趋势（AIAG 常用）。',
-   formula:'越界：x > UCL 或 x < LCL；同侧：连续 9 点；趋势：连续 7 点',
-   steps:['工具自动标红越界点并检测三种模式','输出具体是第几个点触发的哪种模式'],
-   impact:'越界点出现说明存在特殊原因，即使产品仍合格后续也可能批量恶化；不同信号指向不同根因：越界=突变、9 点同侧=缓慢漂移、7 点趋势=渐变性因素（磨损/劣化）。',
-   action:'出现越界立即停机/停线排查，结合信号类型定向排查：突变查换料/换班，漂移查磨损/老化，趋势查工装渐进劣化；确认特殊原因消除后再恢复生产。'},
+   def:'控制图上提示特殊原因存在的信号，本工具检测三类：<b>越界点</b>（超出 UCL / LCL，主图越界=均值问题、辅助图 MR/R/S 越界=波动问题）、连续 9 点同侧（均值漂移）、连续 7 点趋势（AIAG 常用）。<br><b>本工具的一处有意差异</b>：主图（I / X̄）采用标准「任一点越界即失控」；辅助图（MR / R / S）要求<b>≥2 点越界</b>才判失控——因为 MR/R 分布右偏，用 3.267·MR̄ 作上限时单点越界率约 0.9%/点（是 I 图 0.27% 的 3 倍多），n=100 的纯随机过程有约 57% 概率出现至少 1 个越界点，属控制图固有特性而非特殊原因。单点越界仍会列出点号供人工核实。',
+   formula:'越界：x > UCL 或 x < LCL（辅助图需 ≥2 点）；同侧：连续 9 点；趋势：连续 7 点',
+   steps:['工具自动标红越界点并检测三种模式','主图：任一点越界即判失控；辅助图：≥2 点越界才判失控，单点越界仅列出点号','输出具体是第几个点触发的哪种模式，并区分强信号（9 点同侧/7 点趋势/辅助图多点越界）与弱信号（主图孤立单点越界）'],
+   impact:'越界点出现说明存在特殊原因，即使产品仍合格后续也可能批量恶化；不同信号指向不同根因：越界=突变、9 点同侧=缓慢漂移、7 点趋势=渐变性因素（磨损/劣化）。辅助图单点越界多为随机波动，误报风险高，不宜据此停线。',
+   action:'强信号（9 点同侧 / 7 点趋势 / 辅助图多点越界）→ 停机/停线排查，结合信号类型定向排查：突变查换料/换班，漂移查磨损/老化，趋势查工装渐进劣化；弱信号（主图孤立单点越界）→ 先回查该点前后是否对应换班/换料/调机/刀具磨损等已知事件，找不到特殊原因时勿仅凭一个点停线或调机。'},
   // ---------- 图与交互 ----------
   {cat:'图与交互',abbr:'Histogram',name:'Histogram',cn:'直方图',
    def:'把数据按测量值分成若干区间（bin），用柱子高度显示各区间数据占比的图形。本工具的直方图 <b>Y 轴 = 概率密度</b>（单位 ‰，即千分之一），柱高 = 该区间单位测量值的概率密度，<b>不是</b>频数或百分比；所有柱面积之和 = 1000‰（=1）。',
@@ -2706,11 +2787,17 @@ const GLOSS=[
    steps:['计算 IQR → 套公式得 bin 宽 → 求柱子数并夹在 8~40'],
    impact:'分箱更贴合数据真实分布，避免直方图形状误导判断。',
    action:'直方图柱子太密/太疏时属于正常自适应结果，可结合正态曲线判断分布形态。'},
-  {cat:'算法与软件',abbr:'Wilson-Hilferty',name:'Wilson-Hilferty Approximation',cn:'卡方分位数近似',
-   def:'用正态分布近似卡方分布分位点的公式，本工具用它计算 Cp/Pp 的 95% 置信区间。',
-   formula:'χ²_p(df) ≈ df·(1 − 2/(9df) + z_p·√(2/(9df)))³',
-   steps:['取正态分位 z_p → 代入公式 → 得卡方分位 → 用于 CI 公式'],
-   impact:'影响 Cp/Pp 置信区间的精度，属于工程近似（真值差 <1%），可放心用于日常判断。',
+  {cat:'算法与软件',abbr:'Wilson-Hilferty',name:'Wilson-Hilferty Approximation',cn:'卡方分位数近似（仅作迭代初值）',
+   def:'用正态分布近似卡方分布分位点的经典公式。<b>本工具只用它作 Newton 迭代的初值，不用它出最终结果</b>——该近似在低自由度下尾有明显偏差（df=5、p=0.025 时相对误差约 4%，会低估 Cp 置信区间下界、高估精度），v2.11.1 起已改为精确求解（见「卡方逆 CDF 精确解」条目），把它当初值只是为了让迭代更快收敛。',
+   formula:'χ²_p(df) ≈ df·(1 − 2/(9df) + z_p·√(2/(9df)))³　（仅作初值，非最终结果）',
+   steps:['取正态分位 z_p → 代入公式得迭代初值 x₀','以 x₀ 为起点做 Newton 迭代精确求解（见下一条目）'],
+   impact:'作为初值不影响最终精度；真正决定 Cp/Pp 置信区间精度的是后续的迭代求解环节。',
+   action:'无需干预，工具自动完成。'},
+  {cat:'算法与软件',abbr:'卡方逆 CDF 精确解',name:'Exact Chi-Square Quantile (Regularized Incomplete Gamma + Newton)',cn:'卡方分位数精确求解',
+   def:'本工具计算 <b>Cp / Pp 的 95% 置信区间时实际使用</b>的卡方分位点求解方法：以下尾正则化不完全伽马函数 P(a,x)=γ(a,x)/Γ(a) 构造方程 F(x)=P(df/2, x/2)−p=0，用 Wilson–Hilferty 作初值做 Newton 迭代。P 的数值实现按 x 分段——级数展开（x &lt; a+1）与 Lentz 连分数（x ≥ a+1），Γ 用 Lanczos 近似（g=7，精度约 1e-14）。',
+   formula:'求解 F(x) = P(df/2, x/2) − p = 0，dF/dx = f(x)/2（f 为卡方密度）→ χ²_p(df) = x',
+   steps:['Wilson–Hilferty 给初值 x₀','计算 F(x)=P(a, x/2)−p 与卡方密度 f(x)','Newton 步 x ← x − F(x)/(f(x)/2)，重复至 |Δx| &lt; x·1e-11（上限 40 次）'],
+   impact:'自洽性实测：把求得的 x 代回 P(df/2, x/2) 可还原到 p，最大误差约 3e-14；对照教科书卡方表 df=5 / 29 / 99 全部吻合。相比纯 Wilson–Hilferty 近似，小样本（自由度小）时 Cp/Pp 的 95% 置信区间下界更可靠。',
    action:'无需干预，工具自动完成。'},
   {cat:'算法与软件',abbr:'Bissell / Kotz',name:'Bissell / Kotz Approximation',cn:'能力指数置信区间近似',
    def:'Cpk/Cpl/Cpu/Ppk 等指数 95% 置信区间的标准近似公式（基于渐近标准误），本工具默认采用。',
@@ -2827,6 +2914,20 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.13.0',date:'2026-09-10',tag:'fix',tagTxt:'全面审查修复（P0→P3）',
+   items:[
+    '【P0】带表头的序号(SN)列剔除失效（数据入口）：前导序号列识别写在表头判定之前，且要求"所有行"都 ≥2 个数值；表头行数字个数为 0 → 整段判定失败，「序号 + 表头 + 测量值」这一最常见粘贴形态下序号被当成测量值、n 直接翻倍，每行 2 个数字又触发"子组 n=2"自动推断。实测 100 行：n=200、μ=30.25、组内 σ=36.70、Cpk=−0.183，仍输出明确的「D 级」判级（正确值应为 n=100、Cpk≈1.35）。修复：校验范围改为仅「数据行」（排除表头行），并把表头预判提到序号列剔除之前',
+    '【P0】自动预填的「均值 ± 3σ」占位规格限换批后失去警示：占位值会写回输入框，而 lslAuto/uslAuto 只是单次 calc 内的局部变量 → 下一批数据读到"非空输入框"就当成用户填的真实规格限，占位警告消失。实测换批后 Cpk=−38.371 却无任何占位提示。修复：把占位标记持久化到元素 dataset（随 localStorage 保存/恢复），用户手动编辑即清除；并在 μ 落在规格范围之外（Cpk 为负）时新增专门诊断，提示先核对规格限是否为占位值',
+    '【P1】子组模式下组内指数的 95% 置信区间自由度取错：旧实现用「子组个数 k」当样本量，正确的是 ν = k(n−1)。实测 6 组 × 20 点：Cpk 的 CI 宽度 1.787，而 Ppk 仅 0.374（放大约 5 倍且方向与工业惯例相反——组内 σ 的自由度 114 与整体 σ 的 119 本就相当）。修复：ciCpLike/ciIndexLike 改为接收显式自由度 ν，组内指数用 k(n−1)、整体指数用 n−1，偏移项仍用观测总数 n',
+    '【P1】自动推断的子组大小"粘"到下一批数据：推断值回填输入框后 sub≠0 使自动推断永久失效，换数据仍沿用旧子组且无提示。修复：给自动推断写入的值打 dataset 标记，当数据形态与之不符时自动复位为个体测量并在解析条说明；用户手动填写（无标记）不受影响，保留"单列数据手动指定子组"的用法',
+    '【P1】辅助图(MR/R/S)「≥2 点越界才判失控」这条例外只存在于代码注释：README 与术语百科均只写「越界点」、读者会理解为任一点越界即失控。修复：README「已知限制」补条目，术语百科「失控信号」词条补上该差异及其统计学理由（MR 分布右偏，单点越界率约 0.9%/点，n=100 纯随机约 57% 概率至少 1 点越界）',
+    '【P2】术语百科「Wilson-Hilferty」词条已过时：仍称"本工具用它计算 Cp/Pp 的 95% 置信区间、真值差 <1%"，而 v2.11.1 起卡方分位已改为精确求解、WH 仅作 Newton 初值（低自由度尾偏差约 4%），与代码注释、更新记录三处口径矛盾。修复：改写该词条为"仅作迭代初值"，并新增「卡方逆 CDF 精确解」词条补上真正在用的算法（正则化不完全伽马 + Newton 迭代）',
+    '【P2】术语百科「Cpk」「95% CI」词条口径补全：Cpk 计算步骤补上子组 n>10 的 S̄/c4 分支（此前只有移动极差法与极差法两种，与同百科的 d2/c4、A3/B3/B4 词条不一致）；95% CI 词条补上自由度 ν 的取值规则',
+    '【P2】单侧规格时「自动取 (LSL+USL)/2」表述不成立（实现是取该侧规格限）：明细表「目标 T」说明与指标卡图例改为按双侧/单侧分别措辞；同时修正 calc 内"自动取 (最大+最小)/2"这一陈旧注释',
+    '【P3】表尾统计行自动剔除（防呆）：从 Excel 整表复制时「合计 / 平均 / 最大 / 最小 / 小计 …」会被当测量值（实测 5 个测量值 + 合计行 → n=7）。现从末尾连续剔除含统计关键词的行（纯数字行永不命中，不会误删数据区中间的行），并在解析条注明"已跳过表尾 N 行统计行"',
+    '【P3】首访默认浅色：原实现跟随 prefers-color-scheme，系统为深色时首访即深色。考虑到典型场景（工厂/办公室白天办公、导出 PNG 插 PPT、打印张贴），改为默认浅色，深色仍可手动切换并记忆',
+    '【P3】术语百科搜索框补 aria-label（此前无 label 也无 aria-label）；性能数字复核：更新记录 v2.12.0 声称"20 万行 <100ms、50 万行 ~150ms"，实测（Node 22，含解析）为 20 万行 243ms、50 万行 571ms，仅"计算+正态检验"部分为 115ms / 269ms，性能本身完全够用，但原数字偏乐观'],
+   sub:'2026-09-10 全面审查修复（v2.13.0）：基于 v2.12.0 的源码精读 + 34 项数值断言 + Playwright 端到端复现，修复 2 个 P0（序号列剔除失效、占位规格限换批后失警示）、3 个 P1（子组 CI 自由度、子组推断粘滞、辅助图判据未文档化）、4 个 P2（术语百科与注释口径）与 4 个 P3（表尾统计行、默认主题、a11y、性能数字）。计算引擎本身经核对无错误。'},
   {ver:'v2.12.0',date:'2026-09-08',tag:'feat',tagTxt:'诊断自动化增强',
    items:['受控判定置信度分级（自动化）：判「统计失控」时自动区分强信号（连续 9 点同侧 / 7 点趋势 / 辅助图多点越界）与弱信号（主图孤立单点越界、无其他模式）；弱信号时面板加「🧾 低置信度：先核实换班/换料/调机等已知事件再行动，勿仅凭一个点停线」提示，承接 v2.11.1 的误报修复','表头规格限「未生效」强提示（防呆）：表头已识别到 LSL/USL，但对应「启用规格限」勾选框未勾选 → 该侧规格限被静默忽略、按单侧/无规格分析会失真，现升级为 warn 级红条明示「LSL=…（未启用）」','SPC 受控判定样本量提示（防呆）：个体 I-MR 模式移动极差数 = n−1，n<10 时 MR̄/控制限本身不稳，「统计受控/失控」仅具参考性——独立于既有的能力判级样本量提示（n<20/<30）','对数变换诊断（自动化·轻量）：数据全部为正且判非正态时，自动试算取 ln 后的 R²；若由 ≤0.95 提升到 >0.95，提示「数据接近对数正态，可先取对数再用正态法」，并说明需同步换算规格限——不实际改数据，规避变换链边界风险','性能说明：数据粘贴实时重算沿用既有 350ms 防抖；实测核心计算 20 万行 <100ms、50 万行 ~150ms，无卡顿瓶颈，无需额外开关'],
    sub:'2026-09-08 诊断自动化增强（v2.12.0）：4 条低风险高价值的防呆/自动化提示（受控置信度分级 / 表头规格限未生效 / SPC 小样本 / 对数正态诊断），全部经 headless 浏览器 + 合成数据实测通过、0 console 错误。'},
@@ -3002,7 +3103,10 @@ function applyTheme(dark){
 }
 function initTheme(){
   const saved=localStorage.getItem(THEME_KEY);
-  if(saved===null||saved==='')applyTheme(window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+  // 首访默认浅色（v2.13.0）：本工具的典型使用场景是工厂/办公室白天办公、导出 PNG 插 PPT、打印张贴，
+  // 浅色与这些输出物一致。原实现跟随 prefers-color-scheme，系统为深色时首访即深色，故改为默认浅色，
+  // 需要深色时手动点「🌙 深色」切换（选择仍会被记忆）。
+  if(saved===null||saved==='')applyTheme(false);
   else applyTheme(saved==='dark');
 }
 themeBtn.addEventListener('click',()=>{
