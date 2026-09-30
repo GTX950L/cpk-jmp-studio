@@ -45,7 +45,7 @@
   /* 深色模式：跟随系统或手动切换（documentElement data-theme=dark） */
   html[data-theme=dark]{
     --c-data:#4d8fd6; --c-fit:#ef6a41;
-    --c-lsl:#f0b76a; --c-usl:#f0b76a; --ctl:#f85149; --spec:#f0b76a;
+    --c-lsl:#f0b76a; --c-usl:#f0b76a; --ctl:#ff6b61; --spec:#f0b76a;
     --c-data-ink:#79b4e8; --c-fit-ink:#ff9b73; --c-lsl-ink:#f7c98c; --c-usl-ink:#f7c98c; --c-target-ink:#c9b6f0;
     --c-target:#b39ddb;
     --c-grid:#2a3a52; --c-axis:#8fa0b5;
@@ -383,7 +383,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.18.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.19.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -555,13 +555,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.18.0</b> · 最近更新 2026-10-01</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.19.0</b> · 最近更新 2026-10-01</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.18.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.19.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1309,7 +1309,20 @@ function calc(auto){
   const sorted=[...nums].sort((a,b)=>a-b);
   const z=sorted.map((_,i)=>normInv((i+1-0.375)/(n+0.25)));
   const r2=corr(sorted,z)**2;
-  const normOk=r2>0.95;
+  // 判定阈值随样本量调整（v2.19.0）：Shapiro-Francia 的 R² 期望值本身随 n 下降（样本越小越难
+  // 在 Q-Q 图上贴成一条直线），固定用 0.95 会把大量小样本正态数据误判为「非正态」——蒙特卡洛
+  // 实测（真正态样本各 3000 次）：n=5/10/15/20/30 的 R² 均值 0.903/0.928/0.946/0.956/0.967，
+  // 误判率 72%/61%/45%/32%/15%（端到端 n=10 实测 76%），且会连锁触发 ISO 经验分位法分支。
+  // 下表取真正态样本的 5% 分位（实测值），把误判率控制在约 5%；中间线性插值。
+  const R2_CUT=[[5,0.77],[8,0.82],[10,0.834],[15,0.882],[20,0.907],[30,0.931],[50,0.955],[100,0.974],[200,0.985]];
+  const normCut=(function(){
+    if(n<=R2_CUT[0][0])return R2_CUT[0][1];
+    for(let i=1;i<R2_CUT.length;i++){
+      if(n<=R2_CUT[i][0]){const p0=R2_CUT[i-1],p1=R2_CUT[i];return Math.round((p0[1]+(p1[1]-p0[1])*(n-p0[0])/(p1[0]-p0[0]))*1e4)/1e4;}
+    }
+    return R2_CUT[R2_CUT.length-1][1];
+  })();
+  const normOk=r2>normCut;
 
   // 能力判级主指数（单侧用 Cpu/Cpl）——提前声明，供下方诊断块与判级横幅共用
   const primary=isFinite(cpk)?cpk:(usl!=null?cpu:cpl);
@@ -1412,9 +1425,24 @@ function calc(auto){
   const q1=quantile(sorted,0.25), q3=quantile(sorted,0.75), iqr=q3-q1;
   const loF=q1-1.5*iqr, hiF=q3+1.5*iqr;
   const outliers=nums.filter(v=>v<loF||v>hiF);
+  // 判级是否被离群点主导（v2.19.0）：实测 1 个录入错误值（如 1000000）即把判级拉到「D 级·须立即改善」，
+  // 而剔除后数据本身能力良好。若剔除离群点后主指数明显改善（≥1.5 倍且跨过 1.33 判级线），
+  // 判级横幅补限定语、离群提示升为 warn 级，避免用户看到 D 级横幅就以为产线出事。
+  let outliedGrade=false, cpkClean=null;
+  if(outliers.length&&outliers.length<=nums.length*0.1+1&&isFinite(primary)){
+    const clean=nums.filter(v=>v>=loF&&v<=hiF);
+    if(clean.length>=2){
+      const mC=mean(clean), swC=withinSigma(clean,sub);
+      if(isFinite(swC)&&swC>0){
+        const cpuC=usl!=null?(usl-mC)/(3*swC):Infinity, cplC=lsl!=null?(mC-lsl)/(3*swC):Infinity;
+        cpkClean=Math.min(cpuC,cplC);
+        outliedGrade=isFinite(cpkClean)&&primary<1.33&&cpkClean>=1.0&&cpkClean>=primary*1.5;
+      }
+    }
+  }
   if(outliers.length){
-    warns.push({level:'info',icon:'🎯',title:'检出疑似离群点',
-      text:`${outliers.length} 个点超出 Q1−1.5·IQR ~ Q3+1.5·IQR 范围 [${fmt(loF,4)}, ${fmt(hiF,4)}]。请核实是否为测量/抄写错误：确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。`});
+    warns.push({level:outliedGrade?'warn':'info',icon:'🎯',title:outliedGrade?'检出疑似离群点（可能主导本次判级）':'检出疑似离群点',
+      text:`${outliers.length} 个点超出 Q1−1.5·IQR ~ Q3+1.5·IQR 范围 [${fmt(loF,4)}, ${fmt(hiF,4)}]。${outliedGrade?`剔除这些点后主指数由 ${fmt(primary)} 升至 ${fmt(cpkClean)}（跨过 1.33 判级线）——本次判级可能被离群点主导，请优先核实这些点是否为录入 / 测量错误。`:""}请核实是否为测量/抄写错误：确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。`});
   }
   // P1 复查① 行数字个数不一致（列错位/缺列检测）
   if(info.mismatch&&info.mismatch.length){
@@ -1442,16 +1470,16 @@ function calc(auto){
   if(!normOk){
     nnCap=nonnormalCap(sorted,lsl,usl);
     warns.push({level:'info',icon:'📐',title:'非正态：已自动按 ISO 22514-2 经验法估算能力',
-      text:`数据非正态（R²=${r2.toFixed(4)}≤0.95），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无样本超出规格限，经验法 Ppk* 只能取到实现下限（恒 ≈1.58，与样本量 n 无关）——它只说明「本批未见超规」，不能作为能力水平的证据。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
+      text:`数据非正态（R²=${r2.toFixed(4)}，低于 n=${n} 的判定阈值 ${normCut}），正态法 Cpk/Ppk 不可靠。已用数据实际分布（ISO 22514-2 经验分位数法）估算：Ppk*=${fmt(nnCap.ppk)}、Cp*=${fmt(nnCap.cp)}。${nnCap.pL===0&&nnCap.pU===0?`本批无样本超出规格限，经验法 Ppk* 只能取到实现下限（恒 ≈1.58，与样本量 n 无关）——它只说明「本批未见超规」，不能作为能力水平的证据。`:''}正式场合建议先做 Box-Cox 变换或排查混批/离群点。`});
     // ⑤ 轻量对数诊断：数据全部 >0 时，自动试一下取自然对数能否恢复正态（Box-Cox λ→0 即对数变换）。
-    // 若 ln(x) 后 R² 明显提升并越过 0.95，就给出可操作的下一步；不实际变换数据/规格限，避免误改结果。
+    // 若 ln(x) 后 R² 明显提升并越过当前样本量的判定阈值，就给出可操作的下一步；不实际变换数据/规格限，避免误改结果。
     if(nums.length>=5 && sorted[0]>0){
       const lnz=nums.map(v=>Math.log(v)).sort((a,b)=>a-b);
       const lz=lnz.map((_,i)=>normInv((i+1-0.375)/(n+0.25)));
       const r2Log=corr(lnz,lz)**2;
-      if(r2Log>0.95&&r2Log>r2+0.01){
+      if(r2Log>normCut&&r2Log>r2+0.01){
         warns.push({level:'info',icon:'🌱',title:'试试对数据取对数（Box-Cox λ≈0）',
-          text:`数据全部为正值：对 x 取自然对数后 R² 由 ${r2.toFixed(4)} 提升到 ${r2Log.toFixed(4)}（>0.95），说明该批数据接近对数正态，取对数后很可能恢复正态、正态法 Cpk 即可用。如需使用，请在数据区自行对每个值取 ln（或先在 Excel 加一列 =LN(值) 再粘贴）；取对数会改变量纲，规格限也需按同样规则换算后填入。`});
+          text:`数据全部为正值：对 x 取自然对数后 R² 由 ${r2.toFixed(4)} 提升到 ${r2Log.toFixed(4)}（高于阈值 ${normCut}），说明该批数据接近对数正态，取对数后很可能恢复正态、正态法 Cpk 即可用。如需使用，请在数据区自行对每个值取 ln（或先在 Excel 加一列 =LN(值) 再粘贴）；取对数会改变量纲，规格限也需按同样规则换算后填入。`});
       }
     }
   }
@@ -1485,7 +1513,7 @@ function calc(auto){
   document.getElementById('verdict').innerHTML =
      `<div class="verdict" style="--vc-bg:${vt.c}1f;border-color:${vt.c}55;color:${vt.c}">
         <span class="badge" style="background:${vt.c}">${vt.t||'—'}</span>
-        <span>${vText||'请先设置规格限'}</span></div>`;
+        <span>${vText||'请先设置规格限'}${outliedGrade?`<br><b>⚠️ 本次判级可能由 ${outliers.length} 个疑似离群点主导：剔除后主指数 = ${fmt(cpkClean)}（当前 ${fmt(primary)}）。请先核实这些点是否为录入 / 测量错误，再下结论。</b>`:''}</span></div>`;
 
   // ---- 渲染指标卡（按等级着色）----
   const cardDefs=[['Cp（组内）',cp],['Cpk（组内）',cpk],['Pp（整体）',pp],['Ppk（整体）',ppk],['Cpm（目标）'+(targetFromInput?'':(both?'*':'')),cpm]];
@@ -1514,6 +1542,7 @@ function calc(auto){
   // ---- 正态性提示 ----
   document.getElementById('normNote').innerHTML=
     `<div class="note ${normOk?'':'warn'}">正态性检验（Shapiro-Francia 近似，即 Q-Q 图 R²）：R² = ${r2.toFixed(4)}`+
+    `，本样本量 n=${n} 的判定阈值 = ${normCut}（阈值随样本量调整）`+
     ` → ${normOk?'数据近似正态，Cpk 正态法适用 ✅':'数据可能非正态，建议谨慎解读 ⚠️'}</div>`;
 
   // ---- 目标值提示（T 来源 / 越界警告）----
@@ -2839,8 +2868,8 @@ const GLOSS=[
    tip:'每行多个数值粘贴时工具会自动识别为子组（如每行 5 个 → 自动填子组 n=5）；数据量不能整除子组大小时，末尾数据会被忽略并黄条提示。'},
   {cat:'统计量',abbr:'离群点',name:'Outlier',cn:'离群点',
    def:'明显偏离主体分布的数据点（如因测量错误、抄写错误、混入其他批次产生）。会拉高 σ、拉低 Cpk，扭曲结论。',
-   formula:'常以"距均值 > 3σ"或 Q-Q 图上的远端点识别',
-   steps:['观察直方图/Q-Q 图两端的孤立点','核对原始记录确认是否为真实数据'],
+   formula:'本工具口径（Tukey 规则）：超出 Q1−1.5·IQR ~ Q3+1.5·IQR 的点视为疑似离群；文献另一常用口径为「距均值 > 3σ」或 Q-Q 图上的远端点',
+   steps:['用 Tukey 规则（Q1−1.5·IQR ~ Q3+1.5·IQR）自动标出疑似离群点并给出范围','核对原始记录确认是否为真实数据（观察直方图/Q-Q 图两端的孤立点辅助判断）'],
    impact:'不剔除会使 σ 虚高、Cpk 虚低，掩盖真实过程能力；随意剔除又会掩盖真实异常。',
    action:'先核实原始记录与测量过程；确认是错误数据再剔除并记录原因，不要为凑 Cpk 删数据。',
    tip:'工具用 Tukey IQR 1.5 倍规则自动提示疑似离群点（结果区黄条），会给出具体范围；先核实再决定是否剔除。'},
@@ -2853,9 +2882,9 @@ const GLOSS=[
   {cat:'统计量',abbr:'正态分布',name:'Normal Distribution',cn:'正态分布',
    def:'连续数据的经典对称钟形分布，约 68.3% 数据落在 μ±1σ、95.4% 落在 μ±2σ、99.7% 落在 μ±3σ。Cpk/PPM 等均假设数据近似正态。',
    formula:'f(x) = 1/(σ√2π)·e^(−(x−μ)²/(2σ²))',
-   steps:['Q-Q 图 R²>0.95 视为近似正态'],
+   steps:['Q-Q 图 R² 高于阈值（阈值随样本量调整，n=10 约 0.83、n=20 约 0.91、n=30 约 0.93、n≥200 约 0.985）视为近似正态'],
    impact:'非正态数据用正态法会系统性低估/高估超规率，判级结论不可靠。',
-   action:'R²≤0.95 时先排查混批/离群点，必要时做 Box-Cox 变换或改用非参数能力评估。'},
+   action:'R² 低于阈值时先排查混批/离群点，必要时做 Box-Cox 变换或改用非参数能力评估；注意均匀/双峰分布 R² 可能仍高于阈值（对薄尾不敏感），建议结合直方图判断。'},
   {cat:'统计量',abbr:'概率密度',name:'Probability Density',cn:'概率密度',
    def:'描述连续型数据在某个取值附近"稠密程度"的函数 f(x)：数值越大，说明数据落在该取值附近的概率越高。密度 × 小区间宽度 = 落在该区间的概率。',
    formula:'P(a ≤ X ≤ b) = ∫ₐᵇ f(x) dx；正态密度 f(x) = 1/(σ√2π)·e^(−(x−μ)²/(2σ²))',
@@ -2878,11 +2907,11 @@ const GLOSS=[
    action:'判级时同时看点估计与置信区间下界：下界 < 1.33 时建议增加样本量再下结论，或按更保守的等级管理。',
    tip:'判级口诀：以「置信区间下界」为准，不用点估计——下界过了哪一档，才敢宣布哪一档。子组模式下组内指数的区间宽度应与整体指数同量级（两者自由度相当）；若看到 Cpk 的 CI 比 Ppk 宽数倍，属异常。'},
   {cat:'质量指标',abbr:'R²',name:'Coefficient of Determination',cn:'决定系数（正态性指标）',
-   def:'本工具用 Q-Q 图（正态概率图）的拟合优度 R² 近似判断数据是否正态。R²>0.95 视为近似正态，正态能力法才可靠。',
+   def:'本工具用 Q-Q 图（正态概率图）的拟合优度 R² 近似判断数据是否正态。判定阈值<b>随样本量调整</b>（n=10 约 0.83、n=15 约 0.88、n=20 约 0.91、n=30 约 0.93、n=50 约 0.955、n≥200 约 0.985）——R² 的期望值本身随 n 下降，用小样本固定 0.95 会把正常数据误判为非正态。',
    formula:'R² =（排序后数据与理论分位数 z 的相关系数）²',
    steps:['数据排序 → 计算每个点的理论正态分位 z → 与排序数据求相关系数 → 平方'],
    impact:'数据明显非正态时，Cpk/PPM 等正态法结果会失真（低估或高估超规率），可能误导判级。',
-   action:'R²≤0.95 时页面会黄条提示"数据可能非正态，建议谨慎解读"，此时应检查数据是否混批、有无离群点、是否需做变换（如 Box-Cox）或改用非参数方法。'},
+   action:'R² 低于阈值时页面会黄条提示"数据可能非正态，建议谨慎解读"，此时应检查数据是否混批、有无离群点、是否需做变换（如 Box-Cox）或改用非参数方法；另注意 R² 对均匀（薄尾）与双峰分布不敏感，直方图呈双峰/平台时建议按非正态处理。'},
   {cat:'质量指标',abbr:'稳定性指标',name:'Stability = Overall σ ÷ Within σ',cn:'稳定性指标（漂移比）',
    def:'整体标准差 ÷ 组内标准差，衡量长期波动相对短期波动的放大程度。>1.3 提示存在组间漂移 / 特殊原因。',
    formula:'稳定性 = σ_overall / σ_within',
@@ -2991,11 +3020,11 @@ const GLOSS=[
    impact:'本工具与 JMP 的差异：置信区间为近似公式（卡方 / Bissell-Kotz），正态性用 Q-Q 图 R² 近似，正式客户审核仍建议以 JMP / Minitab 复核。',
    action:'重要客户报告建议用 JMP/Minitab 交叉复核关键指数；日常快速看板用本工具即可。'},
   {cat:'算法与软件',abbr:'Shapiro-Francia',name:'Shapiro-Francia Test',cn:'正态性检验（近似）',
-   def:'正态性检验的一种。本工具以其近似形式实现：直接使用 Q-Q 图的 R² 作为正态性依据（R²>0.95 视为正态）。',
+   def:'正态性检验的一种。本工具以其近似形式实现：直接使用 Q-Q 图的 R² 作为正态性依据，判定阈值随样本量调整（n=10 约 0.83、n=20 约 0.91、n=50 约 0.955、n≥200 约 0.985；标准 Shapiro-Francia 检验用的也是随 n 变化的临界值表）。',
    formula:'W′ = R² = corr（排序数据，理论分位）²',
    steps:['数据排序 → 与理论正态分位求相关系数 → 平方'],
    impact:'是"能否使用正态能力法"的判据，非正态时所有正态假设的 PPM/能力结论失真。',
-   action:'R²≤0.95 时谨慎解读结果，先排查数据来源；正式场合可用严格 Shapiro-Wilk 检验。'},
+   action:'R² 低于阈值时谨慎解读结果，先排查数据来源；正式场合可用严格 Shapiro-Wilk 检验（同样是随 n 变化的临界值）。'},
   {cat:'算法与软件',abbr:'Box-Muller',name:'Box-Muller Transform',cn:'正态随机数生成法',
    def:'用两个均匀随机数生成标准正态随机数的经典算法，用于本工具"填入示例"按钮生成演示数据。',
    formula:'Z = √(−2·ln U₁) · cos(2πU₂)',
@@ -3052,11 +3081,11 @@ const GLOSS=[
    action:'ndc<5 时先换更高分辨率的量具或提高记录小数位，再重新测量判级；不要用四舍五入过的数据下正式结论。',
    tip:'数据全是 0.01/0.001 的"台阶值"且波动小 → 大概率 ndc<5；工具结果区黄条会直接告诉你。'},
   {cat:'算法与软件',abbr:'ISO 22514-2 经验分位法',name:'Nonnormal Capability（Empirical Percentile Method）',cn:'非正态能力（经验分位数法）',
-   def:'数据非正态（本工具 R²≤0.95）时，正态法 Cpk/Ppk 会失真。ISO 22514-2 经验分位数法（非参数，直接用数据实际分布）计算 Z 基准：Z.LSL = Φ⁻¹（实测≤LSL 比例）、Z.USL = Φ⁻¹（1−实测>USL 比例），Ppk* = min(Z.USL, −Z.LSL)/3。注：v2.8.3 之前本方法曾误称「Pearson-Clements 法」，实现实为经验分位数法（Pearson-Clements 是另一套用偏度/峰度拟合 Pearson 曲线族的算法，本工具未采用），旧称已废止。',
+   def:'数据非正态（本工具判据：R² 低于随样本量调整的阈值）时，正态法 Cpk/Ppk 会失真。ISO 22514-2 经验分位数法（非参数，直接用数据实际分布）计算 Z 基准：Z.LSL = Φ⁻¹（实测≤LSL 比例）、Z.USL = Φ⁻¹（1−实测>USL 比例），Ppk* = min(Z.USL, −Z.LSL)/3。注：v2.8.3 之前本方法曾误称「Pearson-Clements 法」，实现实为经验分位数法（Pearson-Clements 是另一套用偏度/峰度拟合 Pearson 曲线族的算法，本工具未采用），旧称已废止。',
    formula:'Ppk* = min( Φ⁻¹(1−p_USL), −Φ⁻¹(p_LSL) ) / 3；Cp* = (Z.USL − Z.LSL) / 6',
    steps:['数据排序，统计 ≤LSL 与 >USL 的实测比例 p_LSL / p_USL','换算成标准正态分位 Z（Z.LSL 通常为负，取负号后为正距离）','取 min(Z.USL, −Z.LSL) 除以 3 得 Ppk*'],
    impact:'对偏态/厚尾分布（如寿命、强度数据）比正态法更贴近真实不合格率；正态法在非正态下会低估或高估超规率。',
-   action:'页面 R²≤0.95 时会自动给出 Ppk*/Cp*，正式场合可再做 Box-Cox 变换或核对是否混批；对外报告注明用的是经验分位数法。',
+   action:'页面判定为非正态时会自动给出 Ppk*/Cp*，正式场合可再做 Box-Cox 变换或核对是否混批；对外报告注明用的是经验分位数法。',
    tip:'经验法直接用实测超出规格限的比例换算：样本完全无超出时，实现按最小比例 1e-6 代入，Ppk* 恒为 ≈1.58（与样本量无关）——这只是方法下限，不代表真实能力水平，勿与正态法 Ppk 直接对比。'},
   {cat:'图与交互',abbr:'多批对比',name:'Batch Comparison',cn:'多批对比（批间横向比较）',
    def:'把多批（多天/多机台/多供应商）数据横向对比 Cpk/Ppk/PPM 的功能：数据区用<b>空行</b>分隔不同批次，或用<b>批次标签列</b>（如 批次A,10.01）逐行粘贴，一键生成对比表。',
@@ -3147,6 +3176,15 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.19.0',date:'2026-10-01',tag:'fix',tagTxt:'第三轮检查修复（1×P1 + 2×P2 + 2×P3）',
+   items:[
+    '【P1】正态性判定阈值改为随样本量调整：原实现固定 R²&gt;0.95，而 Shapiro-Francia 的 R² 期望值本身随 n 下降——蒙特卡洛实测（真正态样本各 3000 次）n=5/10/15/20/30 的 R² 均值 0.903/0.928/0.946/0.956/0.967，误判率 72%/61%/45%/32%/15%（端到端 n=10 实测 76%），并把大量正常数据连锁送入 ISO 经验分位法分支。修复：改用真正态样本 5% 分位实测值作阈值表（n=5:0.77 / 8:0.82 / 10:0.834 / 15:0.882 / 20:0.907 / 30:0.931 / 50:0.955 / 100:0.974 / ≥200:0.985，中间线性插值）；修复后 n=10/20/30/50 各 30 次实测误判率 0%/0%/7%/0%，非正态数据（指数 / 对数正态 / 强右偏）仍全部检出。正态性提示条显示当前阈值，术语百科「R²」「Shapiro-Francia」「正态分布」「ISO 22514-2 经验分位法」四条词条与 README 四处同步',
+    '【P2】「离群点」术语百科词条改为实现口径：原公式写「常以\"距均值 &gt; 3σ\"或 Q-Q 图远端点识别」，而实现用的是 Tukey 规则（Q1−1.5·IQR ~ Q3+1.5·IQR）——58 条词条里唯一一条与实现不符。修复：公式与步骤改用 Tukey 口径，保留 3σ 作为文献俗称（仍可搜到）',
+    '【P2】判级被离群点主导时补限定语：实测 1 个录入错误值（1000000）即把判级拉到「D 级·须立即改善」，而剔除后数据本身能力良好。修复：检测到剔除离群点后主指数跨过判级线（≥1.0 且 ≥1.5 倍）时，判级横幅补「⚠️ 本次判级可能由 N 个疑似离群点主导：剔除后主指数 = X（当前 Y）」；离群提示同步升为 warn 级（实测：剔除后 1.329 vs 当前 −0.329，提示正常触发）',
+    '【P3】深色模式「UCL / LCL 控制限」图例文字对比度 4.36:1 → 提亮 --ctl 至 #ff6b61；实测深色模式图例（数据蓝 / 拟合橙 / 规格琥珀 / 目标紫 / 控制限）全部 ≥4.5:1',
+    '【P3】README 已知限制补充：R² 对薄尾（均匀分布，实测漏判 43%~68%）与双峰分布（漏判 24%~39%）不敏感——双峰漏判会低估风险，直方图呈双峰或明显平台时建议按非正态处理或分批分析'
+   ],
+   sub:'2026-10-01 第三轮检查修复（v2.19.0）：本轮覆盖安全注入、术语百科与实现对照、统计功效、未测功能、极端输入、深色模式六个维度——注入安全 7/7、未测功能 5 项（多批对比 / 分享链接 / PNG / 拖拽 / 快捷键）、极端输入 10 组全部正常，58 条术语百科逐条对照仅 1 条不符（已修）。计算引擎（统计公式）未改动。'},
   {ver:'v2.18.0',date:'2026-10-01',tag:'fix',tagTxt:'大样本能力修复（2×P1 + 2×P2 + 1×P3）',
    items:[
     '【P1】25 万点以上控制图绘制耗时 15~43 秒、页面冻结：根因是主图/辅助图把全部折线段塞进<b>单个 path 一次 stroke</b>——这一步本身只要 12ms，却让之后每个点的 fill 单价从 0.14μs 涨到 52μs（实测 50 万个点 → 26 秒）。修复：折线改为每 5000 段一批 stroke。实测 50 万行 calc：43298ms → <b>3411ms</b>（提速 12.7 倍），其中控制图主+辅图 27959+19274ms → 998ms；视觉与逐点绘制完全一致，结果不变（Cpk=1.625）',

@@ -216,6 +216,58 @@ eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E));
   const partRes = await feed(partSorted);
   ok('R23', '部分排序（90%）由稳定性哨兵兜底', partRes.hasStab, '稳定性=' + partRes.stab);
 
+  // ---- 正态性阈值随样本量调整 / 离群点口径与判级限定（v2.19.0）----
+  const feedNorm = data => page.evaluate(d => {
+    document.getElementById('data').value = d;
+    document.getElementById('useLsl').checked = true; document.getElementById('useUsl').checked = true;
+    document.getElementById('lsl').value = '9.9'; document.getElementById('usl').value = '10.1';
+    document.getElementById('sub').value = '0';
+    calc(false);
+    const norm = document.getElementById('normNote').textContent.replace(/\s+/g, ' ');
+    return {
+      nonNormal: norm.indexOf('可能非正态') >= 0, normText: norm,
+      verdict: document.getElementById('verdict').textContent.replace(/\s+/g, ' ').trim()
+    };
+  }, data);
+  let fp10 = 0;
+  for (let t = 0; t < 20; t++) {
+    const a = genData(10, 4, 1000 + t * 7);
+    if ((await feedNorm(a.join('\n'))).nonNormal) fp10++;
+  }
+  ok('R24', 'n=10 真正态数据误判为非正态 ≤10%（修复前 61~76%）', fp10 <= 2, fp10 + '/20');
+  const normTxt = (await feedNorm(genData(20, 4, 2024).join('\n'))).normText;
+  ok('R25', '正态性提示条显示随样本量的判定阈值', /判定阈值 = 0\.9\d+/.test(normTxt), normTxt.slice(0, 90));
+  await page.click('#btnGloss'); await page.waitForTimeout(400);
+  const glTxt = await page.evaluate(() => {
+    const inp = document.getElementById('glossSearch');
+    inp.value = '离群点'; inp.dispatchEvent(new Event('input', { bubbles: true }));
+    const el = document.querySelector('#glossList > div, #glossList > li');
+    const t = el ? el.textContent.replace(/\s+/g, ' ') : '';
+    document.getElementById('glossSearch').value = ''; document.getElementById('glossSearch').dispatchEvent(new Event('input', { bubbles: true }));
+    return t;
+  });
+  await page.click('#glossClose'); await page.waitForTimeout(300);
+  ok('R26', '「离群点」词条写明 Tukey / IQR 口径且保留 3σ 俗称', /Tukey/.test(glTxt) && /IQR/.test(glTxt) && /3σ/.test(glTxt), glTxt.slice(0, 70));
+  const outCase = await feedNorm(['10.01', '10.02', '9.99', '10.00', '10.03', '9.98', '10.01', '1000000'].join('\n'));
+  ok('R27', '极端离群时判级横幅给出「离群点主导」限定语', /离群点主导/.test(outCase.verdict), outCase.verdict.slice(0, 80));
+  // 深色模式图例对比度
+  await page.click('#themeBtn'); await page.waitForTimeout(700);
+  const darkBad = await page.evaluate(() => {
+    function lum(c) { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); }
+    function parse(s) { const m = s.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)/); return m ? [+m[1], +m[2], +m[3]] : null; }
+    const bad = [];
+    document.querySelectorAll('.legend span, .legend b').forEach(el => {
+      const t = (el.textContent || '').trim(); if (!t) return;
+      const fg = parse(getComputedStyle(el).color); if (!fg) return;
+      const L1 = lum(fg), L2 = lum([17, 26, 42]);
+      const r = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
+      if (r < 4.5) bad.push(t.slice(0, 12) + ' ' + r.toFixed(2));
+    });
+    return bad;
+  });
+  await page.click('#themeBtn'); await page.waitForTimeout(400);
+  ok('R28', '深色模式图例文字对比度全部 ≥4.5:1', darkBad.length === 0, darkBad.slice(0, 3).join(' | '));
+
   console.log(OUT.join('\n'));
   console.log('---- PASS=' + pass + '  FAIL=' + fail + ' ----');
   await browser.close();
