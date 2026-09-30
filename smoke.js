@@ -152,6 +152,38 @@ const { chromium } = require('playwright');
   await page.waitForTimeout(400);
   console.log('15. 已切回浅色:', await page.evaluate(() => document.documentElement.getAttribute('data-theme') || 'light'));
 
+  // 生成器反馈（v2.16.0 修复回归）：点「生成并填入」后必须给出实测 Cpk（组内）/ Ppk（整体）
+  await page.evaluate(() => {
+    const d = document.getElementById('genBox'); if (d) d.open = true;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) { el.value = String(v); el.dispatchEvent(new Event('input', { bubbles: true })); } };
+    set('genCpk', 1.33); set('genN', 60); set('genLsl', 9.95); set('genUsl', 10.05); set('genMu', 10);
+  });
+  await page.click('#btnGen');
+  await page.waitForTimeout(700);
+  const genMsg = (await page.textContent('#msg')).trim();
+  console.log('16. 生成器反馈:', /实际 Cpk（组内）/.test(genMsg) && /Ppk（整体）/.test(genMsg) ? 'OK: ' + genMsg.slice(-72) : 'FAIL: ' + genMsg.slice(0, 60));
+  if (!/实际 Cpk（组内）/.test(genMsg)) throw new Error('生成器未给出实测反馈（可能又触发了变量遮蔽类异常）');
+
+  // 日期 + 数值两列粘贴（v2.16.0 修复回归）：年份不得被当测量值、不得触发子组 n=2 自动推断
+  const dated = await page.evaluate(() => {
+    document.getElementById('data').value = ['2026-09-01 10.01','2026-09-02 10.02','2026-09-03 9.99','2026-09-04 10.00','2026-09-05 10.03','2026-09-06 9.98'].join('\n');
+    calc(false);
+    const rows = [...document.querySelectorAll('#detail tbody tr')];
+    const get = k => { const r = rows.find(t => t.children[0].textContent.trim() === k); return r ? r.children[1].textContent.trim() : null; };
+    return { n: get('样本量 n'), mu: get('均值 μ'), sub: document.getElementById('sub').value, info: document.getElementById('parseInfo').textContent.trim() };
+  });
+  console.log('17. 日期+数值粘贴:', dated.n === '6' && dated.sub === '0' ? 'OK ' + JSON.stringify(dated) : 'FAIL ' + JSON.stringify(dated));
+  if (dated.n !== '6' || dated.sub !== '0') throw new Error('日期列仍被当测量值 / 触发子组推断');
+
+  // 版本一致性：徽标 = footer = 更新记录首条（v2.16.0 起把版本同步纳入冒烟）
+  const verSync = await page.evaluate(() => {
+    const badge = document.querySelector('.ver').textContent.trim();
+    const clog = document.getElementById('clogList') ? document.getElementById('clogList').textContent : '';
+    return { badge, footer: document.querySelector('footer').textContent.includes(badge), clog: clog.includes(badge) };
+  });
+  console.log('18. 版本同步:', verSync.footer && verSync.clog ? 'OK ' + JSON.stringify(verSync) : 'FAIL ' + JSON.stringify(verSync));
+  if (!verSync.footer || !verSync.clog) throw new Error('版本号不同步：' + verSync.badge);
+
   console.log('--- 控制台错误数:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();
