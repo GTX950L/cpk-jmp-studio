@@ -183,6 +183,39 @@ eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E));
 
   ok('R0', '页面无 pageerror', errs.length === 0, errs.slice(0, 3).join(' | '));
 
+  // ---- 排序 / 组内 σ 虚高防呆（v2.17.0）----
+  const genData = (n, dp, sd) => {
+    let sd0 = sd;
+    const rr = () => { sd0 = (sd0 * 1103515245 + 12345) % 2147483648; return sd0 / 2147483648; };
+    const gg = () => { let u = 0, v = 0; while (u === 0)u = rr(); while (v === 0)v = rr(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    const a = []; for (let i = 0; i < n; i++)a.push(+(10 + 0.015 * gg()).toFixed(dp));
+    return a;
+  };
+  const feed = arr => page.evaluate(a => {
+    document.getElementById('data').value = a.join('\n');
+    document.getElementById('useLsl').checked = true; document.getElementById('useUsl').checked = true;
+    document.getElementById('lsl').value = '9.9'; document.getElementById('usl').value = '10.1';
+    document.getElementById('sub').value = '0';
+    calc(false);
+    const rows = [...document.querySelectorAll('#detail tbody tr')];
+    const get = k => { const tr = rows.find(x => x.children[0].textContent.trim() === k); return tr ? tr.children[1].textContent.trim() : null; };
+    const diag = [...document.querySelectorAll('#diagNote > div')].map(d => d.textContent.replace(/\s+/g, ' ').trim());
+    return { cpk: get('Cpk'), sw: get('组内 σ'), stab: get('稳定性指标'),
+             hasSort: diag.some(d => d.indexOf('疑似已按大小排序') >= 0),
+             hasStab: diag.some(d => d.indexOf('组内 σ 远小于整体 σ') >= 0) };
+  }, arr);
+  const sorted1 = await feed(genData(2000, 5, 777).sort((x, y) => x - y));
+  ok('R19', '排序 2000 点：同时给出「疑似已排序」与「组内 σ 远小于整体 σ」提示', sorted1.hasSort && sorted1.hasStab, JSON.stringify({ cpk: sorted1.cpk, stab: sorted1.stab }));
+  ok('R20', '组内 σ 极小值不显示为 0.0000', sorted1.sw !== '0.0000', '实际 ' + sorted1.sw);
+  const sorted2 = await feed(genData(2000, 3, 999).sort((x, y) => x - y));
+  ok('R21', '粗分辨率（3 位小数，相等对约 95%）排序同样检出', sorted2.hasSort && sorted2.hasStab, JSON.stringify({ cpk: sorted2.cpk }));
+  const plain = await feed(genData(2000, 5, 1234));
+  ok('R22', '未排序数据不误报（排序 / 稳定性两条都不出现）', !plain.hasSort && !plain.hasStab, JSON.stringify({ cpk: plain.cpk, stab: plain.stab }));
+  const part = genData(2000, 3, 555);
+  const partSorted = [...part].sort((x, y) => x - y).map(v => Math.random() < 0.9 ? v : part[Math.floor(Math.random() * part.length)]);
+  const partRes = await feed(partSorted);
+  ok('R23', '部分排序（90%）由稳定性哨兵兜底', partRes.hasStab, '稳定性=' + partRes.stab);
+
   console.log(OUT.join('\n'));
   console.log('---- PASS=' + pass + '  FAIL=' + fail + ' ----');
   await browser.close();

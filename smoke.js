@@ -184,6 +184,26 @@ const { chromium } = require('playwright');
   console.log('18. 版本同步:', verSync.footer && verSync.clog ? 'OK ' + JSON.stringify(verSync) : 'FAIL ' + JSON.stringify(verSync));
   if (!verSync.footer || !verSync.clog) throw new Error('版本号不同步：' + verSync.badge);
 
+  // 数据已排序的防呆（v2.17.0 修复回归）：排序数据必须给出「疑似已排序」+「组内 σ 远小于整体 σ」提示
+  const sortedCase = await page.evaluate(() => {
+    let s = 777;
+    const rnd = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
+    const g = () => { let u = 0, v = 0; while (u === 0)u = rnd(); while (v === 0)v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    const a = []; for (let i = 0; i < 2000; i++)a.push(+(10 + 0.015 * g()).toFixed(5));
+    document.getElementById('data').value = [...a].sort((x, y) => x - y).join('\n');
+    document.getElementById('lsl').value = '9.9'; document.getElementById('usl').value = '10.1';
+    document.getElementById('useLsl').checked = true; document.getElementById('useUsl').checked = true;
+    document.getElementById('sub').value = '0';
+    calc(false);
+    const rows = [...document.querySelectorAll('#detail tbody tr')];
+    const get = k => { const tr = rows.find(x => x.children[0].textContent.trim() === k); return tr ? tr.children[1].textContent.trim() : null; };
+    const diag = [...document.querySelectorAll('#diagNote > div')].map(d => d.textContent.replace(/\s+/g, ' ').trim());
+    return { cpk: get('Cpk'), sw: get('组内 σ'), sort: diag.some(d => d.indexOf('疑似已按大小排序') >= 0), stab: diag.some(d => d.indexOf('组内 σ 远小于整体 σ') >= 0) };
+  });
+  console.log('19. 排序数据防呆:', sortedCase.sort && sortedCase.stab ? 'OK（Cpk=' + sortedCase.cpk + '，已提示排序 + 组内σ异常）' : 'FAIL ' + JSON.stringify(sortedCase));
+  if (!sortedCase.sort || !sortedCase.stab) throw new Error('排序数据未触发防呆提示');
+  if (sortedCase.sw === '0.0000') throw new Error('组内 σ 仍显示为 0.0000');
+
   console.log('--- 控制台错误数:', errors.length);
   errors.forEach(e => console.log('  ', e));
   await browser.close();

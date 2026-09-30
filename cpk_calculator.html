@@ -383,7 +383,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.16.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.17.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -555,13 +555,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.16.0</b> · 最近更新 2026-10-01</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.17.0</b> · 最近更新 2026-10-01</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.16.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.17.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1313,7 +1313,7 @@ function calc(auto){
   // P0-② 高 Cpk 合理性复核
   if(isFinite(primary)&&primary>=2.0){
     warns.push({level:'warn',icon:'🧐',title:'Cpk≥2.0 请复核合理性',
-      text:`Cpk=${fmt(primary)} 极高，复核三点：①测量分辨率是否过粗（ndc=${ndc.toFixed(2)}${ndc<5?'<5 会虚高':' 尚可'}）；②样本量 n=${n} 是否过小；③数据是否被四舍五入/失真/混批。高 Cpk 不一定代表过程真实优秀。`});
+      text:`Cpk=${fmt(primary)} 极高，按可能性从高到低复核四点：<b>①数据是否已按大小排序</b>（最常见成因——排序会让移动极差趋近 0、把组内 σ 低估几十到几百倍，实测真实 Cpk≈2.1 的排序数据会显示 707，请优先核对数据顺序）；②测量分辨率是否过粗（ndc=${ndc.toFixed(2)}${ndc<5?'<5 会虚高':' 尚可'}）；③样本量 n=${n} 是否过小；④数据是否被四舍五入 / 失真 / 混批。高 Cpk 不一定代表过程真实优秀。`});
   }
   // P0-③ 小样本判级降级警告（P2-③ 细化：20≤n<30 给 info 级建议）
   if(n<20&&isFinite(primary)){
@@ -1324,14 +1324,30 @@ function calc(auto){
       text:`样本量 n=${n}（20~29）：结论基本可用，但 95% 置信区间仍偏宽；正式客户判级建议扩充至 ≥30。`});
   }
   // P0 复查① 数据疑似已排序检测（个体模式移动极差法对顺序敏感，排序会让 Cpk 虚高）
+  // 修正（v2.17.0）：原判据分母用 n−1，把「相邻两值相等」的对也算了进去。排序数据因记录
+  // 分辨率会产生大量相等对（实测占 16%~99.4%），把比例稀释到 0.045~0.838，永远够不到
+  // 0.98 阈值 → 检测完全失效（实测：真实 Cpk≈2.1 的 2000 点排序数据显示 707.981，却无任何
+  // 排序提示）。改为只看「有变化」的相邻对 ratio = max(up,dn)/(up+dn)，并要求有变化对 ≥20
+  // 以避免小样本误报（纯随机数据 n=30/100/500/2000 各 2000 次实测误报率 0.00%）。
   if(sub===0&&nums.length>=8){
     let up=0,dn=0;
     for(let i=1;i<nums.length;i++){ if(nums[i]>nums[i-1])up++; else if(nums[i]<nums[i-1])dn++; }
-    const sameDir=Math.max(up,dn), ratio=sameDir/(nums.length-1);
-    if(ratio>=0.98){
-      warns.push({level:'warn',icon:'📶',title:'数据疑似已按大小排序',
-        text:`相邻 ${nums.length-1} 个差值中 ${sameDir} 个同方向（${(ratio*100).toFixed(0)}%）。个体模式的组内 σ 用移动极差法，排序数据会严重低估波动、虚高 Cpk。请按生产/测量顺序粘贴，勿排序。`});
+    const sameDir=Math.max(up,dn), changed=up+dn;
+    const ratio=changed>0?sameDir/changed:0;
+    if(changed>=20&&ratio>=0.98){
+      const eqPct=((nums.length-1-changed)/(nums.length-1)*100).toFixed(0);
+      warns.push({level:'warn',icon:'📶',title:'数据疑似已按大小排序（Cpk 会严重虚高）',
+        text:`相邻 ${changed} 个有变化的差值中 ${sameDir} 个同方向（${(ratio*100).toFixed(0)}%），另有 ${eqPct}% 的相邻两值完全相等。个体模式的组内 σ 用移动极差法（MR̄/d2），排序会让相邻差趋近记录分辨率、把组内 σ 低估几十到几百倍，Cpk 随之虚高（实测案例：真实 Cpk≈2.1 的数据排序后显示 707.981）。请按生产/测量顺序粘贴，勿排序；若数据来自系统导出，请按时间戳 / 流水号排回。原因查清前，请以 <b>Ppk（整体 σ 口径，不受排序影响）</b> 为准判断能力。`});
     }
+  }
+  // P0 复查②-2 组内 σ 远小于整体 σ（稳定性指标异常大）——Cpk 虚高的第二道防线
+  // 稳定性指标 = 整体 σ ÷ 组内 σ = Cpk ÷ Ppk，常态接近 1（0.5~2）。>3 时几乎不可能是
+  // 「过程真的很稳」，而应按「组内 σ 被低估」处理：①数据已按大小排序（实测 318）；
+  // ②大量相邻重复值；③子组被误判（如两列重复测量被当成「每行 2 个」的子组，实测 28）。
+  // 排序检测只在完全排序时命中（部分排序时改进判据也会漏），故用此条兜住中间情形。
+  if(isFinite(stability)&&stability>3){
+    warns.push({level:'warn',icon:'⚖️',title:'组内 σ 远小于整体 σ（Cpk 可能严重虚高）',
+      text:`稳定性指标（整体 σ ÷ 组内 σ）= ${fmt(stability,1)}，约为常态（≈1）的 ${fmt(stability,0)} 倍：组内 σ=${sw<1e-4?sw.toExponential(2):fmt(sw,6)} 远小于整体 σ=${fmt(sd,6)}，Cpk=${fmt(cpk)} 与 Ppk=${fmt(ppk)} 严重背离。这几乎不可能是「过程真的很稳」，通常由以下原因造成：<b>① 数据已按大小排序</b>（移动极差趋近 0）；② 数据存在大量相邻重复值；③ 子组被误判（如两列重复测量被当成「每行 2 个」的子组）。请先核对数据顺序与列结构；原因查清前，请以 Ppk（整体 σ 口径）为准判断能力。`});
   }
   // P0 复查② 完整子组数过少（组内 σ 与控制限估计不稳）
   if(sub>1){
@@ -1483,7 +1499,7 @@ function calc(auto){
     ['均值 μ',fmt(m,4),'数据算术平均'],
     ['目标 T',fmt(target,4),targetFromInput?'用户输入的设计目标值，用于 Cpm':(both?'自动取规格中点 (LSL+USL)/2，用于 Cpm':'单侧规格：自动取该侧规格限（单侧时 Cpm 无定义，仅作展示）')],
     ['中心偏移 μ−T',fmt(m-target,4),targetFromInput?'均值相对设计目标 T 的偏移（0=恰好对准）':(both?'均值相对规格中点的偏移（0=恰好居中）':'单侧规格时 T=该侧规格限，此处为均值相对该规格限的偏移')],
-    ['组内 σ',fmt(sw,4),sub>1?(sub>10?'子组标准差法 S̄/c4（短期波动）':'子组极差法 R̄/d2（短期波动）'):'移动极差法 MR̄/1.128（短期波动）'],
+    ['组内 σ',(sw>0&&sw<1e-4)?sw.toExponential(2):fmt(sw,4),sub>1?(sub>10?'子组标准差法 S̄/c4（短期波动）':'子组极差法 R̄/d2（短期波动）'):'移动极差法 MR̄/1.128（短期波动）'],
     ['整体 σ',fmt(sd,4),'样本标准差（长期波动）'],
     ['稳定性指标',fmt(stability,4),'整体 σ ÷ 组内 σ；>1.3 提示组间漂移 / 特殊原因'],
     ['控制上限 UCL',fmt(spc.ucl,4),spc.type+' 图：中心线 + 3σ（过程数据算出，随波动动态变化）'],
@@ -3082,6 +3098,15 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.17.0',date:'2026-10-01',tag:'fix',tagTxt:'Cpk 虚高防呆修复（2×P1 + 2×P2）',
+   items:[
+    '【P1】「数据疑似已排序」检测判据缺陷 → 完全失效：原判据 ratio = max(上升数, 下降数)/(n−1) ≥ 0.98，分母把「相邻两值相等」的对也算了进去。排序数据因记录分辨率会产生大量相等对（实测占 16%~99.4%），把比例稀释到 0.045~0.838，永远够不到阈值——实测真实 Cpk≈2.1 的 2000 点排序数据显示 707.981，却没有任何排序提示。修复：分母改为「有变化的相邻对」max(up,dn)/(up+dn)，并要求有变化对 ≥20；纯随机数据 n=30/100/500/2000 各 2000 次实测误报率 0.00%，排序场景（含保留 2~5 位小数的各种分辨率）全部检出',
+    '【P1】新增「组内 σ 远小于整体 σ」哨兵：稳定性指标（整体 σ ÷ 组内 σ = Cpk ÷ Ppk）> 3 时给出 warn 级提示，列出三个常见成因（数据已按大小排序 / 大量相邻重复值 / 子组被误判，如两列重复测量被当成「每行 2 个」的子组）。此前 >1.3 只提示「组间漂移」，在排序场景（实测 318）会把用户往错误方向引导；排序检测只在完全排序时命中，此条负责兜住部分排序（90% 排序 → 稳定性 5.06）',
+    '【P2】明细表「组内 σ」极小值不再显示成 0.0000：σ=4.7e-5 时原按 4 位小数显示为 0.0000，与同屏 Cpk=707.981 并列出现令人困惑。改为 <1e-4 时用科学计数（实测显示 4.70e-5）',
+    '【P2】「Cpk≥2.0 请复核」提示把「数据是否已按大小排序」列为第一条：此前列了分辨率 / 样本量 / 四舍五入，唯独漏掉最常见的成因；并补上量化后果（实测真实 Cpk≈2.1 的排序数据显示 707）与交叉验证建议（用不受排序影响的 Ppk）',
+    '【P3】README「已知限制」补上排序后果的量化说明：同一批 2000 点数据未排序 Cpk=2.12、排序后 707.98；且点越多越夸张（200 点 → 83、500 点 → 240、2000 点 → 744）。并说明 Ppk 不受排序影响，可作交叉验证'
+   ],
+   sub:'2026-10-01 Cpk 虚高防呆修复（v2.17.0）：起因是用户反馈「两千个数据后 Cpk 变成七百多」。定位结论：数据已按大小排序 → 移动极差法失效（统计学原理，非计算错误），叠加排序检测判据缺陷造成的漏检。共修 4 项（2×P1 + 2×P2），计算引擎未改动；新增 12 条端到端验证（排序检出 / 粗分辨率检出 / 未排序不误报 / 部分排序兜底 / 小样本 60 组零误报）全部通过。'},
   {ver:'v2.16.0',date:'2026-10-01',tag:'fix',tagTxt:'全面审查修复（1×P1 真 bug + 2×P1 统计 / 解析 + 5×P2 + 6×P3）',
    items:[
     '【P1】反向生成器抛 TypeError：局部变量 let mean 遮蔽了全局函数 mean()，「生成并填入」后在回算「实际 Cpk」处报错，末尾的成功提示（含实测值与偏差）因此不执行——数据本身正确生成，但用户点按钮看不到任何反馈，控制台留下一条 pageerror。修复：局部变量改名 gMu；smoke 补「点生成后提示条含实际 Cpk」断言',
