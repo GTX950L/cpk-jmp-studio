@@ -1,7 +1,17 @@
 // cpk-jmp-studio 冒烟测试：功能回归 + 深色模式专项（canvas 取色联动 + tooltip + toast）
+const fs = require('fs'), os = require('os'), path = require('path');
 const { chromium } = require('playwright');
+// 本机只装了完整版 chromium（无 headless_shell），默认 launch() 会找 chromium_headless_shell-<rev>
+// 而报 "Executable doesn't exist"。与 _regress.js 一致，动态定位可用的 chrome.exe。
+function findChromium() {
+  const root = path.join(os.homedir(), 'AppData', 'Local', 'ms-playwright');
+  try {
+    return fs.readdirSync(root).filter(d => /^chromium-\d+$/.test(d))
+      .map(d => path.join(root, d, 'chrome-win64', 'chrome.exe')).filter(p => fs.existsSync(p)).pop();
+  } catch (e) { return null; }
+}
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ executablePath: findChromium() || undefined });
   const page = await browser.newPage({ viewport: { width: 1440, height: 950 } });
   const errors = [];
   page.on('console', msg => { if (msg.type() === 'error') errors.push('[console] ' + msg.text()); });

@@ -20,7 +20,8 @@ function findChromium() {
 // ---------- 离线：纯计算段 eval ----------
 const S = HTML.indexOf('<script>') + 8;
 const E = HTML.indexOf('/* ============ 绘图 ============ */');
-eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E));
+// const 在 eval 里不外泄到调用方作用域 —— 需要跨域引用的（fmt / capTone）显式挂到 globalThis
+eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E) + '\n;globalThis.__fmt=fmt;globalThis.__capTone=capTone;');
 
 // ---------- 离线：文本/源码断言 ----------
 // R9 术语百科标点
@@ -80,6 +81,46 @@ eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E));
 {
   ok('R7a', '定义图例文字深色变体 --c-lsl-ink / --c-usl-ink / --c-fit-ink',
     /--c-lsl-ink\s*:/.test(HTML) && /--c-usl-ink\s*:/.test(HTML) && /--c-fit-ink\s*:/.test(HTML));
+}
+
+
+// R31 序号列识别（v2.20.0）：起始值无关 + 乱序兼容
+{
+  const mk = (arr, start) => arr.map((v, i) => (start + i) + ',' + v).join('\n');
+  const r1 = parseNums(mk(['10.001','10.006','9.998','10.003','10.002'], 11));
+  ok('R31a', '序号列从 11 起：被识别并剔除（n 不翻倍、不误判子组）',
+    r1.strippedLead === true && r1.vals.length === 5 && r1.uniformSub === 0,
+    JSON.stringify({ strip: r1.strippedLead, n: r1.vals.length, sub: r1.uniformSub }));
+  const r2 = parseNums('3,10.01\n1,10.02\n2,9.99\n4,10.00');
+  ok('R31b', '序号列乱序：排序后构成连续整数即剔除',
+    r2.strippedLead === true && r2.vals.length === 4 && r2.uniformSub === 0,
+    JSON.stringify({ strip: r2.strippedLead, n: r2.vals.length, sub: r2.uniformSub }));
+  const r3 = parseNums('1,10.01\n2,10.02\n3,9.99');
+  ok('R31c', '1 起连续序号仍正常剔除（回归保护）',
+    r3.strippedLead === true && r3.vals.length === 3);
+  // 真实子组数据不能被误判成序号列（首列是测量值，通常有小数或重复）
+  const r4 = parseNums('10.01,10.02,9.99\n10.02,10.03,10.00\n10.00,10.01,9.98');
+  ok('R31d', '子组粘贴（首列是测量值）不被误判为序号列',
+    r4.strippedLead === false && r4.vals.length === 9 && r4.uniformSub === 3,
+    JSON.stringify({ strip: r4.strippedLead, n: r4.vals.length, sub: r4.uniformSub }));
+}
+// R33 / R34 负数解析
+{
+  const r = parseNums('(10.01)\n(10.02)\n(9.99)');
+  ok('R33', '会计格式负数 (10.01) 读成 −10.01',
+    r.vals.length === 3 && r.vals[0] === -10.01 && r.vals[2] === -9.99, JSON.stringify(r.vals));
+  const r2 = parseNums('-10.01\n- 10.02\n- 10.03');
+  ok('R34', '「- 10.02」（负号与数字间有空格）不丢符号',
+    r2.vals.length === 3 && r2.vals[1] === -10.02, JSON.stringify(r2.vals));
+}
+// R35 类型健壮性
+{
+  let f1, f2, f3;
+  try { f1 = __capTone('').t; } catch (e) { f1 = 'THROW'; }
+  try { f2 = __fmt(''); } catch (e) { f2 = 'THROW'; }
+  try { f3 = __fmt(null); } catch (e) { f3 = 'THROW'; }
+  ok('R35', 'capTone("") 不判「不足」、fmt("") / fmt(null) 不抛异常',
+    f1 === '' && f2 === '—' && f3 === '—', 'capTone="' + f1 + '" fmt("")="' + f2 + '" fmt(null)="' + f3 + '"');
 }
 
 // ---------- 在线：Playwright ----------
@@ -180,6 +221,128 @@ eval('function getCss(v){return "#888888";}\n' + HTML.slice(S, E));
     });
   }
   ok('R8', '1024 / 375px 画布文字重叠 = 0 对', overlaps[1024] === 0 && overlaps[375] === 0, '1024:' + overlaps[1024] + ' 375:' + overlaps[375]);
+
+
+  // ---- v2.20.0 修复回归 ----
+  // R29 提前返回清空旧结果
+  const bailCase = await page.evaluate(() => {
+    const $ = id => document.getElementById(id);
+    $('lsl').value = '9.95'; $('usl').value = '10.05'; $('sub').value = '0';
+    $('useLsl').checked = true; $('useUsl').checked = true;
+    ['lsl', 'usl', 'sub'].forEach(id => delete $(id).dataset.auto);
+    $('data').value = '10.01\n10.02\n9.99\n10.00\n10.01\n10.02\n10.03\n9.98\n10.00\n10.01';
+    calc(false);
+    const before = { cards: document.querySelectorAll('#metrics .metric').length,
+                     v: !!document.querySelector('#verdict .badge') };
+    $('data').value = '10\n10\n10\n10\n10\n10';
+    calc(false);
+    return { before,
+      after: { cards: document.querySelectorAll('#metrics .metric').length,
+               v: !!document.querySelector('#verdict .badge'),
+               detail: document.querySelectorAll('#detail tbody tr').length,
+               canvasCleared: ['cvHist','cvCtrlMain'].every(id => {
+                 const c = document.getElementById(id), d = c.getContext('2d').getImageData(0,0,c.width,c.height).data;
+                 let nz = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) nz++;
+                 return nz < 100;
+               }),
+               msg: document.getElementById('msg').textContent.slice(0, 34) } };
+  });
+  ok('R29', '数据不可算时清空旧结果（全等值后指标卡 / 判级 / 明细 / 画布全空）',
+    bailCase.before.cards > 0 && bailCase.after.cards === 0 && bailCase.after.v === false &&
+    bailCase.after.detail === 0 && bailCase.after.canvasCleared,
+    JSON.stringify(bailCase));
+
+  // R30 正态性阈值口径（图例不得再写死 0.95）
+  const legendAll = await page.evaluate(() => [...document.querySelectorAll('.legend')].map(e => e.textContent).join(' '));
+  ok('R30', '⑥ 图例不再写死「>0.95 视为近似正态」',
+    !/0\.95\s*视为近似正态/.test(legendAll), (legendAll.match(/.{0,16}0\.95.{0,16}/) || ['(无 0.95)'])[0]);
+
+  // R37 稳定性 1.3~3 的 info 级诊断
+  {
+    const segA = [], segB = [];
+    for (let i = 0; i < 30; i++) { segA.push((10 + 0.004 * Math.sin(i * 3.1)).toFixed(3)); segB.push((10.018 + 0.004 * Math.sin(i * 3.1)).toFixed(3)); }
+    const sc = await page.evaluate(d => {
+      const $ = id => document.getElementById(id);
+      $('data').value = d; $('lsl').value = '9.9'; $('usl').value = '10.1'; $('sub').value = '0';
+      $('useLsl').checked = true; $('useUsl').checked = true;
+      calc(false);
+      const tr = [...document.querySelectorAll('#summaryTable tr')].find(t => t.children[0] && t.children[0].textContent.indexOf('稳定性') >= 0);
+      return { stab: tr ? tr.children[1].textContent.trim() : '',
+               diag: [...document.querySelectorAll('#diagNote > div')].map(d => d.textContent.replace(/\s+/g, ' ')) };
+    }, segA.concat(segB).join('\n'));
+    ok('R37', '稳定性 1.3~3 给出 info 级诊断（不再只有表格 ⚠）',
+      /^2\.\d/.test(sc.stab) && sc.diag.some(d => d.indexOf('稳定性指标偏高') >= 0),
+      'stability=' + sc.stab + ' diag=' + sc.diag.length + ' 条');
+  }
+
+  // R36 控制图右侧标签不叠印（UCL 贴近 USL 的理想场景）
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(400);
+  const ctrlPairs = await page.evaluate(() => {
+    const proto = CanvasRenderingContext2D.prototype, orig = proto.fillText;
+    window.__t = [];
+    proto.fillText = function (t, x, y) {
+      try {
+        if (this.canvas && this.canvas.id === 'cvCtrlMain') {
+          const m = this.getTransform(), fm = this.measureText(t), wt = fm.width;
+          const fs2 = parseFloat((this.font || '11px').match(/([\d.]+)px/)?.[1] || 11);
+          const ta = this.textAlign, tb = this.textBaseline;
+          const x0 = ta === 'center' ? x - wt / 2 : (ta === 'right' ? x - wt : x);
+          const yTop = tb === 'middle' ? y - fs2 * 0.62 : (tb === 'top' ? y : y - fs2 * 0.88);
+          const pts = [[x0,yTop],[x0+wt,yTop],[x0,yTop+fs2*1.18],[x0+wt,yTop+fs2*1.18]]
+            .map(([px,py]) => [m.a*px + m.c*py + m.e, m.b*px + m.d*py + m.f]);
+          const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+          window.__t.push({ t: String(t), x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) });
+        }
+      } catch (e) { }
+      return orig.apply(this, arguments);
+    };
+    const $ = id => document.getElementById(id);
+    $('lsl').value = '9.95'; $('usl').value = '10.05'; $('sub').value = '0';
+    $('useLsl').checked = true; $('useUsl').checked = true;
+    $('data').value = Array.from({ length: 60 }, (_, i) => (10 + 0.02 * Math.sin(i * 1.7) + 0.008 * Math.cos(i * 5.1)).toFixed(4)).join('\n');
+    calc(false);
+    proto.fillText = orig;
+    const T = window.__t, pairs = [];
+    for (let i = 0; i < T.length; i++) for (let j = i + 1; j < T.length; j++) {
+      const a = T[i], b = T[j];
+      if (a.x0 < b.x1 - 1 && b.x0 < a.x1 - 1 && a.y0 < b.y1 - 1 && b.y0 < a.y1 - 1) pairs.push(a.t + ' × ' + b.t);
+    }
+    return pairs;
+  });
+  ok('R36', '控制图右侧标签不叠印（UCL 10.053 / USL 10.050 贴近场景）',
+    ctrlPairs.length === 0, ctrlPairs.join(' | '));
+
+  // R38 打印时隐藏左栏输入区
+  await page.emulateMedia({ media: 'print' });
+  await page.waitForTimeout(300);
+  const printH = await page.evaluate(() => {
+    const ip = document.getElementById('inputPanel');
+    const panels = document.querySelectorAll('.wrap > .panel');
+    return { input: Math.round(ip.getBoundingClientRect().height),
+             results: panels.length > 1 ? Math.round(panels[1].getBoundingClientRect().height) : 0,
+             overflow: document.documentElement.scrollWidth - window.innerWidth };
+  });
+  await page.emulateMedia({ media: 'screen' });
+  await page.waitForTimeout(200);
+  ok('R38', '打印时左栏输入区被隐藏、结果区保留', printH.input === 0 && printH.results > 100,
+    JSON.stringify(printH));
+
+  // R39「绿区」规格带图例对比度
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.waitForTimeout(400);
+  const band = await page.evaluate(() => {
+    const el = document.querySelector('.spec-band'); if (!el) return null;
+    const cs = getComputedStyle(el);
+    const pp = t => { const m = /rgba?\(([^)]+)\)/.exec(t); if (!m) return null; const a = m[1].split(',').map(Number); return { r: a[0], g: a[1], b: a[2], a: a.length > 3 ? a[3] : 1 }; };
+    const lum = c => { const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
+    const fg = pp(cs.color), bg0 = pp(cs.backgroundColor);
+    if (!fg || !bg0) return null;
+    const bg = { r: bg0.r * bg0.a + 255 * (1 - bg0.a), g: bg0.g * bg0.a + 255 * (1 - bg0.a), b: bg0.b * bg0.a + 255 * (1 - bg0.a) };
+    const L1 = Math.max(lum(fg), lum(bg)), L2 = Math.min(lum(fg), lum(bg));
+    return { cr: +((L1 + 0.05) / (L2 + 0.05)).toFixed(2), color: cs.color, bg: cs.backgroundColor };
+  });
+  ok('R39', '「绿区」规格带图例对比度 ≥4.5:1', !!band && band.cr >= 4.5, JSON.stringify(band));
 
   ok('R0', '页面无 pageerror', errs.length === 0, errs.slice(0, 3).join(' | '));
 

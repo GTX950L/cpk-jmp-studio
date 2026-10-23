@@ -166,6 +166,11 @@
            background:linear-gradient(90deg,var(--vc-bg),transparent);box-shadow:var(--shadow-sm)}
   .verdict .badge{font-size:12px;font-weight:800;padding:3px 11px;border-radius:20px;color:#fff;letter-spacing:.5px;
            box-shadow:0 2px 5px rgba(0,0,0,.2);white-space:nowrap;flex:0 0 auto}
+  /* 深色模式下判级徽标底色是亮色（--good/--bad 提亮过），白字仅 2.5~3.4:1，改用深色字（v2.20.0） */
+  html[data-theme=dark] .verdict .badge{color:#0f172a}
+  /* 「绿区」规格带图例文字：--good 直接压 12% 绿底只有 4.39:1，用更深的文字变体（v2.20.0） */
+  .legend .spec-band{color:#146c33}
+  html[data-theme=dark] .legend .spec-band{color:var(--good)}
   .note{font-size:13px;padding:10px 13px;border-radius:10px;background:var(--hover-bg);border:1px solid var(--th-border,var(--border));
         color:var(--dd-hov-fg);margin:8px 0}
   .warn{background:#fff6e9;border-color:#ffe1b0;color:#8a4b00}
@@ -371,6 +376,12 @@
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   @media print{
     .head-row>div:last-child,button,.chk,textarea,details,#dropHint,#glossOverlay,#clogOverlay{display:none!important}
+    /* 打印只留结果区（v2.20.0）：原先左栏的输入框、.note 科普块、.subhint 说明全部照打，
+       A4 纵向第一页 90% 是输入区，直方图要翻到第二页才出现。② 过程汇总已含 LSL/USL/T/n、
+       ⑧ 含规格限启用状态，隐藏左栏不丢信息。 */
+    #inputPanel{display:none!important}
+    .wrap{display:block!important}
+    .wrap>div{max-width:100%!important;flex:none!important}
     body{background:#fff}
     header{box-shadow:none}
     .panel,.report-block{box-shadow:none}
@@ -383,7 +394,7 @@
 <header>
   <div class="head-row">
     <div>
-      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.19.0</span></h1>
+      <h1>📊 Cpk-JMP Studio · Cpk 过程能力计算器<span class="ver">v2.20.0</span></h1>
       <p>模仿 JMP Process Capability · 离线单文件 · 无需 Python、无需安装、无需联网 · 数据不出本机</p>
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -407,7 +418,7 @@
 
 <div class="wrap">
   <!-- 左侧：输入 -->
-  <div class="panel">
+  <div class="panel" id="inputPanel">
     <h2><span class="step">1</span> 数据（粘贴即算，自动跳过表头/单位）</h2>
     <textarea id="data" aria-label="测量数据输入区：从 Excel 或文本粘贴，每行一个数值；自动跳过表头、单位与表尾统计行，也支持拖入 txt/csv 文件" placeholder="直接从 Excel / 文本复制粘贴：&#10;直径（mm）&#10;10.01&#10;9.98mm&#10;10.03&#10;9.97&#10;…&#10;（自动跳过表头/单位，支持拖入 .txt .csv）"></textarea>
     <div id="parseInfo" class="parseinfo"></div>
@@ -495,11 +506,11 @@
 
     <div class="chart-title">⑤ 能力箱线图（观测值相对规格限的位置）</div>
     <div class="cv-scroll"><canvas id="cvBox" width="720" height="400" role="img" aria-label="能力箱线图：箱体为 Q1~Q3、中位线与均值点，叠加规格带（绿区 LSL~USL）。箱体落在规格带内且有余量=过程合格；顶到或越过规格线=超规风险高。"></canvas></div>
-    <div class="legend">▦ 箱 = Q1~Q3（中间 50% 数据）　─ 中位数　● <span style="color:var(--c-fit-ink)">μ 均值</span>　— 须 = 最小~最大　<span style="background:rgba(46,139,87,.12);border:1px dashed rgba(46,139,87,.5);color:var(--good);font-weight:600">&nbsp;绿区&nbsp;</span> = 规格带 LSL~USL。箱体全部落在绿区内且有余量 = 过程合格；箱体顶到/越过规格线 = 超规风险高。</div>
+    <div class="legend">▦ 箱 = Q1~Q3（中间 50% 数据）　─ 中位数　● <span style="color:var(--c-fit-ink)">μ 均值</span>　— 须 = 最小~最大　<span class="spec-band" style="background:rgba(46,139,87,.12);border:1px dashed rgba(46,139,87,.5);font-weight:600">&nbsp;绿区&nbsp;</span> = 规格带 LSL~USL。箱体全部落在绿区内且有余量 = 过程合格；箱体顶到/越过规格线 = 超规风险高。</div>
 
     <div class="chart-title">⑥ 正态概率图（Quantile Plot，检验正态性）</div>
     <div class="cv-scroll"><canvas id="cvQuant" width="720" height="400" role="img" aria-label="正态概率图（Q-Q 图）：样本测量值对理论正态分位数作图。点越接近拟合直线说明数据越接近正态；右下角徽标给出拟合优度 R²。"></canvas></div>
-    <div class="legend">横轴 = <b>理论正态分位数 z</b>（标准正态分布的分位点，如 0=均值、±1.96=95% 边界）；纵轴 = 样本测量值。<b>点越接近直线，数据越接近正态</b>；右下角 R² = 拟合优度（&gt;0.95 视为近似正态，正态能力法才可靠）。</div>
+    <div class="legend">横轴 = <b>理论正态分位数 z</b>（标准正态分布的分位点，如 0=均值、±1.96=95% 边界）；纵轴 = 样本测量值。<b>点越接近直线，数据越接近正态</b>；右下角 R² = 拟合优度，与上方「正态性检验」给出的本样本量判定阈值比较——高于阈值视为近似正态，正态能力法才可靠（阈值随样本量变化，不是固定 0.95，具体数值见结果区顶部提示条）。</div>
 
     <div class="chart-title">⑦ 控制图（I-MR / Xbar-R / Xbar-S，过程稳定性判断）</div>
     <div class="legend" style="margin-bottom:2px">主图看<b>中心</b>稳定性（均值漂移），辅助图看<b>波动</b>稳定性（离散度变化）——两张须同时看：主图越界=均值异常，辅助图越界=波动异常。</div>
@@ -555,13 +566,13 @@
       <button class="gloss-close" id="clogClose">✕ 关闭</button>
     </div>
     <div class="gloss-body" style="padding-top:14px">
-      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.19.0</b> · 最近更新 2026-10-01</p>
+      <p class="gloss-count" style="margin-bottom:14px">当前版本 <b style="color:#1e4d8c">v2.20.0</b> · 最近更新 2026-10-24</p>
       <div id="clogList"></div>
     </div>
   </div>
 </div>
 
-<footer>cpk-jmp-studio v2.19.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
+<footer>cpk-jmp-studio v2.20.0 · 离线工具 · 计算引擎纯 JavaScript 实现 · 与 JMP 过程能力分析定义对齐 · <a href="https://github.com/GTX950L/cpk-jmp-studio" target="_blank" rel="noopener" style="color:var(--brand);text-decoration:none;font-weight:600">GitHub 仓库</a></footer>
 
 <div id="chartTip" role="tooltip"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -657,7 +668,10 @@ function corr(a,b){
   return r>1?1:(r<-1?-1:r);
 }
 
-const fmt=(v,nd=3)=>{if(v==null||!isFinite(v))return "—";return v.toFixed(nd);};
+// 数值格式化：非 number 一律显示「—」（v2.20.0）。isFinite 对字符串是宽松的——
+// isFinite("") 为 true（Number("")===0），旧写法会走到 "".toFixed() 抛 TypeError；
+// 虽当前调用链都传数值，但这类隐式转换在重构时极易踩中，直接按类型拦截更稳。
+const fmt=(v,nd=3)=>{if(v==null||typeof v!=='number'||!isFinite(v))return "—";return v.toFixed(nd);};
 
 /* ============ SPC 控制限（控制图） ============ */
 // 子组控制图常数表（n=2~25，覆盖 UI 允许范围，对应标准 SPC 系数表）：
@@ -873,7 +887,8 @@ function niceCeil(lo,hi,n){
 const CAPCOLORS={good:()=>getCss('--good'),ok:()=>getCss('--ok'),mar:()=>getCss('--mar'),
                  bad:()=>getCss('--bad'),na:()=>getCss('--canvas-muted')};
 function capTone(v){
-  if(v==null||!isFinite(v)) return {c:CAPCOLORS.na(),t:''};
+  // v2.20.0：加 typeof 拦截 —— isFinite("") 为 true，空字符串会掉进阈值比较被当成 0 判「不足」
+  if(v==null||typeof v!=='number'||!isFinite(v)) return {c:CAPCOLORS.na(),t:''};
   if(v>=1.67) return {c:CAPCOLORS.good(),t:'优秀'};
   if(v>=1.33) return {c:CAPCOLORS.ok(),t:'合格'};
   if(v>=1.0)  return {c:CAPCOLORS.mar(),t:'边缘'};
@@ -897,7 +912,10 @@ function rowNumbers(line){
   const nums=[];
   // 合并千位分隔符（1,234 → 1234，10,005.3 → 10005.3）；
   // 仅当逗号左侧为 1~3 位整数的"整数边界"才合并，避免误合并多列（如 10.01,234 应保持两列）
-  const line2=toHalfWidth(line).replace(/(^|[^\d.])(\d{1,3})(?:,(\d{3}))+(?!\d)/g,(m,p1)=>
+  // v2.20.0：先把「负号与数字之间被空格拆开」的形态（- 10.02，手工输入/OCR 常见）合回去，
+  // 否则 token 变成 "-" 与 "10.02"，符号被静默丢弃、读成 +10.02。
+  const line2=toHalfWidth(line).replace(/(^|[\s,;，、])-\s+(?=\d)/g,'$1-')
+    .replace(/(^|[^\d.])(\d{1,3})(?:,(\d{3}))+(?!\d)/g,(m,p1)=>
     p1+m.match(/\d+/g).join(''));
   for(const t of line2.split(/[\s,;，、]+/)){
     if(!t) continue;
@@ -905,6 +923,11 @@ function rowNumbers(line){
     // 并使「日期 + 数值」两列不再被误判为「每行 2 个 → 子组 n=2」（v2.16.0）
     if(/^\d{4}[-\/.]\d{1,2}[-\/.]\d{1,2}([T\s]\d{1,2}:\d{2}(:\d{2})?)?$/.test(t)) continue;
     if(/^\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}$/.test(t)) continue;
+    // 会计格式负数（v2.20.0）：Excel 会计格式把 −10.01 导出为 (10.01)。旧实现因"不以数字
+    // 开头"整段跳过，实测整列被读成 n=0，只报「数据不足 2 个数值」，用户无法定位原因。
+    if(/^\(\s*[-+]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?\s*\)$/.test(t)){
+      const v=parseFloat(t.replace(/[()\s]/g,'')); if(isFinite(v)) nums.push(-Math.abs(v)); continue;
+    }
     if(/^[+-]?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(t)){ nums.push(parseFloat(t)); continue; }
     if(/^[-+]?\d/.test(t)){                        // 数字 + 单位/文字后缀，如 10.005mm
       const m=t.match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/);
@@ -933,7 +956,7 @@ function escHtml(s){
 // mismatch：被纳入数据的行中，数字个数与众数（多数行）不一致的行号（1 基），用于列错位/缺列检测
 function parseNums(raw){
   const lines0=raw.split(/\r?\n/).map(l=>l.trim()).filter(l=>l.length);
-  if(!lines0.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0,strippedLead:false,mismatch:[],footSkipped:0};
+  if(!lines0.length) return {vals:[],skipped:0,header:0,headerText:'',uniformSub:0,strippedLead:false,suspectLead:false,mismatch:[],footSkipped:0};
   // —— 表尾统计行剔除 ——
   // 「合计 / 平均 / 最大 / 最小 / 小计 …」这类行是从 Excel 整表复制时的常见尾巴，
   // 混入数据会把 n 虚增、均值拉偏（如 5 个测量值 + 合计行 → n=7）。
@@ -970,20 +993,32 @@ function parseNums(raw){
     || (counts[0]===mode0 && !allTextLead && firstHasText);
   const dataStart = firstIsHeader ? 1 : 0;
   // —— 前导序号列识别（P2 防护）——
-  // 若所有【数据行】都 ≥2 个数值，且首列构成 1..N（或 0..N-1）连续整数，判定为「SN/序号 + 测量值」格式，
+  // 若所有【数据行】都 ≥2 个数值，且首列构成连续整数序（1..N / 0..N-1），判定为「SN/序号 + 测量值」格式，
   // 剔除首列后再解析：既避免把序号当测量值计入，也避免被自动子组推断误判为"每行 2 个"。
   // 修正（v2.13.0）：校验范围必须排除表头行——表头行数字个数为 0，旧实现要求"所有行"都 ≥2 才继续，
   // 于是「序号 + 表头 + 测量值」这一最常见粘贴形态整段判定失败，序号被当成测量值、n 直接翻倍，
   // 每行 2 个数字又恰好触发"子组 n=2"自动推断，结果彻底失真。改为只校验数据行。
+  // 修正（v2.20.0）：旧判据写死 dataRows[i][0] === i+1 或 i，只认 0 起 / 1 起的连续序号。
+  // 从 Excel 第 11 行开始复制（序号 11~30）时判据失败 → 20 个数据点变 40 个、子组被误判为 2、
+  // Cpk 由正变 −0.186（实测）。改为「首列全整数 + 互不重复 + 排序后恰为 offset..offset+N−1」，
+  // 与起始值无关，也兼容序号乱序（3,1,2 这种按值排序后序号打乱的粘贴）。
   let strippedLead=false;
   const dataRows=rows.slice(dataStart);
+  let suspectLead=false;
   if(dataRows.length>=2 && dataRows.every(r=>r.length>=2)){
-    let seqOk=true;
-    for(let i=0;i<dataRows.length;i++){ if(dataRows[i][0]!==i+1 && dataRows[i][0]!==i){seqOk=false;break;} }
-    if(seqOk){
-      strippedLead=true;
-      for(let i=dataStart;i<rows.length;i++){ rows[i]=rows[i].slice(1); counts[i]=counts[i]-1; }
+    const first=dataRows.map(r=>r[0]);
+    const uniq=[...new Set(first)];
+    const isIntSeq=first.every(v=>Number.isInteger(v)) && uniq.length===first.length;
+    if(isIntSeq){
+      const srt=uniq.slice().sort((a,b)=>a-b), offset=srt[0];
+      if(srt.every((v,i)=>v===offset+i)){
+        strippedLead=true;
+        for(let i=dataStart;i<rows.length;i++){ rows[i]=rows[i].slice(1); counts[i]=counts[i]-1; }
+      }
     }
+    // 未剔除但形态可疑（首列全整数且互不重复）：多为跳号 / 不连续的编号列。
+    // 由 calc 在「每行恰好 2 个 → 子组 2」时提示用户确认，不静默当作子组数据。
+    if(!strippedLead && first.every(v=>Number.isInteger(v)) && uniq.length===first.length) suspectLead=true;
   }
   // 表头判定：多数数据行含相同个数的数字（须在剔除序号列之后重算众数）
   const freq={}; for(let i=dataStart;i<counts.length;i++)freq[counts[i]]=(freq[counts[i]]||0)+1;
@@ -1004,7 +1039,7 @@ function parseNums(raw){
     const first=dataCounts[0];
     if(first>=2&&dataCounts.every(c=>c===first)) uniformSub=first;
   }
-  return {vals, skipped, header, headerText, uniformSub, strippedLead, mismatch, footSkipped};
+  return {vals, skipped, header, headerText, uniformSub, strippedLead, suspectLead, mismatch, footSkipped};
 }
 
 // 解析反馈条：显示解析出多少个数值、跳过/忽略了多少，以及 notes 中的状态说明
@@ -1109,11 +1144,19 @@ function clearResults(silent){
   document.getElementById('batchTitle').style.display='none';
   ['cvHist','cvBox','cvQuant','cvCtrlMain','cvCtrlAux'].forEach(id=>{
     const cv=document.getElementById(id);const c=cv.getContext('2d');
-    c.clearRect(0,0,cv.width,cv.height);
+    // 必须复位变换后再清（v2.20.0）：prepCanvas 会给 ctx 设 setTransform(k,…)，k = cssW·dpr/CW。
+    // 窄屏缩放时 k<1，旧写法 clearRect(0,0,cv.width,cv.height) 在 transform 下只清到
+    // cv.width·k 宽（375px 视口实测只清左侧 78%，右侧残留上一批的图表）。
+    c.save(); c.setTransform(1,0,0,1,0,0); c.clearRect(0,0,cv.width,cv.height); c.restore();
   });
   lastResult=null;
   if(!silent)setMsg('ok','👆 在上方粘贴测量数据，即可自动计算。');
 }
+// 计算无法进行时的统一出口（v2.20.0）：先清空结果区再报警告。
+// 旧实现只在「数值不足 2 个」一条分支里清了结果，其余 9 条提前返回都直接 return ——
+// 换上一批无法计算的数据时，屏幕上留着上一批的判级横幅、指标卡、明细与图表，
+// 与新警告同屏矛盾（实测：全等值数据仍显示「D 级·须立即改善」+ 10 张指标卡）。
+function bail(msg){ clearResults(true); setMsg('warn',msg); }
 function calc(auto){
   const info=parseNums(document.getElementById('data').value);
   const nums=info.vals;
@@ -1160,17 +1203,23 @@ function calc(auto){
   }else if(!userOverrideSub&&sub===0&&info.uniformSub>25){
     parseNotes.push('检测到每行 '+info.uniformSub+' 个数值，超过子组上限 25，已按个体测量处理');
   }
+  // 疑似序号列兜底提示（v2.20.0）：首列全为整数且互不重复，但没构成"连续序号"（跳号 / 非整数起点
+  // 以外的编号 / 首列本来就是第二个测量值）。若此时恰好按子组 2 分析，序号很可能已混进数据，
+  // 必须明确告知而不是静默按子组算——这是 v2.20.0 修复的 v2.19.0 缺陷的兜底防线。
+  if(info.suspectLead&&sub===2){
+    parseNotes.push('首列全为整数且互不重复——若它是序号 / 编号列（不是第 2 个测量值），请只保留测量值列；本次已按子组 2 分析');
+  }
   // 只要当前子组大小是"自动推断"得来的（无论本次推断还是沿用），反馈条都常驻说明，
   // 避免「重新计算」后提示消失、用户看不出正按子组分析
   if(sub>1&&subEl.dataset.auto==='1') parseNotes.push('按子组 '+sub+' 分析（每行 '+sub+' 个数值自动推断，改回 0=个体测量）');
   else if(sub===0&&autoSubResetFrom) parseNotes.push('数据形态已变化（上次自动推断的子组 '+autoSubResetFrom+' 已不匹配），本次改按个体测量；如需子组请手动填 n');
 
   // 边界检查：数据无波动 / 子组大小超过数据量 / 超出系数表范围
-  if(sd===0){showParseInfo(info,parseNotes);setMsg('warn','⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
-  if(sub>1&&sub>nums.length){showParseInfo(info,parseNotes);setMsg('warn','⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
-  if(sub>25){showParseInfo(info,parseNotes);setMsg('warn','⚠ 子组大小最大支持 25（标准 SPC 系数表上限），请调小。');return;}
+  if(sd===0){showParseInfo(info,parseNotes);bail('⚠ 数据所有值相同（无波动），无法计算能力指数，请检查测量数据。');return;}
+  if(sub>1&&sub>nums.length){showParseInfo(info,parseNotes);bail('⚠ 子组大小 '+sub+' 大于数据量 '+nums.length+'，无法按子组分组，请调小子组大小或改为 0（个体测量）。');return;}
+  if(sub>25){showParseInfo(info,parseNotes);bail('⚠ 子组大小最大支持 25（标准 SPC 系数表上限），请调小。');return;}
   const sw=withinSigma(nums,sub);
-  if(!isFinite(sw)||sw<=0){showParseInfo(info,parseNotes);setMsg('warn','⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
+  if(!isFinite(sw)||sw<=0){showParseInfo(info,parseNotes);bail('⚠ 组内波动计算异常，请检查数据与子组设置。');return;}
   showParseInfo(info,parseNotes);   // 数据与子组都已确定，此处统一渲染解析反馈条
 
   // 规格限
@@ -1190,7 +1239,7 @@ function calc(auto){
   let lslFromHeader=false, uslFromHeader=false;
   // 输入框留空时：优先取表头规格限；其次自动用 均值±3σ 并回填让用户看到；输入了非数字内容则明确报错，不静默覆盖
   if(useLsl&&isNaN(lsl)){
-    if(lslRaw.trim()!==''){setMsg('warn','⚠ 规格下限 LSL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
+    if(lslRaw.trim()!==''){bail('⚠ 规格下限 LSL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
     if(specFromHeader&&specFromHeader.lsl!=null){
       lsl=specFromHeader.lsl; lslFromHeader=true; lslAuto=false;
       lslEl.value=lsl.toFixed(4); delete lslEl.dataset.auto;
@@ -1199,7 +1248,7 @@ function calc(auto){
     }
   }
   if(useUsl&&isNaN(usl)){
-    if(uslRaw.trim()!==''){setMsg('warn','⚠ 规格上限 USL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
+    if(uslRaw.trim()!==''){bail('⚠ 规格上限 USL 输入的不是有效数字，请检查（留空才会自动预填）。');return;}
     if(specFromHeader&&specFromHeader.usl!=null){
       usl=specFromHeader.usl; uslFromHeader=true; uslAuto=false;
       uslEl.value=usl.toFixed(4); delete uslEl.dataset.auto;
@@ -1211,17 +1260,17 @@ function calc(auto){
   const tInput=document.getElementById('target').value.trim();
   let target=tInput!==''?parseFloat(tInput):NaN;
   const targetFromInput=!isNaN(target);   // 是否由用户显式提供（非自动回退）
-  if(tInput!==''&&!targetFromInput){setMsg('warn','⚠ 目标值 T 输入的不是有效数字，请检查（留空则自动取规格中点）。');return;}
+  if(tInput!==''&&!targetFromInput){bail('⚠ 目标值 T 输入的不是有效数字，请检查（留空则自动取规格中点）。');return;}
   if(!targetFromInput){
     target=(lsl!=null&&usl!=null)?(lsl+usl)/2:(lsl!=null?lsl:(usl!=null?usl:m));
   }
 
-  if(lsl==null&&usl==null){setMsg('warn','⚠ 请至少启用一个规格限（最小值或最大值）。');return;}
+  if(lsl==null&&usl==null){bail('⚠ 请至少启用一个规格限（最小值或最大值）。');return;}
 
   // 指标
   const both=lsl!=null&&usl!=null;
   // 规格限方向校验：LSL 必须小于 USL（填反是最常见的规格限错误，直接提示避免误导判定）
-  if(both&&lsl>=usl){setMsg('warn','⚠ LSL 必须小于 USL，请检查规格限是否填反。');return;}
+  if(both&&lsl>=usl){bail('⚠ LSL 必须小于 USL，请检查规格限是否填反。');return;}
   // 目标值检查：T 在规格外 → 硬警告；未填 T（自动取中点）→ 弱提示，避免非对称公差被掩盖
   let targetNoteHtml='';
   if(targetFromInput&&both&&(target<lsl||target>usl))
@@ -1256,7 +1305,7 @@ function calc(auto){
   // 控制限 = 过程数据自身的 ±3σ（个体用 I-MR 法、子组 n≤10 用 Xbar-R 法、n>10 用 Xbar-S 法），随数据动态变化；
   // 与规格限（图纸/客户固定）是两套不同的线：控制限判"过程稳不稳"，规格限判"产品合不合格"
   const spc=spcAnalysis(nums,sub);
-  if(!spc){setMsg('warn','⚠ 子组大小超出支持范围（2~25），无法计算控制限，请调小子组大小。');return;}
+  if(!spc){bail('⚠ 子组大小超出支持范围（2~25），无法计算控制限，请调小子组大小。');return;}
   const ctrl=checkControl(spc.pts,spc.cl,spc.ucl,spc.lcl);   // 主图（I 图 / Xbar 图）受控性
   const mCtrl=checkControl(spc.mpts,spc.mcl,spc.mucl,spc.mlcl); // 辅助图（MR 图 / R 图）越界
   // 控制限是否完全落在规格限内（理想：UCL<USL 且 LCL>LSL）
@@ -1381,6 +1430,12 @@ function calc(auto){
   if(isFinite(stability)&&stability>3){
     warns.push({level:'warn',icon:'⚖️',title:'组内 σ 远小于整体 σ（Cpk 可能严重虚高）',
       text:`稳定性指标（整体 σ ÷ 组内 σ）= ${fmt(stability,1)}，约为常态（≈1）的 ${fmt(stability,0)} 倍：组内 σ=${sw<1e-4?sw.toExponential(2):fmt(sw,6)} 远小于整体 σ=${fmt(sd,6)}，Cpk=${fmt(cpk)} 与 Ppk=${fmt(ppk)} 严重背离。这几乎不可能是「过程真的很稳」，通常由以下原因造成：<b>① 数据已按大小排序</b>（移动极差趋近 0）；② 数据存在大量相邻重复值；③ 子组被误判（如两列重复测量被当成「每行 2 个」的子组）。请先核对数据顺序与列结构；原因查清前，请以 Ppk（整体 σ 口径）为准判断能力。`});
+  }else if(isFinite(stability)&&stability>1.3){
+    // 1.3~3 区间补一条 info 级提示（v2.20.0）：② 过程汇总表在 >1.3 就标 ⚠ 并写「能力判定需谨慎」，
+    // 术语百科与明细表说明也都写「>1.3 提示组间漂移」，但诊断区只有 >3 才出条目 ——
+    // 实测 stability=2.43 时表格有 ⚠、诊断区静默，读小字才知道什么意思。
+    warns.push({level:'info',icon:'⚖️',title:'稳定性指标偏高（组间漂移迹象）',
+      text:`稳定性指标（整体 σ ÷ 组内 σ）= ${fmt(stability,2)}，高于常规值 1.3：整体 σ=${fmt(sd,6)} 比组内 σ=${fmt(sw,6)} 放大约 ${fmt(stability,1)} 倍，说明短期波动之外还存在<b>组间漂移</b>（换班 / 换料 / 换模 / 环境变化）。此时 Cpk（组内口径）会高于 Ppk（整体口径），评估长期能力请以 <b>Ppk</b> 为准；若指标继续升高至 &gt;3，通常意味着组内 σ 被低估（数据已排序 / 子组被误判），页面会另给警告。`});
   }
   // P2 大数据量提示（v2.18.0）：此前没有任何数据量提示，用户不知道 25 万点以上会让页面明显变慢。
   // 修复绘图后 50 万点约 3 秒，但仍有必要让用户知道"全量参与计算、未抽样"。
@@ -1734,6 +1789,9 @@ function yticks(ctx,ticks,y2px,padL,plotW,fmtFn){
 // 这里先铺一块与画布同色的底衬再写字，任何位置都清晰可读，视觉上表现为「线在文字处断开」。
 // 注意 textAlign / textBaseline 要与调用方一致，否则底衬会偏位。
 function apronText(ctx,txt,x,y,padX,padY){
+  // 空标签直接返回（v2.20.0）：直方图里 μ 与 T 重合时 μ 线传 label=''，
+  // 旧实现仍按 measureText('')=0 画了一块 6×15 的底色衬底，把 μ 线顶端擦出一小段空白。
+  if(!txt) return;
   const w=ctx.measureText(txt).width;
   const fs=parseFloat((ctx.font||'11px').match(/([\d.]+)px/)?.[1]||11);
   const ta=ctx.textAlign, tb=ctx.textBaseline;
@@ -1948,7 +2006,9 @@ function drawQuant(sorted,z,axisLabel){
   // 轴标题
   ctx.fillStyle=C.text();ctx.font='11px sans-serif';ctx.textAlign='center';
   ctx.fillText('理论分位数 z',padL+plotW/2,H-7);
-  ctx.save();ctx.translate(14,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText(axisLabel||'样本分位数',0,0);ctx.restore();
+  // Y 轴标题（旋转）：x 由 14 收到 12（v2.20.0）—— 14 时与最底一个 Y 刻度的左缘只剩 1px，
+  // 实测包围盒相接（16.3 vs 17.3 逻辑像素），视觉上像贴在一起。
+  ctx.save();ctx.translate(12,padT+plotH/2);ctx.rotate(-Math.PI/2);ctx.fillText(axisLabel||'样本分位数',0,0);ctx.restore();
   // R² 标注（v2.14.0）：由绘图区左上角移到右下角。
   // 左上角原本紧贴 Y 轴最上方刻度标签（实测两者横向重叠 14px，「10.010」被「R² =」和徽标
   // 边框切穿）；而拟合线由左下指向右上，绘图区右下角是天然空白区，放这里永不压字。
@@ -1994,12 +2054,17 @@ function drawCtrlMain(spc,lsl,usl,axisLabel){
   // 网格 + y 刻度
   yticks(ctx,niceTicks(lo,hi,4),y2px,padL,plotW,fmtTick);
   // 控制限 + 规格限水平线（右侧标签）
+  // 标签垂直避让（v2.20.0）：UCL 与 USL 数值接近时（控制限刚好落在规格限内 —— 正是工具想展示的
+  // 理想场景）两条标签只差 2~5px，实测直接叠印 56×4px（UCL 10.053 / USL 10.050）、47×5px。
+  // 改为先收集标签、按线的 y 排序后自上而下推开（最小行高 13px），被推动的标签与自己那条线之间
+  // 补一段引导折线；整体超出绘图区底边时再统一上推一次。
+  const hlines=[];
   const hline=(v,color,dash,label)=>{
     const py=y2px(v); ctx.save();
     ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.setLineDash(dash?[6,4]:[]);
     ctx.beginPath(); ctx.moveTo(padL,py); ctx.lineTo(padL+plotW,py); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle=color; ctx.font='bold 10px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
-    ctx.fillText(label,padL+plotW+12,py); ctx.restore();
+    ctx.restore();
+    hlines.push({py0:py,py:py,color:color,label:label});
   };
   hline(spc.ucl,CC.lim(),true,'UCL '+fmtTick(spc.ucl));
   hline(spc.cl,CC.cl(),false,'CL '+fmtTick(spc.cl));
@@ -2007,6 +2072,28 @@ function drawCtrlMain(spc,lsl,usl,axisLabel){
   // 规格限：在坐标范围内画实际位置；超出图区（>5 倍跨度）时画在边缘并标注数值
   if(usl!=null) uslOff ? hline(hi,C.usl(),true,'USL ↑ '+fmtTick(usl)) : hline(usl,C.usl(),true,'USL '+fmtTick(usl));
   if(lsl!=null) lslOff ? hline(lo,C.lsl(),true,'LSL ↓ '+fmtTick(lsl)) : hline(lsl,C.lsl(),true,'LSL '+fmtTick(lsl));
+  {
+    const LH=13, LBLX=padL+plotW+12, bottom=padT+plotH;
+    hlines.sort((a,b)=>a.py0-b.py0);
+    for(let i=1;i<hlines.length;i++) hlines[i].py=Math.max(hlines[i].py,hlines[i-1].py+LH);
+    const over=Math.max(0,hlines[hlines.length-1].py-bottom);
+    if(over>0){
+      for(const h of hlines) h.py-=over;
+      for(let i=1;i<hlines.length;i++) hlines[i].py=Math.max(hlines[i].py,hlines[i-1].py+LH);
+    }
+    hlines.forEach(h=>{
+      if(Math.abs(h.py-h.py0)>0.5){
+        ctx.save(); ctx.strokeStyle=h.color; ctx.lineWidth=1; ctx.globalAlpha=.55;
+        ctx.beginPath();
+        ctx.moveTo(padL+plotW,h.py0); ctx.lineTo(padL+plotW+6,h.py); ctx.lineTo(LBLX-4,h.py);
+        ctx.stroke(); ctx.restore();
+      }
+      ctx.save();
+      ctx.fillStyle=h.color; ctx.font='bold 10px sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText(h.label,LBLX,h.py);
+      ctx.restore();
+    });
+  }
   // 数据折线 + 点（越界点红色放大）
   // 折线分批 stroke（v2.18.0）：把几十万段折线塞进单个 path 一次 stroke，会让之后每个点的
   // fill 单价从约 0.14μs 涨到 52μs——实测 50 万点时控制图单图 19~32 秒、calc 整体 43 秒，
@@ -3176,6 +3263,23 @@ document.querySelectorAll('#glossCats button').forEach(b=>{
 /* ============ 更新记录 ============ */
 // 版本历史（时间倒序）。记录来源：本项目开发全过程的 git 提交历史与工作记录整理。
 const CHANGELOG=[
+  {ver:'v2.20.0',date:'2026-10-24',tag:'fix',tagTxt:'全面审查修复（3×P1 + 3×P2 + 7×P3）',
+   items:[
+    '【P1】数据不可算时不清空旧结果：calc() 有 10 条提前返回分支，只有「数值不足 2 个」一条调了 clearResults()，其余 9 条直接 return —— 换上一批无法计算的数据（全等值 / 子组过大 / 子组超上限 / LSL 填反 / 两侧都不勾 / 目标值非法）时，屏幕上留着上一批的判级横幅、10 张指标卡、36 行明细与 5 张图，与新警告同屏矛盾（实测 6 组全部命中：全等值数据仍显示「D 级·须立即改善」+ 10 张指标卡，截图即用场景必错）。修复：新增 bail() 统一出口（clearResults(true) + setMsg），9 处全部改用它；解析提示条不受影响；顺带修复 clearResults() 的画布清理缺陷 —— clearRect(0,0,cv.width,cv.height) 在 prepCanvas 设的 setTransform(k) 下执行，窄屏缩放 k&lt;1 时只清到画布宽度的 78%（375px 视口实测右侧残留上一批的图表），改为复位变换后再清',
+    '【P1】正态性判定阈值两处口径打架：v2.19.0 已把阈值改为随样本量取自 R2_CUT 表（n=10 → 0.834、n=60 → 0.9588），normNote 与 README 都同步了，但 ⑥ 正态概率图的静态图例仍写「&gt;0.95 视为近似正态」。实测 n=10、R²=0.8704 时，上方判「近似正态 ✅」而图例说「低于 0.95 不可靠」—— 同一个数字两句话说了相反的结论。修复：图例改为「与上方判定阈值比较，阈值随样本量变化，不是固定 0.95」，具体数值指向结果区提示条',
+    '【P1】序号列不是从 1 开始时被当测量值：strippedLead 判据写死 dataRows[i][0] === i+1 或 i，只认 0 起 / 1 起的连续序号。从 Excel 第 11 行开始复制（序号 11~30）时判据失败 → 序号被当测量值（20 个点变 40 个），且「每行 2 个数字」触发子组 n=2 自动推断，实测 Cpk 由正变 −0.186、判级 D。修复：改为「首列全整数 + 互不重复 + 排序后恰为 offset..offset+N−1」，与起始值无关、兼容序号乱序（3,1,2）；另加兜底提示 —— 首列全整数且互不重复但未构成连续序号时，若按子组 2 分析会明确提示「若它是序号列请只保留测量值列」',
+    '【P2】控制图右侧标签叠印：UCL 与 USL 数值接近时（控制限刚好落在规格限内 = 工具要展示的理想场景）两条标签只差 2~5px，实测重叠 56×4px（UCL 10.053 / USL 10.050）、47×5px（LCL 9.947 / LSL 9.950），1440 / 1024 / 768 / 720 / 375 五档视口全部命中。修复：标签先收集、按线的 y 排序做垂直让位（最小行高 13px），被推动的标签与自己的线之间补一段引导折线；超出绘图区底边时统一上推一次',
+    '【P2】打印第一页全是输入区：@media print 只隐藏了 button / .chk / textarea / details，左栏的输入框、两段 .note 科普块（各 123px）与 .subhint 说明全部照打 —— A4 纵向实测第一页 90% 是输入区，直方图要翻到第二页才出现；且 .chk 被隐藏后「启用 LSL / USL」的勾选状态在纸上不可见。修复：#inputPanel 打印时隐藏、.wrap 转单栏（② 过程汇总已含 LSL/USL/T/n，⑧ 含规格限启用状态，不丢信息）',
+    '【P2】稳定性指标 1.3 / 3 双阈值：② 过程汇总表在 &gt;1.3 就标 ⚠ 并写「能力判定需谨慎」，明细表说明与术语百科也都写「&gt;1.3 提示组间漂移」，但诊断提示条只有 &gt;3 才出条目 —— 实测 stability=2.43 时表格有 ⚠、诊断区静默。修复：补 1.3 &lt; stability ≤ 3 的 info 级提示（说明整体 σ 比组内 σ 放大约多少倍、此时应以 Ppk 为准），&gt;3 的 warn 保持不变',
+    '【P3】浅色「绿区」规格带图例文字 4.39:1（需 4.5）：新增 .spec-band 文字色 #146c33（深色模式沿用 --good），实测 ≥4.5:1',
+    '【P3】深色模式判级徽标对比度不足：--good / --bad 在深色下提亮过，白字仅 2.52~3.35:1。修复：html[data-theme=dark] .verdict .badge 改用深色字 #0f172a，实测 ≥4.5:1',
+    '【P3】会计格式负数 (10.01) 整列读不出：会计格式把 −10.01 导出为括号包裹形态，旧实现因「不以数字开头」整段跳过，实测整列被读成 n=0、只报「数据不足 2 个数值」。修复：rowNumbers 识别「括号内纯数字」形态并转成负值',
+    '【P3】「- 10.02」（负号与数字间有空格）符号被静默丢弃：token 被拆成 "-" 与 "10.02"，实测读成 +10.02。修复：split 前先合并「分隔符 + 负号 + 空白 + 数字」这段',
+    '【P3】直方图 μ 线与 T 线重合时空 label 仍画底衬：apronText 对空串按 measureText 宽度 0 画了 6×15 的底色块，把 μ 线顶端擦出一小段空白。修复：空 label 直接返回',
+    '【P3】正态概率图 Y 轴旋转标题与最底 Y 刻度包围盒相接（1px）：translate 的 x 由 14 收到 12',
+    '【P3】fmt() / capTone() 类型健壮性：isFinite(空字符串) 返回 true（Number 转成 0），空串会掉进阈值比较被当成 0 判「不足」，而 fmt 走 toFixed 会抛 TypeError。当前调用链都传数值、不可达，但属重构易踩点，加 typeof 拦截后一律返回「—」/ 空等级'
+   ],
+   sub:'2026-10-24 全面审查修复（v2.20.0）：本轮覆盖数值引擎、解析器、状态管理、视觉与打印五个维度 —— 数值断言 57 项、解析器边界 35 组、浏览器端到端 5 视口 + 打印 + 注入 + 导出，并复跑 29 条既有回归（全绿）。计算引擎的统计公式未改动（SPC 系数表 d2/c4/A2/D3/D4/A3/B3/B4、卡方逆函数、CI 自由度全部经复算无误，chi2Inv 反解自洽误差 2.9e−14、极端输入 10 组无 NaN），修复集中在「结果如何呈现」与「输入如何解析」两层。新增回归断言 11 条。'},
   {ver:'v2.19.0',date:'2026-10-01',tag:'fix',tagTxt:'第三轮检查修复（1×P1 + 2×P2 + 2×P3）',
    items:[
     '【P1】正态性判定阈值改为随样本量调整：原实现固定 R²&gt;0.95，而 Shapiro-Francia 的 R² 期望值本身随 n 下降——蒙特卡洛实测（真正态样本各 3000 次）n=5/10/15/20/30 的 R² 均值 0.903/0.928/0.946/0.956/0.967，误判率 72%/61%/45%/32%/15%（端到端 n=10 实测 76%），并把大量正常数据连锁送入 ISO 经验分位法分支。修复：改用真正态样本 5% 分位实测值作阈值表（n=5:0.77 / 8:0.82 / 10:0.834 / 15:0.882 / 20:0.907 / 30:0.931 / 50:0.955 / 100:0.974 / ≥200:0.985，中间线性插值）；修复后 n=10/20/30/50 各 30 次实测误判率 0%/0%/7%/0%，非正态数据（指数 / 对数正态 / 强右偏）仍全部检出。正态性提示条显示当前阈值，术语百科「R²」「Shapiro-Francia」「正态分布」「ISO 22514-2 经验分位法」四条词条与 README 四处同步',
